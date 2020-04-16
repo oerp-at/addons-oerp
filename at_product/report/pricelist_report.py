@@ -21,23 +21,26 @@
 
 from openerp.addons.at_base import extreport
 
+
 class Parser(extreport.basic_parser):
-    
     def __init__(self, cr, uid, name, context=None):
         super(Parser, self).__init__(cr, uid, name, context=context)
-        self.localcontext.update({
-            "pricelist_versions": self._pricelist_versions
-        })
-        
+        self.localcontext.update({"pricelist_versions": self._pricelist_versions})
+
     def _pricelist_versions(self, o):
         version_obj = self.pool["product.pricelist.version"]
         if o._name == "product.pricelist.version":
-            return [version_obj._pricelist_view(self.cr, self.uid, o, context=self.localcontext)]
+            return [
+                version_obj._pricelist_view(
+                    self.cr, self.uid, o, context=self.localcontext
+                )
+            ]
         if o._name == "product.pricelist":
             version = o.active_version_id
             if version:
-                return [version_obj._pricelist_view(self.cr, self.uid, version, context=self.localcontext)] 
+                return [
+                    version_obj._pricelist_view(
+                        self.cr, self.uid, version, context=self.localcontext
+                    )
+                ]
         return []
-        
-        
-        

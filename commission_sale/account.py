@@ -22,35 +22,44 @@
 
 from openerp.osv import osv
 
+
 class account_invoice(osv.osv):
-    
     def action_cancel(self, cr, uid, ids, context=None):
-        ids_tuple=tuple(ids)
-        
-        cr.execute("SELECT sl.salesman_id FROM sale_order_line_invoice_rel rel  "
-                   " INNER JOIN sale_order_line sl ON sl.id = rel.order_line_id "
-                   " INNER JOIN sale_order o ON o.id = sl.order_id "
-                   " WHERE      rel.invoice_id = %s " 
-                   "       AND  sl.salesman_id IS NOT NULL " 
-                   " GROUP BY 1 ", (ids_tuple,))
-        
+        ids_tuple = tuple(ids)
+
+        cr.execute(
+            "SELECT sl.salesman_id FROM sale_order_line_invoice_rel rel  "
+            " INNER JOIN sale_order_line sl ON sl.id = rel.order_line_id "
+            " INNER JOIN sale_order o ON o.id = sl.order_id "
+            " WHERE      rel.invoice_id = %s "
+            "       AND  sl.salesman_id IS NOT NULL "
+            " GROUP BY 1 ",
+            (ids_tuple,),
+        )
+
         salesman_ids = [r[0] for r in cr.fetchall()]
-        
-        cr.execute("SELECT inv.period_id FROM account_invoice inv"
-                   " WHERE inv.id IN %s " 
-                   " GROUP BY 1 ", (ids_tuple,))
-                
+
+        cr.execute(
+            "SELECT inv.period_id FROM account_invoice inv"
+            " WHERE inv.id IN %s "
+            " GROUP BY 1 ",
+            (ids_tuple,),
+        )
+
         period_ids = [r[0] for r in cr.fetchall()]
-        
-        res = super(account_invoice,self).action_cancel(cr, uid, ids, context=context)        
+
+        res = super(account_invoice, self).action_cancel(cr, uid, ids, context=context)
         commission_line_obj = self.pool.get("commission.line")
-        commission_line_obj._update_bonus(cr, uid, salesman_ids, period_ids, context=context)
+        commission_line_obj._update_bonus(
+            cr, uid, salesman_ids, period_ids, context=context
+        )
         return res
-        
+
     def confirm_paid(self, cr, uid, ids, context=None):
-        res = super(account_invoice, self).confirm_paid(cr, uid, ids, context=context)        
-        self.pool["commission.task"]._recalc_sale_commission_invoice(cr, uid, domain=[("id","in",ids)], context=context)
+        res = super(account_invoice, self).confirm_paid(cr, uid, ids, context=context)
+        self.pool["commission.task"]._recalc_sale_commission_invoice(
+            cr, uid, domain=[("id", "in", ids)], context=context
+        )
         return res
-  
-    
+
     _inherit = "account.invoice"

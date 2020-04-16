@@ -19,32 +19,36 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Shop Portal",
-    "summary" : "Sales for non employee salesman",
-    "description":"""
+    "name": "oerp.at Shop Portal",
+    "summary": "Sales for non employee salesman",
+    "description": """
 Shop for external salesman
 ==========================
 * Extended portal security to create sale orders
     """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Sales",
-    "depends" : ["portal",
-                 "sale",
-                 "account_analytic_analysis",
-                 "at_sale",
-                 "at_purchase_sale",       
-                 "shop_separation",
-                 "sale_stock",
-                 "portal_sale_base",
-                 "portal_project",
-                 "delivery"],
-    "data" : ["security.xml",
-              "menu.xml",
-              "view/sale_view.xml",
-              "view/portal_project_view.xml",
-              "view/partner_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Sales",
+    "depends": [
+        "portal",
+        "sale",
+        "account_analytic_analysis",
+        "at_sale",
+        "at_purchase_sale",
+        "shop_separation",
+        "sale_stock",
+        "portal_sale_base",
+        "portal_project",
+        "delivery",
+    ],
+    "data": [
+        "security.xml",
+        "menu.xml",
+        "view/sale_view.xml",
+        "view/portal_project_view.xml",
+        "view/partner_view.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

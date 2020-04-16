@@ -22,28 +22,33 @@
 
 import math
 
-def distance(longlat1,longlat2):
+
+def distance(longlat1, longlat2):
     """ Calculate distance from start (longitude,latitude) to end (longitude,latitude) in kilometer 
         longitude and latitude are in decimal degrees
-    """        
-    slat=  longlat1[1]
-    slon=  longlat1[0]
+    """
+    slat = longlat1[1]
+    slon = longlat1[0]
     elat = longlat2[1]
     elon = longlat2[0]
-    dlat = math.radians(elat-slat)
-    dlon = math.radians(elon-slon)
+    dlat = math.radians(elat - slat)
+    dlon = math.radians(elon - slon)
     slat = math.radians(slat)
-    elat = math.radians(elat)    
-    a = math.sin(dlat/2)**2 + math.cos(slat)*math.cos(elat)*math.sin(dlon/2)**2
-    c= 2*math.asin(math.sqrt(a))
-    return 6371*c
+    elat = math.radians(elat)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(slat) * math.cos(elat) * math.sin(dlon / 2) ** 2
+    )
+    c = 2 * math.asin(math.sqrt(a))
+    return 6371 * c
 
-def distancem(longlat1,longlat2):
+
+def distancem(longlat1, longlat2):
     """ Calculate distance from start (longitude,latitude) to end (longitude,latitude) in meter 
         longitude and latitude are in decimal degrees
-    """   
-    return distance(longlat1,longlat2)*1000
-    
-    
-if __name__ == '__main__':    
-    print distancem((16.058303,47.244695),(16.069679,47.122273))    
+    """
+    return distance(longlat1, longlat2) * 1000
+
+
+if __name__ == "__main__":
+    print distancem((16.058303, 47.244695), (16.069679, 47.122273))

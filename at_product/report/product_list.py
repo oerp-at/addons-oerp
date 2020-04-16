@@ -21,28 +21,29 @@
 
 from openerp.addons.at_base import extreport
 
+
 class Parser(extreport.basic_parser):
     def __init__(self, cr, uid, name, context=None):
         super(Parser, self).__init__(cr, uid, name, context=context)
-        self.localcontext.update({
-            "prepare": self._prepare
-        })
-        
+        self.localcontext.update({"prepare": self._prepare})
+
     def _prepare(self, objects):
         if not objects:
             return []
-        
+
         product_obj = self.pool["product.product"]
         ids = [o.id for o in objects]
-        
+
         if objects[0]._model._name == "product.template":
-            self.cr.execute("SELECT pt.id, p.id FROM product_template pt "
-                 " INNER JOIN product_product p ON p.product_tmpl_id = pt.id "
-                 " WHERE pt.id IN %s ORDER BY 1 ",(tuple(ids),))
-            
+            self.cr.execute(
+                "SELECT pt.id, p.id FROM product_template pt "
+                " INNER JOIN product_product p ON p.product_tmpl_id = pt.id "
+                " WHERE pt.id IN %s ORDER BY 1 ",
+                (tuple(ids),),
+            )
+
             ids = [r[1] for r in self.cr.fetchall()]
 
-        return product_obj._product_overview(self.cr, self.uid, ids, context=self.localcontext)
-        
-
-        
+        return product_obj._product_overview(
+            self.cr, self.uid, ids, context=self.localcontext
+        )

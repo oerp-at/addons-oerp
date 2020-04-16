@@ -20,21 +20,23 @@
 #
 ##############################################################################
 
-from openerp.osv import fields,osv
+from openerp.osv import fields, osv
+
 
 class category_view(osv.osv):
-    _name="at_product.category_view"
+    _name = "at_product.category_view"
     _description = "Category Second Normal Form View"
     _auto = False
-    _columns = {                
-        "categ1_id" : fields.many2one("product.category",'Category 1'),
-        "categ2_id" : fields.many2one("product.category",'Category 2'),
-        "categ3_id" : fields.many2one("product.category",'Category 3'),
-        "leaf_categ_id" : fields.many2one("product.category",'Leaf Category')
+    _columns = {
+        "categ1_id": fields.many2one("product.category", "Category 1"),
+        "categ2_id": fields.many2one("product.category", "Category 2"),
+        "categ3_id": fields.many2one("product.category", "Category 3"),
+        "leaf_categ_id": fields.many2one("product.category", "Leaf Category"),
     }
-    
-    def init(self,cr):
-        cr.execute(""" 
+
+    def init(self, cr):
+        cr.execute(
+            """ 
             CREATE OR REPLACE VIEW at_product_category_view AS ( 
             SELECT 
               CASE WHEN c3.id IS NOT NULL THEN c3.id
@@ -53,5 +55,8 @@ class category_view(osv.osv):
               LEFT JOIN product_category AS c3 ON c3.parent_id = c2.id
               WHERE c1.parent_id IS NULL 
              )        
-        """)
+        """
+        )
+
+
 category_view()

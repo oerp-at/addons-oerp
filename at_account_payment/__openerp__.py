@@ -21,19 +21,19 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Account Payment",
-    "description":"""
+    "name": "oerp.at Account Payment",
+    "description": """
 oerp.at Password Management
 =========================================
 
  * This module adds the deadline to the payments
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Finance",
-    "depends" : ["account_payment"],
-    "data" : ["view/account_payment_view.xml"],
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Finance",
+    "depends": ["account_payment"],
+    "data": ["view/account_payment_view.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

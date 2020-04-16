@@ -19,17 +19,18 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Mail Extensions",
+    "name": "oerp.at Mail Extensions",
     "description": "oerp.at Mail Extensions",
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Base",
-    "depends" : ["at_base","mail","email_template"],
-    "data" : ["security.xml",
-              "view/email_template_header_view.xml",
-              "view/email_template_gen_view.xml",
-              "view/email_template_view.xml"
-              ],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Base",
+    "depends": ["at_base", "mail", "email_template"],
+    "data": [
+        "security.xml",
+        "view/email_template_header_view.xml",
+        "view/email_template_gen_view.xml",
+        "view/email_template_view.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

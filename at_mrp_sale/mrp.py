@@ -20,8 +20,7 @@
 
 from openerp.osv import fields, osv
 
+
 class mrp_bom(osv.Model):
     _inherit = "mrp.bom"
-    _columns = {
-        "auto_produce" : fields.boolean("Auto Produce on Picking")
-    }
+    _columns = {"auto_produce": fields.boolean("Auto Produce on Picking")}

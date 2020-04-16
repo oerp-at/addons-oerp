@@ -19,20 +19,19 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Sale Change Commission",
-    "summary" : "Regenerate Commission after sale edit",
-    "description":"""
+    "name": "oerp.at Sale Change Commission",
+    "summary": "Regenerate Commission after sale edit",
+    "description": """
 Sale Change Commission
 ======================
 * Regenerate Commision after edit
     """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Sales",
-    "depends" : ["at_sale_change", 
-                 "commission_sale"],
-    "data" : ["wizard/sale_order_edit_wizard.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Sales",
+    "depends": ["at_sale_change", "commission_sale"],
+    "data": ["wizard/sale_order_edit_wizard.xml"],
+    "auto_install": False,
+    "installable": True,
 }

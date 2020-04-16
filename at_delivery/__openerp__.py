@@ -19,28 +19,27 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Delivery API",
-    "description":"""
+    "name": "oerp.at Delivery API",
+    "description": """
 Delivery API
 ============
 Basic delivery API
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "depends" : ["delivery", 
-                 "stock",
-                 "at_purchase_sale"],
-    "data" : ["security.xml",              
-              "view/stock_picking_view.xml",
-              "view/stock_widget.xml",
-              "view/stock_picking_view.xml",
-              "view/delivery_order_view.xml",
-              "view/delivery_view.xml",
-              "data/delivery_seq.xml",
-              "report/delivery_report.xml"
-            ],
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "depends": ["delivery", "stock", "at_purchase_sale"],
+    "data": [
+        "security.xml",
+        "view/stock_picking_view.xml",
+        "view/stock_widget.xml",
+        "view/stock_picking_view.xml",
+        "view/delivery_order_view.xml",
+        "view/delivery_view.xml",
+        "data/delivery_seq.xml",
+        "report/delivery_report.xml",
+    ],
     "qweb": ["static/src/xml/picking.xml"],
-    "auto_install" : False,
-    "installable": True
+    "auto_install": False,
+    "installable": True,
 }

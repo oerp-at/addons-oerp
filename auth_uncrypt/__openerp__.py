@@ -19,23 +19,23 @@
 #
 ##############################################################################
 {
-    'name': 'Remove Password Encryption',
-    'version': '2.0',
-    'author': ['OpenERP SA', 'FS3'],
-    'maintainer': 'OpenERP SA',
-    'website': 'https://www.odoo.com',
-    'category': 'Tools',
-    'description': """
+    "name": "Remove Password Encryption",
+    "version": "2.0",
+    "author": ["OpenERP SA", "FS3"],
+    "maintainer": "OpenERP SA",
+    "website": "https://www.odoo.com",
+    "category": "Tools",
+    "description": """
 Encrypted passwords
 ===================
 
 Remove Password Encryption
 
 """,
-    'depends': ['base'],
-    'data': [],
-    'auto_install': True,
-    'installable': True,
+    "depends": ["base"],
+    "data": [],
+    "auto_install": True,
+    "installable": True,
 }
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

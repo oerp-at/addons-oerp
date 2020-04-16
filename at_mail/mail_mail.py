@@ -21,9 +21,10 @@
 from openerp.osv import fields, osv
 from openerp import tools
 
+
 class mail_mail(osv.Model):
     _inherit = "mail.mail"
-    
+
     def send_get_email_dict(self, cr, uid, mail, partner=None, context=None):
         """Return a dictionary for specific email values, depending on a
         partner, or generic to the whole recipients given by mail.email_to.
@@ -34,9 +35,13 @@ class mail_mail(osv.Model):
         body = self.send_get_mail_body(cr, uid, mail, partner=partner, context=context)
         body_alternative = tools.html2plaintext(tools.html_sanitize(body))
         res = {
-            'body': body,
-            'body_alternative': body_alternative,
-            'subject': self.send_get_mail_subject(cr, uid, mail, partner=partner, context=context),
-            'email_to': self.send_get_mail_to(cr, uid, mail, partner=partner, context=context),
+            "body": body,
+            "body_alternative": body_alternative,
+            "subject": self.send_get_mail_subject(
+                cr, uid, mail, partner=partner, context=context
+            ),
+            "email_to": self.send_get_mail_to(
+                cr, uid, mail, partner=partner, context=context
+            ),
         }
         return res

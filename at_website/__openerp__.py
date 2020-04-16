@@ -17,21 +17,20 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Website Extensions",
-    "description":"""
+    "name": "oerp.at Website Extensions",
+    "description": """
 oerp.at Website Extensions
 ==========================
 
 Modul which extends standard odoo website functions
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Hidden",
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Hidden",
     "website": "http://www.funkring.net",
-    "depends" : ["at_base",
-                 "website"],    
-    "data" : ["view/website_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "depends": ["at_base", "website"],
+    "data": ["view/website_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

@@ -20,19 +20,19 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Procurement",
-    "description":"""
+    "name": "oerp.at Procurement",
+    "description": """
 oerp.at Procurement Extensions
 ==============================
 
 * Analytic account for purchase
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Hidden/Dependency",
-    "depends" : ["at_product","at_stock","procurement"],
+    "category": "Hidden/Dependency",
+    "depends": ["at_product", "at_stock", "procurement"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

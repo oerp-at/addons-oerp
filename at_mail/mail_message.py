@@ -20,10 +20,16 @@
 
 from openerp.osv import fields, osv
 
+
 class mail_message(osv.Model):
-     
+
     _inherit = "mail.message"
     _columns = {
-        "origin_id": fields.many2one('mail.message', 'Parent Message', select=True,
-                      ondelete='set null', help="Origin Message of the duplicate")               
+        "origin_id": fields.many2one(
+            "mail.message",
+            "Parent Message",
+            select=True,
+            ondelete="set null",
+            help="Origin Message of the duplicate",
+        )
     }

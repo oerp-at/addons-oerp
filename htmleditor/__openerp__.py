@@ -19,17 +19,17 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at HTML Editor",
-    "summary" : "Replace CLEditor with TinyMCE",
-    "description":"""
+    "name": "oerp.at HTML Editor",
+    "summary": "Replace CLEditor with TinyMCE",
+    "description": """
 Replace CLEditor with TinyMCE
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Hidden",
-    "depends" : ["at_base"],
-    "data" : ["view/htmleditor_widget.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Hidden",
+    "depends": ["at_base"],
+    "data": ["view/htmleditor_widget.xml"],
+    "auto_install": False,
+    "installable": True,
 }

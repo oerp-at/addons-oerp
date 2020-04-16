@@ -20,22 +20,30 @@
 
 from openerp.osv import fields, osv
 
+
 class SaleLayoutCategory(osv.Model):
     _inherit = "sale_layout.category"
-    _columns = {
-        "order_id" : fields.many2one("sale.order", "Order", ondelete="cascade")
-    }
+    _columns = {"order_id": fields.many2one("sale.order", "Order", ondelete="cascade")}
 
 
 class sale_order(osv.Model):
     _inherit = "sale.order"
     _columns = {
-        "layout_categ_ids" : fields.one2many("sale_layout.category", "order_id", "Layout Categories")
+        "layout_categ_ids": fields.one2many(
+            "sale_layout.category", "order_id", "Layout Categories"
+        )
     }
-    
+
 
 class sale_order_line(osv.Model):
     _inherit = "sale.order.line"
     _columns = {
-        "prod_categ_id" : fields.related("product_id", "categ_id", string="Category", type="many2one", relation="product.category", readonly=True)
-     } 
+        "prod_categ_id": fields.related(
+            "product_id",
+            "categ_id",
+            string="Category",
+            type="many2one",
+            relation="product.category",
+            readonly=True,
+        )
+    }

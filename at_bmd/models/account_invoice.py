@@ -20,8 +20,8 @@
 
 from openerp import models, fields, api, _
 
+
 class account_invoice(models.Model):
     _inherit = "account.invoice"
-    
-    bmd_reconcil_id = fields.Many2one("bmd.reconcil", "BMD OP. Ausgleich", 
-                                        index=True)
+
+    bmd_reconcil_id = fields.Many2one("bmd.reconcil", "BMD OP. Ausgleich", index=True)

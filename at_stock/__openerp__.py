@@ -21,8 +21,8 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Stock",
-    "description":"""
+    "name": "oerp.at Stock",
+    "description": """
 oerp.at Stock Base Module
 =========================
 
@@ -30,15 +30,17 @@ oerp.at Stock Base Module
 * access rights for invoice creation
 
 """,
-    "version" : "1.1",
-    "author" :  "funkring.net",
+    "version": "1.1",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Warehouse",
-    "depends" : ["at_base", "stock", "delivery", "stock_account"],
-    "data" : ["security.xml",
-              "report/stock_picking_report.xml",
-              "view/picking_view.xml",
-              "wizard/check_avail_wizard.xml"],
+    "category": "Warehouse",
+    "depends": ["at_base", "stock", "delivery", "stock_account"],
+    "data": [
+        "security.xml",
+        "report/stock_picking_report.xml",
+        "view/picking_view.xml",
+        "wizard/check_avail_wizard.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

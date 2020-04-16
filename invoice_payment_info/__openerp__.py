@@ -19,17 +19,17 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Invoice Payment Info",
-    "description":"""
+    "name": "oerp.at Invoice Payment Info",
+    "description": """
 oerp.at Payment Info
 ====================
 * Fields with last payment and payment journal
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Accounting & Finance",
-    "depends" : ["at_account"],
-    "data" : ["view/invoice_view.xml",],
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Accounting & Finance",
+    "depends": ["at_account"],
+    "data": ["view/invoice_view.xml",],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

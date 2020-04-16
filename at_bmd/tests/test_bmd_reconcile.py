@@ -21,14 +21,14 @@
 from openerp.tests.common import TransactionCase
 from openerp.addons.automation.automation import TaskLogger
 
+
 class TestBmdReconcile(TransactionCase):
     """Test BMD Reconcilation"""
-  
+
     def test_bmd_reconcile(self):
-        taskc = TaskLogger("test_bmd_export")        
+        taskc = TaskLogger("test_bmd_export")
         reconcil = self.env["bmd.reconcil"].search([], limit=1)
         if not reconcil:
             return
-        
+
         reconcil._run(taskc)
-        

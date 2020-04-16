@@ -21,8 +21,8 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Product Commission",
-    "description":"""
+    "name": "oerp.at Product Commission",
+    "description": """
 Commission based on product
 ===========================
 
@@ -30,18 +30,19 @@ Commission based on product
 * creates commission based on contract
 
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "category" : "Commission",
-    "depends" : ["at_base","at_product","commission"],
-    "data" : ["security.xml",                    
-              "view/partner_view.xml",
-              "view/product_view.xml",
-              "view/product_commission_view.xml",
-              "data/products.xml",
-              "data/analytic_journals.xml",
-              "data/properties.xml",                    
-             ],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "category": "Commission",
+    "depends": ["at_base", "at_product", "commission"],
+    "data": [
+        "security.xml",
+        "view/partner_view.xml",
+        "view/product_view.xml",
+        "view/product_commission_view.xml",
+        "data/products.xml",
+        "data/analytic_journals.xml",
+        "data/properties.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

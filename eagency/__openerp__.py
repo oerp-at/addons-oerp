@@ -17,26 +17,28 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at E-Agency",
-    "description":"""
+    "name": "oerp.at E-Agency",
+    "description": """
 oerp.at Employment Agency
 =========================
 * Module for employment agencies
 * Client handling with special criteria, requirements and conditions
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Agency",
-    "depends" : ["base","at_base","mail"],
-    "data" : ["security.xml",
-              "menu.xml",
-              "view/eagency_client_view.xml",
-              "view/eagency_education_view.xml",
-              "view/eagency_area_view.xml",
-              "view/eagency_prof_status_view.xml",
-              "view/eagency_lang_view.xml",
-              "view/eagency_skill_view.xml"],
+    "category": "Agency",
+    "depends": ["base", "at_base", "mail"],
+    "data": [
+        "security.xml",
+        "menu.xml",
+        "view/eagency_client_view.xml",
+        "view/eagency_education_view.xml",
+        "view/eagency_area_view.xml",
+        "view/eagency_prof_status_view.xml",
+        "view/eagency_lang_view.xml",
+        "view/eagency_skill_view.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

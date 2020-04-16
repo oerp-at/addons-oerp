@@ -17,8 +17,8 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Shop Separation",
-    "description":"""
+    "name": "oerp.at Shop Separation",
+    "description": """
 oerp.at Shop Separation for Project and Sale
 ============================================
 
@@ -28,17 +28,19 @@ oerp.at Shop Separation for Project and Sale
   tickets and sale orders
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Sales",
-    "depends" : ["at_sale","at_project_sale"],
-    "data" : ["view/user_view.xml", 
-              "view/sale_view.xml",
-              "view/shop_view.xml",  
-              "view/project_view.xml",
-              "view/project_issue_view.xml",   
-              "security.xml"],
+    "category": "Sales",
+    "depends": ["at_sale", "at_project_sale"],
+    "data": [
+        "view/user_view.xml",
+        "view/sale_view.xml",
+        "view/shop_view.xml",
+        "view/project_view.xml",
+        "view/project_issue_view.xml",
+        "security.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

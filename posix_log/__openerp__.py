@@ -19,23 +19,24 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at POSIX Log",
-    "description":"""
+    "name": "oerp.at POSIX Log",
+    "description": """
 oerp.at POSIX Log
 =================
 
   * Displays log messages from the system
     """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "System",
-    "depends" : ["posix", "mail"],
-    "data" : ["wizard/posix_log_wizard.xml",
-              "view/posix_log_view.xml",
-              "data/log_facility.xml",
-              "menu.xml",
-              "security.xml"
-              ],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "System",
+    "depends": ["posix", "mail"],
+    "data": [
+        "wizard/posix_log_wizard.xml",
+        "view/posix_log_view.xml",
+        "data/log_facility.xml",
+        "menu.xml",
+        "security.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

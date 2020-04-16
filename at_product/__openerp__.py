@@ -18,26 +18,28 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Product",
-    "description":"""
+    "name": "oerp.at Product",
+    "description": """
        oerp.at Product Extensions
        ==========================
        
        * Search and name enhancements
        * Utility functions
     """,
-    "version" : "1.2",
-    "author" :  "funkring.net",
+    "version": "1.2",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Sales Management",
-    "depends" : ["at_base","product"],    
-    "data" : ["security.xml",
-              "menu.xml",
-              "view/product_view.xml",
-              "report/pricelist_report.xml",
-              "report/product_list.xml",
-              "wizard/product_change_wizard.xml",              
-              "data/uom.xml"],
-    "auto_install" : False,
-    "installable": True
+    "category": "Sales Management",
+    "depends": ["at_base", "product"],
+    "data": [
+        "security.xml",
+        "menu.xml",
+        "view/product_view.xml",
+        "report/pricelist_report.xml",
+        "report/product_list.xml",
+        "wizard/product_change_wizard.xml",
+        "data/uom.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

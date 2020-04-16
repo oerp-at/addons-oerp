@@ -20,21 +20,21 @@
 from openerp.osv import osv
 import re
 
-#PATTERN_ZIP_SEARCH = re.compile("^(([A-Za-z]{2})-)?([0-9]{4,})")
+# PATTERN_ZIP_SEARCH = re.compile("^(([A-Za-z]{2})-)?([0-9]{4,})")
 
-class res_partner(osv.Model):    
-    
+
+class res_partner(osv.Model):
     def on_change_zip(self, cr, uid, ids, zip_code, city):
-        res = { "value" : {} }
+        res = {"value": {}}
         if not city:
             city_obj = self.pool.get("res.city")
-            city_ids = city_obj.search(cr,uid,[("code","=",zip_code)])
+            city_ids = city_obj.search(cr, uid, [("code", "=", zip_code)])
             if len(city_ids):
-                city = city_obj.browse(cr,uid,city_ids[0])
-                res["value"]["city"] = city.name                
+                city = city_obj.browse(cr, uid, city_ids[0])
+                res["value"]["city"] = city.name
                 if city.state_id:
                     res["value"]["state_id"] = city.state_id.id
                     res["value"]["country_id"] = city.state_id.country_id.id
         return res
-    
+
     _inherit = "res.partner"

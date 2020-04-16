@@ -20,6 +20,7 @@
 
 from openerp.osv import fields, osv
 
+
 class calendar_event(osv.Model):
     _inherit = "calendar.event"
 

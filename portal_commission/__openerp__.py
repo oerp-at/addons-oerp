@@ -19,23 +19,20 @@
 ##############################################################################
 
 {
-    "name" : "Commission Portal",
-    "summary" : "oerp.at commission portal for salesmen",
-    "description":"""
+    "name": "Commission Portal",
+    "summary": "oerp.at commission portal for salesmen",
+    "description": """
 Commission Portal
 =================
 
 * Salesmen could view their commissions
 
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "depends" : ["portal_shop",
-                 "analytic",
-                 "commission"],
-    "data" : ["security.xml",
-              "menu.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "depends": ["portal_shop", "analytic", "commission"],
+    "data": ["security.xml", "menu.xml"],
+    "auto_install": False,
+    "installable": True,
 }

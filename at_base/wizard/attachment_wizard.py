@@ -20,14 +20,14 @@
 #
 ##############################################################################
 
-from openerp.osv import fields,osv
+from openerp.osv import fields, osv
 import os
 import yaml
 import base64
 
+
 class attachment_import(osv.TransientModel):
-    
-    def do_import(self,cr,uid,ids,context=None):
+    def do_import(self, cr, uid, ids, context=None):
         attachment_obj = self.pool.get("ir.attachment")
         for rec in self.browse(cr, uid, ids, context):
             folder = rec.folder
@@ -40,79 +40,82 @@ class attachment_import(osv.TransientModel):
                             for rec in os.listdir(yaml_dir):
                                 if rec.endswith(".yaml"):
                                     bin_file = "%s.bin" % (rec.split(".")[0],)
-                                    bin_file = os.path.join(model_dir,bin_file)
-                                    yaml_file = os.path.join(yaml_dir,rec)
-                                    
+                                    bin_file = os.path.join(model_dir, bin_file)
+                                    yaml_file = os.path.join(yaml_dir, rec)
+
                                     values = None
                                     fp = file(yaml_file, "rb")
                                     try:
                                         values = yaml.load(fp)
                                     finally:
                                         fp.close()
-                                    
-                                    fp = file(bin_file,"rb")
+
+                                    fp = file(bin_file, "rb")
                                     try:
                                         bin_data = fp.read()
-                                        values["file_size"]=len(bin_data)
-                                        values["datas"] = base64.encodestring(bin_data)                                                 
-                                    finally:                    
+                                        values["file_size"] = len(bin_data)
+                                        values["datas"] = base64.encodestring(bin_data)
+                                    finally:
                                         fp.close()
-                                    
-                                    attachment_obj.create(cr, uid, values, context)           
-        return { "type" : "ir.actions.act_window_close" }                      
-                     
-    
-    _name="attachment.import"
+
+                                    attachment_obj.create(cr, uid, values, context)
+        return {"type": "ir.actions.act_window_close"}
+
+    _name = "attachment.import"
     _description = "Attachment Export"
-    _columns = {
-        "folder" : fields.char("Folder",size=255,required=True)
-    }    
+    _columns = {"folder": fields.char("Folder", size=255, required=True)}
+
+
 attachment_import()
 
 
-
 class attachment_export(osv.osv_memory):
-    
     def do_export(self, cr, uid, ids, context=None):
-        attachment_obj = self.pool.get("ir.attachment")         
+        attachment_obj = self.pool.get("ir.attachment")
         for rec in self.browse(cr, uid, ids, context):
-            ids = attachment_obj.search(cr,uid,[])
-            fields = ["id","name","datas","datas_fname","res_name","res_model","res_id"]
-            folder = rec.folder            
-            for oid in ids:         
-                file_rec = attachment_obj.read(cr,uid,oid,fields,context=context)
+            ids = attachment_obj.search(cr, uid, [])
+            fields = [
+                "id",
+                "name",
+                "datas",
+                "datas_fname",
+                "res_name",
+                "res_model",
+                "res_id",
+            ]
+            folder = rec.folder
+            for oid in ids:
+                file_rec = attachment_obj.read(cr, uid, oid, fields, context=context)
                 res_model = file_rec.get("res_model")
                 file_id = file_rec.get("id")
-                file_data = file_rec.get("datas")                
+                file_data = file_rec.get("datas")
                 if res_model and file_data:
-                    del file_rec["datas"]                                        
-                    model_path = os.path.join(folder,res_model)
-                    yaml_path = os.path.join(folder,res_model + ".yaml")
-                    
+                    del file_rec["datas"]
+                    model_path = os.path.join(folder, res_model)
+                    yaml_path = os.path.join(folder, res_model + ".yaml")
+
                     if not os.path.exists(model_path):
                         os.makedirs(model_path)
-                        
+
                     if not os.path.exists(yaml_path):
                         os.makedirs(yaml_path)
-                    
-                    yaml_file = os.path.join(yaml_path,"%d.yaml" % (file_id,))
-                    export_file = os.path.join(model_path,"%d.bin" % (file_id,))
-                                                           
+
+                    yaml_file = os.path.join(yaml_path, "%d.yaml" % (file_id,))
+                    export_file = os.path.join(model_path, "%d.bin" % (file_id,))
+
                     fp = file(yaml_file, "wb+")
                     try:
-                        yaml.dump(file_rec,fp)
+                        yaml.dump(file_rec, fp)
                     finally:
                         fp.close()
-                    
-                    fp = file(export_file,"wb+")
+
+                    fp = file(export_file, "wb+")
                     try:
-                        fp.write(base64.decodestring(file_data))                        
-                    finally:                    
+                        fp.write(base64.decodestring(file_data))
+                    finally:
                         fp.close()
-        return { "type" : "ir.actions.act_window_close" }
-    
-    _name="attachment.export"
+        return {"type": "ir.actions.act_window_close"}
+
+    _name = "attachment.export"
     _description = "Attachment Import"
-    _columns = {
-        "folder" : fields.char("Folder",size=255,required=True)
-    }
+    _columns = {"folder": fields.char("Folder", size=255, required=True)}

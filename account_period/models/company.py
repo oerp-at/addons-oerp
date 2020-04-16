@@ -20,11 +20,12 @@
 
 from openerp import models, fields, api, _
 
+
 class Company(models.Model):
     _inherit = "res.company"
-    
-    taxation = fields.Selection([("invoice", "Tax on Invoice"),
-                                 ("payment", "Tax after Payment")],
-                                string="Taxation",
-                                default="payment")
-    
+
+    taxation = fields.Selection(
+        [("invoice", "Tax on Invoice"), ("payment", "Tax after Payment")],
+        string="Taxation",
+        default="payment",
+    )

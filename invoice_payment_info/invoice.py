@@ -18,14 +18,14 @@
 #
 ##############################################################################
 
-from openerp.osv import fields,osv
+from openerp.osv import fields, osv
+
 
 class account_invoice(osv.osv):
-    
     def _last_payment_date(self, cr, uid, ids, field_name, arg, context=None):
         res = dict.fromkeys(ids)
         cr.execute(
-        """
+            """
         SELECT inv.id, MAX(m2.date) FROM account_invoice inv
             INNER JOIN account_move_line m ON m.move_id = inv.move_id AND m.account_id = inv.account_id
             INNER JOIN account_move_reconcile r ON r.id = m.reconcile_id 
@@ -33,22 +33,23 @@ class account_invoice(osv.osv):
             INNER JOIN account_journal j ON j.id = m2.journal_id AND j.type IN ('cash','bank')
             WHERE inv.id IN %s
         GROUP BY 1
-        """, (tuple(ids),)
+        """,
+            (tuple(ids),),
         )
-        
+
         for row in cr.fetchall():
             invoice_id = row[0]
             date = row[1]
-            res[invoice_id]=date
-        
+            res[invoice_id] = date
+
         return res
-    
+
     def _payment_journal_names(self, cr, uid, ids, field_name, arg, context=None):
         res = dict.fromkeys(ids)
-        
+
         ####################################################################
         cr.execute(
-        """
+            """
         SELECT inv.id, j.name FROM account_invoice inv
             INNER JOIN account_move_line m ON m.move_id = inv.move_id AND m.account_id = inv.account_id
             INNER JOIN account_move_reconcile r ON r.id = m.reconcile_id 
@@ -56,7 +57,8 @@ class account_invoice(osv.osv):
             INNER JOIN account_journal j ON j.id = m2.journal_id AND j.type IN ('cash','bank')
             WHERE inv.id IN %s
         GROUP BY 1,2
-        """, (tuple(ids),)
+        """,
+            (tuple(ids),),
         )
         for row in cr.fetchall():
             invoice_id = row[0]
@@ -64,17 +66,24 @@ class account_invoice(osv.osv):
             cur = res[invoice_id]
             if not cur:
                 cur = []
-                res[invoice_id]=cur
+                res[invoice_id] = cur
             cur.append(journal_name)
         for key, value in res.items():
             if value:
                 res[key] = ", ".join(value)
         ####################################################################
-        
+
         return res
-    
-    _inherit = "account.invoice" 
+
+    _inherit = "account.invoice"
     _columns = {
-        "last_payment_date" : fields.function(_last_payment_date, type="date", string="Last payment date"),
-        "payment_journal_names" : fields.function(_payment_journal_names, type="char", size=128, string="Payment journal names")
+        "last_payment_date": fields.function(
+            _last_payment_date, type="date", string="Last payment date"
+        ),
+        "payment_journal_names": fields.function(
+            _payment_journal_names,
+            type="char",
+            size=128,
+            string="Payment journal names",
+        ),
     }

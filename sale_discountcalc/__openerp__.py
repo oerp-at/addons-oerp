@@ -19,24 +19,21 @@
 ##############################################################################
 
 {
-    "name" : "Sale Discount Calculation",
-    "summary" : "Extension field in sales line to do price calculations",
-    "description":"""
+    "name": "Sale Discount Calculation",
+    "summary": "Extension field in sales line to do price calculations",
+    "description": """
 Sale Price Calculation
 ======================
 
 Do discount calculations with a simple text field. 
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "website" : "http://www.funkring.net",
-    "category" : "Sale",
-    "depends" : ["sale",
-                 "at_sale"],
-    "data" : ["wizard/sale_discount_wizard.xml",
-              "view/sale_view.xml"
-            ],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "funkring.net",
+    "website": "http://www.funkring.net",
+    "category": "Sale",
+    "depends": ["sale", "at_sale"],
+    "data": ["wizard/sale_discount_wizard.xml", "view/sale_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

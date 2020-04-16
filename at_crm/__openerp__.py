@@ -19,23 +19,19 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at CRM Extensions",
-    "description":"""
+    "name": "oerp.at CRM Extensions",
+    "description": """
 oerp.at CRM Extensions
 ======================
 
 * Support new call planing from a lead
 
     """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Customer Relationship Management",
-    "depends" : ["at_base","crm"],
-    "data" : [
-       "view/crm_categ_view.xml",
-       "view/crm_lead.xml",
-
-    ],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Customer Relationship Management",
+    "depends": ["at_base", "crm"],
+    "data": ["view/crm_categ_view.xml", "view/crm_lead.xml",],
+    "auto_install": False,
+    "installable": True,
 }

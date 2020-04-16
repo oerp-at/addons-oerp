@@ -21,8 +21,8 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Password Management",
-    "description":"""
+    "name": "oerp.at Password Management",
+    "description": """
 oerp.at Password Management
 =========================================
 
@@ -30,16 +30,12 @@ oerp.at Password Management
  * Is able to save passwords from other partners
 
 """,
-    "version" : "1.1",
-    "author" :  "funkring.net",
+    "version": "1.1",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Generic Modules/Management",
-    "depends" : ["at_base"],
-    "data" : ["view/partner_view.xml",
-                    "view/password_view.xml",
-                    "security.xml"],
+    "category": "Generic Modules/Management",
+    "depends": ["at_base"],
+    "data": ["view/partner_view.xml", "view/password_view.xml", "security.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }
-
-

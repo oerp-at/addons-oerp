@@ -18,18 +18,20 @@
 #
 ##############################################################################
 
-from openerp.service import model 
+from openerp.service import model
+
 
 class LocalConnection(object):
     """
     A class to represent a connection with authentication to an OpenERP Server.
     It also provides utility methods to interact with the server more easily.
     """
+
     def __init__(self, cr, uid, context):
         self.cr = cr
         self.uid = uid
         self.context = context
-        
+
     def get_model(self, model_name):
         """
         Returns a Model instance to allow easy manipulation of an OpenERP model.
@@ -37,7 +39,8 @@ class LocalConnection(object):
         :param model_name: The name of the model.
         """
         return Model(self, model_name)
-    
+
+
 class Model(object):
     """
     Useful class to dialog with one of the models provided by an OpenERP server.
@@ -58,12 +61,20 @@ class Model(object):
 
         :param method: The method for the linked model (search, read, write, unlink, create, ...)
         """
+
         def proxy(*args, **kw):
             """
             :param args: A list of values for the method
             """
-            #execute_cr(cr, uid, obj, method, *args, **kw):
-            result =  model.execute_cr(self.connection.cr, self.connection.uid, self.model_name, method, *args, **kw)
+            # execute_cr(cr, uid, obj, method, *args, **kw):
+            result = model.execute_cr(
+                self.connection.cr,
+                self.connection.uid,
+                self.model_name,
+                method,
+                *args,
+                **kw
+            )
             return result
-            
+
         return proxy

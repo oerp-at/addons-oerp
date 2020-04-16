@@ -20,21 +20,24 @@
 
 from openerp import models, fields, api, _
 
+
 class res_company(models.Model):
-  _inherit = "res.company"
-  
-  cdisc_date = fields.Date("Commission Rule Active From", help="If date is empty rule is used every time, if not rule is used for invoices, orders greater or equal to the entered date")
-   
-  cdisc_rule = fields.Selection([("mhalf",
-                                  "Minus half discount")],
-                                  string="Commission Rule",
-                                  help="""Reflect Discount in Provision
+    _inherit = "res.company"
+
+    cdisc_date = fields.Date(
+        "Commission Rule Active From",
+        help="If date is empty rule is used every time, if not rule is used for invoices, orders greater or equal to the entered date",
+    )
+
+    cdisc_rule = fields.Selection(
+        [("mhalf", "Minus half discount")],
+        string="Commission Rule",
+        help="""Reflect Discount in Provision
 
 Generally the provision was generated from the net total. With following rules
 the behavior could be changed. 
  
 * Minus half discount: On discount the provision was deducted by half discount
 
-""")
-      
-  
+""",
+    )

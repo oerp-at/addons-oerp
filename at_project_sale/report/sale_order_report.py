@@ -21,6 +21,7 @@
 from openerp.osv import fields, osv
 from openerp import tools
 
+
 class sale_order_report(osv.osv):
     _name = "sale.order.report"
     _description = "Sales Order Statistics"
@@ -28,24 +29,35 @@ class sale_order_report(osv.osv):
     _rec_name = "date"
 
     _columns = {
-        "order_id" : fields.many2one("sale.order","Sale Order", readonly=True),
-        "date": fields.datetime("Date Order", readonly=True),  
+        "order_id": fields.many2one("sale.order", "Sale Order", readonly=True),
+        "date": fields.datetime("Date Order", readonly=True),
         "date_confirm": fields.date("Date Confirm", readonly=True),
         "partner_id": fields.many2one("res.partner", "Partner", readonly=True),
         "company_id": fields.many2one("res.company", "Company", readonly=True),
         "user_id": fields.many2one("res.users", "Salesperson", readonly=True),
         "amount_untaxed": fields.float("Total", readonly=True),
-        "state": fields.selection([
-            ("cancel", "Cancelled"),
-            ("draft", "Draft"),
-            ("confirmed", "Confirmed"),
-            ("exception", "Exception"),
-            ("done", "Done")], "Order Status", readonly=True),
-        "pricelist_id": fields.many2one("product.pricelist", "Pricelist", readonly=True),
-        "analytic_account_id": fields.many2one("account.analytic.account", "Project", readonly=True),
+        "state": fields.selection(
+            [
+                ("cancel", "Cancelled"),
+                ("draft", "Draft"),
+                ("confirmed", "Confirmed"),
+                ("exception", "Exception"),
+                ("done", "Done"),
+            ],
+            "Order Status",
+            readonly=True,
+        ),
+        "pricelist_id": fields.many2one(
+            "product.pricelist", "Pricelist", readonly=True
+        ),
+        "analytic_account_id": fields.many2one(
+            "account.analytic.account", "Project", readonly=True
+        ),
         "section_id": fields.many2one("crm.case.section", "Sales Team", readonly=True),
-        "root_analytic_id": fields.many2one("account.analytic.account", "Main Analytic Account", readonly=True),
-        "shop_id" : fields.many2one("sale.shop","Shop", readonly=True)
+        "root_analytic_id": fields.many2one(
+            "account.analytic.account", "Main Analytic Account", readonly=True
+        ),
+        "shop_id": fields.many2one("sale.shop", "Shop", readonly=True),
     }
     _order = "date desc"
 
@@ -96,9 +108,11 @@ class sale_order_report(osv.osv):
     def init(self, cr):
         # self._table = sale_report
         tools.drop_view_if_exists(cr, self._table)
-        cr.execute("""CREATE or REPLACE VIEW %s as (
+        cr.execute(
+            """CREATE or REPLACE VIEW %s as (
             %s
             FROM ( %s )
             %s
-            )""" % (self._table, self._select(), self._from(), self._group_by()))
-
+            )"""
+            % (self._table, self._select(), self._from(), self._group_by())
+        )

@@ -19,20 +19,17 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at DPD Delivery",
-    "description":"""
+    "name": "oerp.at DPD Delivery",
+    "description": """
 DPD Delivery
 ============
 Austrian DPD Delivery implementation
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "depends" : ["at_delivery",
-                 "delivery"],
-    "data" : ["security.xml",
-              "view/dpd_profile_view.xml",
-              "view/delivery_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "depends": ["at_delivery", "delivery"],
+    "data": ["security.xml", "view/dpd_profile_view.xml", "view/delivery_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

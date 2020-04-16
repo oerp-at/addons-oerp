@@ -19,22 +19,21 @@
 ##############################################################################
 
 {
-    "name" : "Shop Country",
-    "summary" : "Predefine shop for country",
-    "description":"""
+    "name": "Shop Country",
+    "summary": "Predefine shop for country",
+    "description": """
 Shop Country
 ============
 
 * Predefine a shop selection for country
 
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Sales Management",
-    "depends" : ["at_sale"],
-    "data" : ["view/shop_view.xml",
-              "view/sale_order.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Sales Management",
+    "depends": ["at_sale"],
+    "data": ["view/shop_view.xml", "view/sale_order.xml"],
+    "auto_install": False,
+    "installable": True,
 }

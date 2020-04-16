@@ -21,26 +21,28 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Time Registration",
-    "description":"""
+    "name": "oerp.at Time Registration",
+    "description": """
 HR Time Registration extensions
 ===============================
 * Contract/Holiday based target hours
 * Auto break
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Human Resources",
-    "depends" : ["at_hr","hr_contract","hr_holidays","hr_attendance"],
-    "data" : ["security.xml",
-              "view/daily_timesheet_view.xml",
-              "view/event_type_view.xml",
-              "view/timesheet_view.xml",                            
-              "view/contract_view.xml",              
-              "report/employee_report.xml",
-              "report/timesheet_report.xml",
-              "wizard/working_time_wizard.xml"],
+    "category": "Human Resources",
+    "depends": ["at_hr", "hr_contract", "hr_holidays", "hr_attendance"],
+    "data": [
+        "security.xml",
+        "view/daily_timesheet_view.xml",
+        "view/event_type_view.xml",
+        "view/timesheet_view.xml",
+        "view/contract_view.xml",
+        "report/employee_report.xml",
+        "report/timesheet_report.xml",
+        "wizard/working_time_wizard.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

@@ -19,20 +19,19 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Sale Change",
-    "summary" : "Allow editing sale lines after confirmation",
-    "description":"""
+    "name": "oerp.at Sale Change",
+    "summary": "Allow editing sale lines after confirmation",
+    "description": """
 Sale Change
 ===========
 * Allow editing sale lines after order was confirmed
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Sales",
-    "depends" : ["at_sale","sale","at_purchase_sale"],
-    "data" : ["wizard/sale_order_edit_wizard.xml",
-              "view/sale_order.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Sales",
+    "depends": ["at_sale", "sale", "at_purchase_sale"],
+    "data": ["wizard/sale_order_edit_wizard.xml", "view/sale_order.xml"],
+    "auto_install": False,
+    "installable": True,
 }

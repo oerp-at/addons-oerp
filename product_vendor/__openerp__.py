@@ -17,18 +17,18 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Product Vendor",
-    "description":"""
+    "name": "oerp.at Product Vendor",
+    "description": """
 oerp.at Product Vendor
 =============================
 * Adds manufacturer field to product
 """,
-    "version" : "1.1",
-    "author" :  "funkring.net",
+    "version": "1.1",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Product",
-    "depends" : ["at_product"],
-    "data" : ["view/product_view.xml"],
+    "category": "Product",
+    "depends": ["at_product"],
+    "data": ["view/product_view.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

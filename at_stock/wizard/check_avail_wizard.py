@@ -20,9 +20,10 @@
 
 from openerp.osv import fields, osv
 
-class check_avail_wizard(osv.TransientModel):
-  _name = "stock.check.avail.wizard"
-  _description = "Check Availability"
 
-  def action_check_avail(self, cr, uid, ids, context=None):
-    return self.pool["stock.picking"]._check_avail(cr, uid, context=context)
+class check_avail_wizard(osv.TransientModel):
+    _name = "stock.check.avail.wizard"
+    _description = "Check Availability"
+
+    def action_check_avail(self, cr, uid, ids, context=None):
+        return self.pool["stock.picking"]._check_avail(cr, uid, context=context)

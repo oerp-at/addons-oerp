@@ -20,24 +20,36 @@
 
 from openerp import models, fields, api, _
 
+
 class ProductChange(models.TransientModel):
-    
+
     _name = "at_sale.product_change_wizard"
     _description = "Product Change"
-    
-    product_ids = fields.Many2many("product.product","rel_wizard_product_change_product","wizard_id","product_id",string="Products")
-    supplier_ids = fields.Many2many("res.partner","rel_wizard_product_change_supplier","wizard_id","supplier_id",string="Suppliers")
+
+    product_ids = fields.Many2many(
+        "product.product",
+        "rel_wizard_product_change_product",
+        "wizard_id",
+        "product_id",
+        string="Products",
+    )
+    supplier_ids = fields.Many2many(
+        "res.partner",
+        "rel_wizard_product_change_supplier",
+        "wizard_id",
+        "supplier_id",
+        string="Suppliers",
+    )
     supplier_replace = fields.Boolean("Replace Suppliers")
-    
-    
+
     @api.multi
-    def action_change(self):       
+    def action_change(self):
         for wizard in self:
             suppliers = wizard.supplier_ids
-            #product_ids = [p.id for p in wizard.product_ids]
+            # product_ids = [p.id for p in wizard.product_ids]
             if suppliers:
                 supplier_obj = self.env["product.supplierinfo"]
-                
+
                 for product in wizard.product_ids:
                     cur_partner_ids = set()
                     for seller in product.seller_ids:
@@ -45,15 +57,15 @@ class ProductChange(models.TransientModel):
                             seller.unlink()
                         else:
                             cur_partner_ids.add(seller.name.id)
-                
+
                     # add new suppliers
                     for partner in suppliers:
                         if not partner.id in cur_partner_ids:
-                            supplier_obj.create({
-                                "product_tmpl_id" : product.product_tmpl_id.id,
-                                "name"  : partner.id
-                            })
-                    
-             
-        return { "type" : "ir.actions.act_window_close" }
-    
+                            supplier_obj.create(
+                                {
+                                    "product_tmpl_id": product.product_tmpl_id.id,
+                                    "name": partner.id,
+                                }
+                            )
+
+        return {"type": "ir.actions.act_window_close"}

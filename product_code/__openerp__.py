@@ -21,21 +21,23 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Product Code",
-    "description":"""
+    "name": "oerp.at Product Code",
+    "description": """
 oerp.at Product Code
 =========================================
 
  * This module expands Products with codes
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Touch&Cash",
-    "depends" : ["at_product"],
-    "data" : ["security.xml",
-              "view/product_view.xml",
-              "view/product_code_profile_view.xml"],
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Touch&Cash",
+    "depends": ["at_product"],
+    "data": [
+        "security.xml",
+        "view/product_view.xml",
+        "view/product_code_profile_view.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

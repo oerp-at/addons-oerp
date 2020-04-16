@@ -19,8 +19,8 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Subscription",
-    "description":"""
+    "name": "oerp.at Subscription",
+    "description": """
 oerp.at Subscription
 ====================
 
@@ -28,11 +28,11 @@ oerp.at Subscription
  * It's possible to add more values to the document fields
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Tools",
-    "depends" : ["subscription"],
-    "data" : ["view/subscription_document_field_view.xml"],
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Tools",
+    "depends": ["subscription"],
+    "data": ["view/subscription_document_field_view.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

@@ -24,20 +24,24 @@ from openerp.addons.web.controllers.main import content_disposition
 
 import base64
 
+
 class delivery_helper(http.Controller):
-        
     @http.route(["/picking/<int:picking_id>/label.pdf"], type="http", auth="user")
     def picking_download(self, picking_id, **kwargs):
         picking_obj = request.registry["stock.picking"]
         cr, uid, context = request.cr, request.uid, request.context
-        
+
         picking = picking_obj.browse(cr, uid, picking_id, context=context)
-        
+
         label = picking.carrier_label
         if not label:
             return request.not_found()
-        
+
         pdfdata = base64.b64decode(label)
-        return request.make_response(pdfdata,
-            [('Content-Type', 'application/pdf'),
-             ('Content-Disposition', content_disposition("label.pdf"))])       
+        return request.make_response(
+            pdfdata,
+            [
+                ("Content-Type", "application/pdf"),
+                ("Content-Disposition", content_disposition("label.pdf")),
+            ],
+        )

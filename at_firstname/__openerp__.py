@@ -17,19 +17,19 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Firstname",
-    "description":"""
+    "name": "oerp.at Firstname",
+    "description": """
 oerp.at Firstname
 ========================
 Module which adds firstname and surname to the partner
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Base",
-    "depends" : ["at_base"],
-    "data" : ["view/partner_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "category": "Base",
+    "depends": ["at_base"],
+    "data": ["view/partner_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

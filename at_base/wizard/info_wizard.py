@@ -20,52 +20,50 @@
 #
 ##############################################################################
 
-from openerp.osv import fields,osv
+from openerp.osv import fields, osv
+
 
 class info_wizard(osv.TransientModel):
-    
-    def do_show(self,cr,uid,modul,action,info,active_ids=None,context=None):
-        mod_obj = self.pool.get('ir.model.data')
-        action_data = mod_obj.get_object_data(cr,uid,"at_base","action_info_wizard")
+    def do_show(self, cr, uid, modul, action, info, active_ids=None, context=None):
+        mod_obj = self.pool.get("ir.model.data")
+        action_data = mod_obj.get_object_data(cr, uid, "at_base", "action_info_wizard")
         result_context = {
-            "forward_modul" : modul,
-            "forward_actionref" : action,
-            "forward_active_ids" : active_ids,            
-            "default_info" : info
+            "forward_modul": modul,
+            "forward_actionref": action,
+            "forward_active_ids": active_ids,
+            "default_info": info,
         }
-        action_data["context"]=str(result_context)
-        action_data["nodestroy"]=True
+        action_data["context"] = str(result_context)
+        action_data["nodestroy"] = True
         return action_data
-        
+
     def do_forward(self, cr, uid, ids, context=None):
         if not context:
             return True
-        
-        modul=context.get("forward_modul")
-        actionref=context.get("forward_actionref")
-        active_model=context.get("forward_active_model")
-        active_ids=context.get("forward_active_ids")
-        active_id=context.get("forward_active_id")
-        
+
+        modul = context.get("forward_modul")
+        actionref = context.get("forward_actionref")
+        active_model = context.get("forward_active_model")
+        active_ids = context.get("forward_active_ids")
+        active_id = context.get("forward_active_id")
+
         if not actionref:
-            return { "type" : "ir.actions.act_window_close" }
-        
-        mod_obj = self.pool.get('ir.model.data')
-        action_data = mod_obj.get_object_data(cr,uid,modul,actionref)
-        
+            return {"type": "ir.actions.act_window_close"}
+
+        mod_obj = self.pool.get("ir.model.data")
+        action_data = mod_obj.get_object_data(cr, uid, modul, actionref)
+
         result_context = {}
         if active_model:
-            result_context["active_model"]=active_model
+            result_context["active_model"] = active_model
         if active_ids:
-            result_context["active_ids"]=active_ids
+            result_context["active_ids"] = active_ids
         if active_id:
-            result_context["active_id"]=active_id
-        
-        action_data["context"]=str(result_context)             
+            result_context["active_id"] = active_id
+
+        action_data["context"] = str(result_context)
         return action_data
-        
-    _description="Info Wizard"
-    _name="at_base.info_wizard"
-    _columns = {
-        "info" : fields.text("Info",readonly=True)
-    }
+
+    _description = "Info Wizard"
+    _name = "at_base.info_wizard"
+    _columns = {"info": fields.text("Info", readonly=True)}

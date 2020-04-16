@@ -19,17 +19,17 @@
 ##############################################################################
 
 {
-    "name" : "Account Dunning Invoice",
-    "description":"""
+    "name": "Account Dunning Invoice",
+    "description": """
 Account Dunning Invoice
 =======================
 * Add invoice to reminder
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "category" : "Accounting",
-    "depends" : ["account_dunning"],
-    "data" : [],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "category": "Accounting",
+    "depends": ["account_dunning"],
+    "data": [],
+    "auto_install": False,
+    "installable": True,
 }

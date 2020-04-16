@@ -19,9 +19,9 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Project as List",
-    "summary" : "Show project and tasks as list",
-    "description":"""
+    "name": "oerp.at Project as List",
+    "summary": "Show project and tasks as list",
+    "description": """
 Project as List
 ===============
 
@@ -29,12 +29,12 @@ Project as List
 * Default view of project is list
 
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Custom",
-    "depends" : ["at_project", "project"],
-    "data" : ["view/project_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Custom",
+    "depends": ["at_project", "project"],
+    "data": ["view/project_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

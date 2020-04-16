@@ -21,37 +21,38 @@
 ##############################################################################
 
 {
-    "name" : "BMD Export",
-    "description":"""
+    "name": "BMD Export",
+    "description": """
 BMD Export
 ==========
 
 * Export for accounting software BMD
 
 """,
-    "version" : "8.0.1.0.6",
-    "author" :  "funkring.net",
+    "version": "8.0.1.0.6",
+    "author": "funkring.net",
     "website": "https://github.com/o-erp",
-    "category" : "Accounting",
-    "depends" : ["mail",
-                 "util_time",
-                 "util_report",
-                 "util_test",
-                 "automation",
-                 "at_account"],
-    "data" : ["security/security.xml",
-              "views/bmd_config_menu.xml",
-              "views/bmd_export_profile_view.xml",
-              "views/bmd_reconcil_profile_view.xml",
-              "views/bmd_reconcil_view.xml",
-              "views/bmd_export_line_view.xml",
-              "views/bmd_export_view.xml",
-              "views/account_tax_view.xml",
-              "views/account_invoice_view.xml"
-             ],
-    "demo": [
-        "demo/bmd_export_demo.xml",
+    "category": "Accounting",
+    "depends": [
+        "mail",
+        "util_time",
+        "util_report",
+        "util_test",
+        "automation",
+        "at_account",
     ],
+    "data": [
+        "security/security.xml",
+        "views/bmd_config_menu.xml",
+        "views/bmd_export_profile_view.xml",
+        "views/bmd_reconcil_profile_view.xml",
+        "views/bmd_reconcil_view.xml",
+        "views/bmd_export_line_view.xml",
+        "views/bmd_export_view.xml",
+        "views/account_tax_view.xml",
+        "views/account_invoice_view.xml",
+    ],
+    "demo": ["demo/bmd_export_demo.xml",],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

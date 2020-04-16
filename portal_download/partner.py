@@ -20,12 +20,19 @@
 
 from openerp import models, fields, api, _
 
+
 class res_partner(models.Model):
     _inherit = "res.partner"
-    
-    download_count = fields.Integer("# Downloads", compute="_download_count", store=False)
-    download_perm_ids = fields.One2many("portal.download.perm", "partner_id", "Download Permissions")
-    
+
+    download_count = fields.Integer(
+        "# Downloads", compute="_download_count", store=False
+    )
+    download_perm_ids = fields.One2many(
+        "portal.download.perm", "partner_id", "Download Permissions"
+    )
+
     @api.one
-    def _download_count(self):        
-        self.download_count = self.env["portal.download.perm"].search([('partner_id','=',self.id)], count=True)
+    def _download_count(self):
+        self.download_count = self.env["portal.download.perm"].search(
+            [("partner_id", "=", self.id)], count=True
+        )

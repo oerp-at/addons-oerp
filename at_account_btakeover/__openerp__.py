@@ -21,19 +21,18 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Account Balance takeover",
-    "description":"""
+    "name": "oerp.at Account Balance takeover",
+    "description": """
 oerp.at Account Balance takeover
 ================================
 
   * This module allows to correct the balances for a certain day, to synchronize with the accountant
     """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Accounting",
-    "depends" : ["at_account"],
-    "data" : ["security.xml",
-              "view/account_btakeover_view.xml",],
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Accounting",
+    "depends": ["at_account"],
+    "data": ["security.xml", "view/account_btakeover_view.xml",],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

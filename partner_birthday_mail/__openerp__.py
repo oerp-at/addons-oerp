@@ -17,19 +17,18 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Partner Birthday Mail",
-    "description":"""
+    "name": "oerp.at Partner Birthday Mail",
+    "description": """
 oerp.at Partner Birthday Mail
 =============================
 * Send birthday mails automatically
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Mail",
-    "depends" : ["at_base", "mail"],
-    "data" : ["data/birthday_email_template.xml",
-              "data/birthday_email_cron.xml"],
+    "category": "Mail",
+    "depends": ["at_base", "mail"],
+    "data": ["data/birthday_email_template.xml", "data/birthday_email_cron.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

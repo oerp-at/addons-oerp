@@ -19,23 +19,20 @@
 ##############################################################################
 
 {
-    "name" : "Portal Calendar",
-    "summary" : "Allow calendar for portal",
-    "description":"""
+    "name": "Portal Calendar",
+    "summary": "Allow calendar for portal",
+    "description": """
 Portal Calendar
 ===============
 
 * Allow Calendar for Portal
 
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "depends" : ["portal",
-                 "calendar",
-                 "at_base"],
-    "data" : ["security.xml",
-              "menu.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "depends": ["portal", "calendar", "at_base"],
+    "data": ["security.xml", "menu.xml"],
+    "auto_install": False,
+    "installable": True,
 }

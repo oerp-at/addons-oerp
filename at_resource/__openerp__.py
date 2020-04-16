@@ -21,20 +21,20 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Resource",
-    "description":"""
+    "name": "oerp.at Resource",
+    "description": """
 Resource Extensions
 ===================
  
 * support for company default working calendar
 * additional base functions
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Hidden/Dependency",
-    "depends" : ["at_base","resource"],
-    "data" : ["view/company_view.xml"],
+    "category": "Hidden/Dependency",
+    "depends": ["at_base", "resource"],
+    "data": ["view/company_view.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

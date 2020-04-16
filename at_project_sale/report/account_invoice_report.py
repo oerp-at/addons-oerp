@@ -20,25 +20,37 @@
 
 from openerp.osv import fields, osv
 
+
 class account_invoice_report(osv.osv):
-    _inherit = 'account.invoice.report'
+    _inherit = "account.invoice.report"
     _columns = {
-        'root_analytic_id': fields.many2one('account.analytic.account', 'Main Analytic Account', readonly=True),
+        "root_analytic_id": fields.many2one(
+            "account.analytic.account", "Main Analytic Account", readonly=True
+        ),
     }
     _depends = {
-        'account.invoice.line': ['account_analytic_id'],
+        "account.invoice.line": ["account_analytic_id"],
     }
-    
+
     def _from(self):
-        return super(account_invoice_report, self)._from() + """
+        return (
+            super(account_invoice_report, self)._from()
+            + """
                 LEFT JOIN account_analytic_account aa ON aa.id = ail.account_analytic_id
         """
+        )
 
     def _select(self):
-        return  super(account_invoice_report, self)._select() + ", sub.root_analytic_id as root_analytic_id"
+        return (
+            super(account_invoice_report, self)._select()
+            + ", sub.root_analytic_id as root_analytic_id"
+        )
 
     def _sub_select(self):
-        return  super(account_invoice_report, self)._sub_select() + ", aa.root_account_id as root_analytic_id"
+        return (
+            super(account_invoice_report, self)._sub_select()
+            + ", aa.root_account_id as root_analytic_id"
+        )
 
     def _group_by(self):
         return super(account_invoice_report, self)._group_by() + ", aa.root_account_id"

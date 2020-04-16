@@ -21,8 +21,8 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Project",
-    "description":"""
+    "name": "oerp.at Project",
+    "description": """
 Project Extensions
 ==================
 
@@ -30,21 +30,20 @@ Additional project based functions and utilities for dependent
 modules
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Project Management",
-    "depends" : ["project",
-                 "at_base",
-                 "project_issue"],
-    "data" : ["view/project_view.xml",
-              "view/task_division_view.xml",
-              "report/project_issue_report.xml",
-              "report/task_report.xml",
-              "report/task_list_report.xml",
-              "report/ticket_list_report.xml",
-              "security.xml"],
+    "category": "Project Management",
+    "depends": ["project", "at_base", "project_issue"],
+    "data": [
+        "view/project_view.xml",
+        "view/task_division_view.xml",
+        "report/project_issue_report.xml",
+        "report/task_report.xml",
+        "report/task_list_report.xml",
+        "report/ticket_list_report.xml",
+        "security.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }
-

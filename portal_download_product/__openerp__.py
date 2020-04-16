@@ -19,22 +19,21 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Portal Product Download",
-    "summary" : "Publish product downloads for partner",
-    "description":"""
+    "name": "oerp.at Portal Product Download",
+    "summary": "Publish product downloads for partner",
+    "description": """
 Download Module
 ===============
 
 * Publish product downloads
     
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Portal",
-    "depends" : ["portal_download",
-                 "at_product"],
-    "data" : ["view/download_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Portal",
+    "depends": ["portal_download", "at_product"],
+    "data": ["view/download_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

@@ -19,24 +19,26 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at MRP + Sale",
-    "description":"""
+    "name": "oerp.at MRP + Sale",
+    "description": """
 MRP + Sale Extensions
 =====================
 * Auto production after order,
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Manufacturing",
-    "depends" : ["at_base", 
-                 "at_mrp", 
-                 "at_stock", 
-                 "at_sale", 
-                 "stock", 
-                 "mrp", 
-                 "sale", 
-                 "sale_mrp"],
-    "data" : ["view/mrp_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Manufacturing",
+    "depends": [
+        "at_base",
+        "at_mrp",
+        "at_stock",
+        "at_sale",
+        "stock",
+        "mrp",
+        "sale",
+        "sale_mrp",
+    ],
+    "data": ["view/mrp_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

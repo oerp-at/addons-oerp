@@ -21,16 +21,15 @@
 from openerp.osv import osv
 from openerp.addons.at_base import util
 
+
 class invoice_cancel_wizard(osv.TransientModel):
-    
     def action_cancel(self, cr, uid, ids, context=None):
-        invoice_ids = util.active_ids(context,"account.invoice")
+        invoice_ids = util.active_ids(context, "account.invoice")
         invoice_obj = self.pool["account.invoice"]
-        for invoice in invoice_obj.browse(cr, uid, invoice_ids, context=context):   
-            invoice_obj._cancel_invoice_all(cr, uid, invoice, context=context)             
-        return { "type" : "ir.actions.act_window_close" }
-        
-    
+        for invoice in invoice_obj.browse(cr, uid, invoice_ids, context=context):
+            invoice_obj._cancel_invoice_all(cr, uid, invoice, context=context)
+        return {"type": "ir.actions.act_window_close"}
+
     _name = "invoice.cancel.wizard"
     _description = "Invoice Cancel Wizard"
     _columns = {}

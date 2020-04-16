@@ -21,8 +21,8 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at POSIX Mail",
-    "description":"""
+    "name": "oerp.at POSIX Mail",
+    "description": """
 POSIX Mail
 ==========
 
@@ -31,19 +31,19 @@ POSIX Mail
 * Mail configuration for groups
 * Mail forwarding/alias configuration
 """,
-    "version" : "1.3",
-    "author" :  "funkring.net",
+    "version": "1.3",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "System",
-    "depends" : ["posix"],
-    "data" : [        
+    "category": "System",
+    "depends": ["posix"],
+    "data": [
         "view/domain_view.xml",
         "view/user_view.xml",
         "view/group_view.xml",
         "view/forward_view.xml",
         "security.xml",
-        "menu.xml"
+        "menu.xml",
     ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

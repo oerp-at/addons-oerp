@@ -22,28 +22,37 @@
 
 from openerp.osv import fields, osv
 
+
 class product_template(osv.osv):
-    
+
     _inherit = "product.template"
     _columns = {
-        "commission_percent" : fields.related("product_variant_ids", "commission_percent", string="Commission %"),
-        "commission_prod_id" : fields.related("product_variant_ids", "commission_prod_id", type="many2one", obj="product.product", string="Commission Product")
+        "commission_percent": fields.related(
+            "product_variant_ids", "commission_percent", string="Commission %"
+        ),
+        "commission_prod_id": fields.related(
+            "product_variant_ids",
+            "commission_prod_id",
+            type="many2one",
+            obj="product.product",
+            string="Commission Product",
+        ),
     }
-    
+
 
 class product_product(osv.osv):
-       
+
     _inherit = "product.product"
     _columns = {
-        "commission_percent" : fields.float("Commission %"),
-        "commission_prod_id" : fields.many2one("product.product", "Commission Product")
+        "commission_percent": fields.float("Commission %"),
+        "commission_prod_id": fields.many2one("product.product", "Commission Product"),
     }
 
 
 class product_category(osv.osv):
-    
+
     _inherit = "product.category"
     _columns = {
-        "commission_percent" : fields.float("Commission %"),
-        "commission_prod_id" : fields.many2one("product.product", "Commission Product")
+        "commission_percent": fields.float("Commission %"),
+        "commission_prod_id": fields.many2one("product.product", "Commission Product"),
     }

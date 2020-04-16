@@ -18,12 +18,13 @@
 #
 ##############################################################################
 
-from openerp.osv import fields,osv
+from openerp.osv import fields, osv
 
-class hr_contract(osv.osv):    
+
+class hr_contract(osv.osv):
     _inherit = "hr.contract"
     _columns = {
-        "break_interval" : fields.float("Break Interval"),
-        "break_duration" : fields.float("Break Duration"),
-        "break_auto" : fields.boolean("Auto Handle Breaks")
-    }    
+        "break_interval": fields.float("Break Interval"),
+        "break_duration": fields.float("Break Duration"),
+        "break_auto": fields.boolean("Auto Handle Breaks"),
+    }

@@ -22,27 +22,32 @@
 
 from openerp.osv import osv
 
-    
-class sale_order_line(osv.osv):    
+
+class sale_order_line(osv.osv):
     _inherit = "sale.order.line"
-        
+
     def _product_margin_extra(self, cr, uid, line, context=None):
-        res = super(sale_order_line, self)._product_margin_extra(cr, uid, line, context=context)
-        product = line.product_id        
+        res = super(sale_order_line, self)._product_margin_extra(
+            cr, uid, line, context=context
+        )
+        product = line.product_id
         commission_obj = self.pool["commission.line"]
-        
+
         if product:
             order = line.order_id
-            commissionEntries = commission_obj._get_product_commission(cr, uid, 
-                                      line.name, 
-                                      product,
-                                      line.product_uos_qty, 
-                                      line.price_subtotal, 
-                                      order.date_order,
-                                      obj=line,
-                                      company=order.company_id,
-                                      context=context)
-                        
+            commissionEntries = commission_obj._get_product_commission(
+                cr,
+                uid,
+                line.name,
+                product,
+                line.product_uos_qty,
+                line.price_subtotal,
+                order.date_order,
+                obj=line,
+                company=order.company_id,
+                context=context,
+            )
+
             for commissionEntry in commissionEntries:
-                res+=commissionEntry["amount"]
+                res += commissionEntry["amount"]
         return res

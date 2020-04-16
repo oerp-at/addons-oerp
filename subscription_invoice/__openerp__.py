@@ -21,20 +21,19 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Invoice Subscription",
-    "description":"""
+    "name": "oerp.at Invoice Subscription",
+    "description": """
 oerp.at Invoice Subscription
 ============================
 
  * This module adds an own subscription wizard to the invoice module
 
     """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Tools",
-    "depends" : ["at_account", "at_subscription"],
-    "data" : ["wizard/subscription_invoice_wizard.xml",
-                    "view/account_invoice_view.xml"],
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Tools",
+    "depends": ["at_account", "at_subscription"],
+    "data": ["wizard/subscription_invoice_wizard.xml", "view/account_invoice_view.xml"],
     "auto_instal": False,
-    "installable": True
+    "installable": True,
 }

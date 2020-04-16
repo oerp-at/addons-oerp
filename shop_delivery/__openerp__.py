@@ -19,19 +19,18 @@
 ##############################################################################
 
 {
-    "name" : "Shop Delivery Default",
-    "description":"""
+    "name": "Shop Delivery Default",
+    "description": """
 Shop Delivery
 =============
 
 Define shop delivery defaults
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "depends" : ["delivery",
-                 "at_purchase_sale"],
-    "data" : ["view/shop_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "depends": ["delivery", "at_purchase_sale"],
+    "data": ["view/shop_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

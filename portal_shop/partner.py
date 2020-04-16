@@ -20,17 +20,17 @@
 
 from openerp import models, fields, api, _
 
+
 class res_partner(models.Model):
-    
     @api.model
     def default_get(self, fields_list):
         res = super(res_partner, self).default_get(fields_list)
         if "user_id" in fields_list and not "user_id" in res:
             user = self.env.user
-            if user.has_group("portal_shop.group_sale_extern") and user.has_group("base.group_partner_manager"):
-                res["user_id"] = self._uid                
+            if user.has_group("portal_shop.group_sale_extern") and user.has_group(
+                "base.group_partner_manager"
+            ):
+                res["user_id"] = self._uid
         return res
-        
-    
+
     _inherit = "res.partner"
-    

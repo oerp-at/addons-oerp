@@ -29,44 +29,57 @@ from openerp.addons.at_base.format import LangFormat
 
 class email_template(osv.osv):
     _inherit = "email.template"
-    
+
     def _is_generated(self, cr, uid, ids, field_name, arg, context=None):
         res = dict.fromkeys(ids, False)
-        cr.execute("""SELECT t.id 
+        cr.execute(
+            """SELECT t.id 
             FROM email_template t
             INNER JOIN email_template_gen g ON g.template_id = t.id
             WHERE t.id IN %s
               AND g.state = 'valid'
               AND g.active
-        """, (tuple(ids),))
-        
-        for (template_id, ) in cr.fetchall():
+        """,
+            (tuple(ids),),
+        )
+
+        for (template_id,) in cr.fetchall():
             res[template_id] = True
         return res
-    
+
     def _no_sanitize(self, cr, uid, ids, field_name, arg, context=None):
         res = dict.fromkeys(ids, False)
-        cr.execute("""SELECT t.id 
+        cr.execute(
+            """SELECT t.id 
             FROM email_template t
             INNER JOIN email_template_gen g ON g.template_id = t.id
             WHERE t.id IN %s
               AND g.state = 'valid'
               AND g.active
               AND g.no_sanitize
-        """, (tuple(ids),))
+        """,
+            (tuple(ids),),
+        )
 
-        for (template_id, ) in cr.fetchall():
+        for (template_id,) in cr.fetchall():
             res[template_id] = True
         return res
-        
-    
+
     _columns = {
-        "template_gen_ids": fields.one2many("email.template.gen", "template_id", "Template Generators"),
-        "is_generated": fields.function(_is_generated, type="boolean", string="Generated", store=False),
-        "no_sanitize": fields.function(_is_generated, type="boolean", string="No Sanitize", store=False)
+        "template_gen_ids": fields.one2many(
+            "email.template.gen", "template_id", "Template Generators"
+        ),
+        "is_generated": fields.function(
+            _is_generated, type="boolean", string="Generated", store=False
+        ),
+        "no_sanitize": fields.function(
+            _is_generated, type="boolean", string="No Sanitize", store=False
+        ),
     }
 
-    def _get_render_env(self, cr, uid, template, model, res_ids, variables, context=None):
+    def _get_render_env(
+        self, cr, uid, template, model, res_ids, variables, context=None
+    ):
         variables = super(email_template, self)._get_render_env(
             cr, uid, template, model, res_ids, variables, context=context
         )
@@ -74,7 +87,9 @@ class email_template(osv.osv):
         variables["formatLang"] = langFormat.formatLang
         return variables
 
-    def generate_email_batch(self, cr, uid, template_id, res_ids, context=None, fields=None):
+    def generate_email_batch(
+        self, cr, uid, template_id, res_ids, context=None, fields=None
+    ):
         """Generates an email from the template for given the given model based on
         records given by res_ids.
         
@@ -108,12 +123,11 @@ class email_template(osv.osv):
         for res_id, template in res_ids_to_templates.iteritems():
             templates_to_res_ids.setdefault(template, []).append(res_id)
 
-
         results = dict()
         for template, template_res_ids in templates_to_res_ids.iteritems():
             # generate fields value for all res_ids linked to the current template
             no_sanitize = template.no_sanitize
-            
+
             ctx = context.copy()
             if template.lang:
                 ctx["lang"] = template._context.get("lang")

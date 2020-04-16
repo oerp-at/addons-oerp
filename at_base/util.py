@@ -35,30 +35,28 @@ import string
 import pytz
 import dateutil.parser
 
-DT_FORMAT = '%Y-%m-%d'
-DHM_FORMAT = '%Y-%m-%d %H:%M:%S'
-HM_FORMAT = '%H:%M:%S'
-HM_FORMAT_SHORT = '%H:%M'
+DT_FORMAT = "%Y-%m-%d"
+DHM_FORMAT = "%Y-%m-%d %H:%M:%S"
+HM_FORMAT = "%H:%M:%S"
+HM_FORMAT_SHORT = "%H:%M"
 
-ISO_FORMAT_UTC = '%Y-%m-%dT%H:%M:%SZ'
+ISO_FORMAT_UTC = "%Y-%m-%dT%H:%M:%SZ"
 
-SEVERITY = [('0','Normal'),('1','Warning'),('2','Blocker')]
-PRIORITY = [('0','Not urgent'),('1','Normal'),('2','Urgent'),('3','Very Urgent')]
+SEVERITY = [("0", "Normal"), ("1", "Warning"), ("2", "Blocker")]
+PRIORITY = [("0", "Not urgent"), ("1", "Normal"), ("2", "Urgent"), ("3", "Very Urgent")]
 
 PATTERN_ID = re.compile("([0-9]+)")
 
-DATE_FORMATS = [
-  ("%Y-%m-%d"),
-  ("%m/%d/%Y"),
-  ("%d.%m.%Y")  
-]
+DATE_FORMATS = [("%Y-%m-%d"), ("%m/%d/%Y"), ("%d.%m.%Y")]
+
 
 class DateSequenceEntry(object):
     """ A Date Sequence Entry """
-    def __init__(self,inDate,inFinal=False,inSeq=-1):
-        self.date=inDate
-        self.finalSeq=inFinal
-        self.seq=inSeq
+
+    def __init__(self, inDate, inFinal=False, inSeq=-1):
+        self.date = inDate
+        self.finalSeq = inFinal
+        self.seq = inSeq
 
 
 def floatTimeConvert(float_val):
@@ -66,195 +64,238 @@ def floatTimeConvert(float_val):
         return "00:00"
 
     hours = math.floor(abs(float_val))
-    mins = round(abs(float_val)%1+0.01,2)
+    mins = round(abs(float_val) % 1 + 0.01, 2)
     if mins >= 1.0:
         hours = hours + 1
         mins = 0.0
     else:
         mins = mins * 60
-    float_time = '%02d:%02d' % (hours,mins)
+    float_time = "%02d:%02d" % (hours, mins)
     return float_time
 
-def setSubDictValue(inDict,key,subkey,value):
+
+def setSubDictValue(inDict, key, subkey, value):
     if not value:
         return
-    subDict = inDict.get(key,None)
+    subDict = inDict.get(key, None)
     if not subDict:
-        subDict={}
-        inDict[key]=subDict
-    subDict[subkey]=value
+        subDict = {}
+        inDict[key] = subDict
+    subDict[subkey] = value
+
 
 def timeToStrHours(inTime):
     if not inTime:
         return inTime
-    if not isinstance(inTime,datetime):
+    if not isinstance(inTime, datetime):
         inTime = strToTime(inTime)
     return inTime.strftime(HM_FORMAT_SHORT)
+
 
 def strToTime(inTime):
     if not inTime:
         return inTime
-    if isinstance(inTime,datetime):
+    if isinstance(inTime, datetime):
         return inTime
     pos = inTime.find(".")
     if pos > 0:
-      inTime = inTime[:pos]
-    return datetime.strptime(inTime,DHM_FORMAT)
+        inTime = inTime[:pos]
+    return datetime.strptime(inTime, DHM_FORMAT)
+
 
 def timeToStr(inTime):
-    return datetime.strftime(inTime,DHM_FORMAT)
+    return datetime.strftime(inTime, DHM_FORMAT)
+
 
 def timeToDate(inTime):
     time = strToTime(inTime)
-    return date(time.year,time.month,time.day)
+    return date(time.year, time.month, time.day)
+
 
 def dateOnlyStr(inTime):
     if inTime:
         return inTime.split(" ")[0]
     return None
 
+
 def dateOnly(inTime):
     date = dateOnlyStr(inTime)
-    return datetime(date.year,date.month,date.day)
+    return datetime(date.year, date.month, date.day)
+
 
 def timeToDateStr(inTime):
     return dateToStr(timeToDate(inTime))
 
+
 def dateToTimeStr(inDate):
     return timeToStr(strToDate(inDate))
+
 
 def strToDate(inDate):
     if not inDate:
         return inDate
 
-    if isinstance(inDate,datetime):
+    if isinstance(inDate, datetime):
         return inDate
-    
+
     if len(inDate) > 10:
         inDate = timeToDateStr(inDate)
 
     return datetime.strptime(inDate, DT_FORMAT)
 
-def formatDate(inDate,inFormat):
+
+def formatDate(inDate, inFormat):
     inDate = strToDate(inDate)
     return datetime.strftime(inDate, inFormat)
 
-def dateFormat(inDate,inFormat):
-    resDate = strToDate(inDate)
-    return datetime.strftime(resDate,inFormat)
 
-def parseStrDate(inStr,inFormat):
-    resDate = datetime.strptime(inStr,inFormat)
+def dateFormat(inDate, inFormat):
+    resDate = strToDate(inDate)
+    return datetime.strftime(resDate, inFormat)
+
+
+def parseStrDate(inStr, inFormat):
+    resDate = datetime.strptime(inStr, inFormat)
     return dateToStr(resDate)
 
+
 def dateToStr(inDate):
-    return datetime.strftime(inDate,DT_FORMAT)
+    return datetime.strftime(inDate, DT_FORMAT)
+
 
 def currentDate():
     return time.strftime(DT_FORMAT)
 
+
 def lastDay():
-    day =  strToDate(currentDate())
+    day = strToDate(currentDate())
     day += relativedelta(days=-1)
     return day
+
 
 def currentDateTime():
     return time.strftime(DHM_FORMAT)
 
+
 def currentUTCDateTime():
     return datetime.utcnow().strftime(DHM_FORMAT)
 
-def nextMinute():
-    return timeToStr(datetime.now()+relativedelta(minutes=1))
 
-def mergeTime(inTime1,inTime2):
+def nextMinute():
+    return timeToStr(datetime.now() + relativedelta(minutes=1))
+
+
+def mergeTime(inTime1, inTime2):
     inTime1 = strToTime(inTime1)
     if not inTime1.hour and not inTime1.minute and not inTime1.second:
         inTime2 = strToTime(inTime2)
-        return datetime(inTime1.year,inTime1.month,inTime1.day,inTime2.hour,inTime2.minute,inTime2.second)
+        return datetime(
+            inTime1.year,
+            inTime1.month,
+            inTime1.day,
+            inTime2.hour,
+            inTime2.minute,
+            inTime2.second,
+        )
     return inTime1
 
-def mergeTimeStr(inTime1,inTime2):
-    return timeToStr(mergeTime(inTime1,inTime2))
+
+def mergeTimeStr(inTime1, inTime2):
+    return timeToStr(mergeTime(inTime1, inTime2))
+
 
 def formatToMonthDate(inDate):
-    return datetime.strftime(strToDate(inDate),"%m.%Y")
+    return datetime.strftime(strToDate(inDate), "%m.%Y")
+
 
 def getNextSecond(inTime):
-    return timeToStr(strToTime(inTime)+relativedelta(seconds=1))
-  
+    return timeToStr(strToTime(inTime) + relativedelta(seconds=1))
+
+
 def getPrevSecond(inTime):
-    return timeToStr(strToTime(inTime)-relativedelta(seconds=1))
+    return timeToStr(strToTime(inTime) - relativedelta(seconds=1))
+
 
 def getNextMinute(inTime):
     t = strToTime(inTime)
-    return timeToStr(t+relativedelta(minutes=1,seconds=-t.second))
+    return timeToStr(t + relativedelta(minutes=1, seconds=-t.second))
+
 
 def getDate(inDate=None, days=0):
     if not inDate:
-      inDate = currentDate()
+        inDate = currentDate()
     d = strToDate(inDate)
     if days:
-      d += relativedelta(days=days)
+        d += relativedelta(days=days)
     return dateToStr(d)
 
-def getNextDayOfMonthDate(inDate,inDay=-1,inMonth=1):
+
+def getNextDayOfMonthDate(inDate, inDay=-1, inMonth=1):
     if inDay >= 1:
         inDay -= 1
 
-    day =  date(inDate.year,inDate.month,1);
+    day = date(inDate.year, inDate.month, 1)
     day += relativedelta(months=inMonth)
     day += relativedelta(days=inDay)
 
-#    if day <= date(inDate.year,inDate.month,inDate.day):
-#        day =  date(inDate.year,inDate.month,1);
-#        day += relativedelta(months=1)
-#        day += relativedelta(months=inMonth)
-#        day += relativedelta(days=1)
-#        day += relativedelta(days=inDay)
+    #    if day <= date(inDate.year,inDate.month,inDate.day):
+    #        day =  date(inDate.year,inDate.month,1);
+    #        day += relativedelta(months=1)
+    #        day += relativedelta(months=inMonth)
+    #        day += relativedelta(days=1)
+    #        day += relativedelta(days=inDay)
 
     return day
 
 
-def getNextDayOfMonth(inDate,inDay=-1,inMonth=1):
+def getNextDayOfMonth(inDate, inDay=-1, inMonth=1):
     """ Get next day of month """
-    return dateToStr(getNextDayOfMonthDate(strToDate(inDate),inDay=inDay,inMonth=inMonth))
+    return dateToStr(
+        getNextDayOfMonthDate(strToDate(inDate), inDay=inDay, inMonth=inMonth)
+    )
+
 
 def getFirstOfYear(inDate):
     if not inDate:
         return inDate
     inDate = strToDate(inDate)
-    return dateToStr(date(inDate.year,1,1))
+    return dateToStr(date(inDate.year, 1, 1))
+
 
 def getFirstOfNextYear(inDate):
     if not inDate:
         return inDate
     inDate = strToDate(inDate)
-    dt = date(inDate.year,1,1)
+    dt = date(inDate.year, 1, 1)
     dt += relativedelta(years=1)
     return dateToStr(dt)
+
 
 def getFirstOfMonth(inDate):
     if not inDate:
         return inDate
     inDate = strToDate(inDate)
-    return dateToStr(date(inDate.year,inDate.month,1))
+    return dateToStr(date(inDate.year, inDate.month, 1))
+
 
 def getFirstOfNextMonth(inDate):
     if not inDate:
         return inDate
     inDate = strToDate(inDate)
-    dt = date(inDate.year,inDate.month,1)
+    dt = date(inDate.year, inDate.month, 1)
     dt += relativedelta(months=1)
     return dateToStr(dt)
 
+
 def getFirstOfLastMonth():
     cur_dt = datetime.now()
-    cur_dt -= relativedelta(months=1)  
+    cur_dt -= relativedelta(months=1)
     return getFirstOfMonth(cur_dt)
+
 
 def getEndOfMonth(inDate):
     return getNextDayOfMonth(inDate)
+
 
 def getFirstOfWeek(inDate):
     if not inDate:
@@ -262,6 +303,7 @@ def getFirstOfWeek(inDate):
     inDate = strToDate(inDate)
     inDate -= relativedelta(days=inDate.weekday())
     return dateToStr(inDate)
+
 
 def getFirstOfNextWeek(inDate):
     if not inDate:
@@ -271,25 +313,29 @@ def getFirstOfNextWeek(inDate):
     inDate += relativedelta(days=7)
     return dateToStr(inDate)
 
+
 def getNextDayDate(inDate):
     inDate = strToDate(inDate)
-    day =  date(inDate.year,inDate.month,inDate.day);
+    day = date(inDate.year, inDate.month, inDate.day)
     day += relativedelta(days=1)
     return dateToStr(day)
 
+
 def getPrevDayDate(inDate):
     inDate = strToDate(inDate)
-    day =  date(inDate.year,inDate.month,inDate.day);
+    day = date(inDate.year, inDate.month, inDate.day)
     day -= relativedelta(days=1)
     return dateToStr(day)
 
+
 def getLastTimeOfDay(inDate):
-    day =  datetime(inDate.year,inDate.month,inDate.day);
+    day = datetime(inDate.year, inDate.month, inDate.day)
     day += relativedelta(days=1)
     day -= relativedelta(seconds=1)
     return day
 
-def getDateSequence(inStartSeq,inSeq,inCurrentDate,inMaxMonths=0,inDay=-1):
+
+def getDateSequence(inStartSeq, inSeq, inCurrentDate, inMaxMonths=0, inDay=-1):
     """ get sequence for the passed date
         @param:  inMaxMonths the max month of a period
         @return: a Sequence of DateSequenceEntry
@@ -301,45 +347,49 @@ def getDateSequence(inStartSeq,inSeq,inCurrentDate,inMaxMonths=0,inDay=-1):
     if not inStartSeq:
         return resSeq
 
-    #convert dates
+    # convert dates
     inStartSeq = strToDate(inStartSeq)
     inCurrentDate = strToDate(inCurrentDate)
 
-    #get months
-    startSeqMonth = (inStartSeq.year*12)+inStartSeq.month-1
-    lastDateMonth = (inCurrentDate.year*12)+inCurrentDate.month-1
+    # get months
+    startSeqMonth = (inStartSeq.year * 12) + inStartSeq.month - 1
+    lastDateMonth = (inCurrentDate.year * 12) + inCurrentDate.month - 1
 
-    #get last seq month
-    lastSeqMonth=inSeq[-1]
-    if lastSeqMonth==0:
-        lastSeqMonth=1
+    # get last seq month
+    lastSeqMonth = inSeq[-1]
+    if lastSeqMonth == 0:
+        lastSeqMonth = 1
 
-    #get month and period count
-    months = lastDateMonth-startSeqMonth
-    periodCount = int(math.floor((lastDateMonth-startSeqMonth) / lastSeqMonth))
+    # get month and period count
+    months = lastDateMonth - startSeqMonth
+    periodCount = int(math.floor((lastDateMonth - startSeqMonth) / lastSeqMonth))
 
-    #check if sequence is over
+    # check if sequence is over
     if inMaxMonths and periodCount >= 1 and months > inMaxMonths:
         return resSeq
 
-    #get sequences
-    nextStartSeq = inStartSeq + relativedelta(months=periodCount*lastSeqMonth)
+    # get sequences
+    nextStartSeq = inStartSeq + relativedelta(months=periodCount * lastSeqMonth)
     for seq in inSeq:
-        cur = getNextDayOfMonth(nextStartSeq+relativedelta(months=seq-1),inDay=inDay)
-        resSeq.append(DateSequenceEntry(cur,inSeq=seq))
+        cur = getNextDayOfMonth(
+            nextStartSeq + relativedelta(months=seq - 1), inDay=inDay
+        )
+        resSeq.append(DateSequenceEntry(cur, inSeq=seq))
 
-    #check if it is last sequence
+    # check if it is last sequence
     if resSeq:
         if inMaxMonths:
             seqEntry = resSeq[-1]
-            inMaxDate = getNextDayOfMonth(inStartSeq+relativedelta(months=inMaxMonths-1),inDay=inDay)
+            inMaxDate = getNextDayOfMonth(
+                inStartSeq + relativedelta(months=inMaxMonths - 1), inDay=inDay
+            )
             if seqEntry.date >= inMaxDate:
                 seqEntry.finalSeq = True
 
     return resSeq
 
 
-def getNextSequenceEntry(inStartSeq,inSeq,inLastDate,inMaxMonths=0,inDay=-1):
+def getNextSequenceEntry(inStartSeq, inSeq, inLastDate, inMaxMonths=0, inDay=-1):
     """ get next entry of sequence
     @param inStartSeq: Start Date of Sequence
     @param inSeq: Sequence Pattern (Months)
@@ -350,7 +400,7 @@ def getNextSequenceEntry(inStartSeq,inSeq,inLastDate,inMaxMonths=0,inDay=-1):
     """
 
     if not inLastDate or inStartSeq == inLastDate:
-        seqEntries =  getDateSequence(inStartSeq,inSeq,inStartSeq,inMaxMonths,inDay)
+        seqEntries = getDateSequence(inStartSeq, inSeq, inStartSeq, inMaxMonths, inDay)
         if seqEntries:
             return seqEntries[0]
 
@@ -358,7 +408,7 @@ def getNextSequenceEntry(inStartSeq,inSeq,inLastDate,inMaxMonths=0,inDay=-1):
         inLastDate = strToDate(inLastDate)
         inLastDate += relativedelta(days=1)
         inLastDate = dateToStr(inLastDate)
-        seqEntries =  getDateSequence(inStartSeq,inSeq,inLastDate,inMaxMonths,inDay)
+        seqEntries = getDateSequence(inStartSeq, inSeq, inLastDate, inMaxMonths, inDay)
         for entry in seqEntries:
             if entry.date > inLastDate:
                 return entry
@@ -366,11 +416,11 @@ def getNextSequenceEntry(inStartSeq,inSeq,inLastDate,inMaxMonths=0,inDay=-1):
     return None
 
 
-def getNextDaysOfMonths(inFromDate, inToDate,day=-1,month=1):
+def getNextDaysOfMonths(inFromDate, inToDate, day=-1, month=1):
     """ Get a list of last day beetween two dates """
 
-    inFromDate = getNextDayOfMonthDate(strToDate(inFromDate),day=day,month=month)
-    inToDate = getNextDayOfMonthDate(strToDate(inToDate),day=day,month=month)
+    inFromDate = getNextDayOfMonthDate(strToDate(inFromDate), day=day, month=month)
+    inToDate = getNextDayOfMonthDate(strToDate(inToDate), day=day, month=month)
 
     day = inFromDate
     delta = relativedelta(months=1)
@@ -379,7 +429,7 @@ def getNextDaysOfMonths(inFromDate, inToDate,day=-1,month=1):
     while day <= inToDate:
         res.append(dateToStr(day))
         day += delta
-        day = getNextDayOfMonthDate(day,day=day,month=month)
+        day = getNextDayOfMonthDate(day, day=day, month=month)
 
     return res
 
@@ -392,88 +442,90 @@ def getMonths(inFromDate, inToDate):
 
     i = inFromDate
     delta = relativedelta(months=1)
-    months=0
+    months = 0
     date
     while i <= inToDate:
-        months+=1
-        i+=delta
+        months += 1
+        i += delta
 
     if months > 0:
         return months
 
     return 1
 
+
 def getWeek(str_date):
     dt = strToDate(str_date)
     if dt:
-      return dt.isocalendar()[1]
+        return dt.isocalendar()[1]
     return None
-  
+
+
 def getYearWeek(str_date):
     dt = strToDate(str_date)
-    if dt:  
-      return "%s-W%s" % (dt.year, dt.isocalendar()[1])
+    if dt:
+        return "%s-W%s" % (dt.year, dt.isocalendar()[1])
     return None
-  
+
+
 def getYearMonth(str_date):
     dt = strToDate(str_date)
-    if dt:    
-      return "%s-%s" % (dt.year, dt.month)
+    if dt:
+        return "%s-%s" % (dt.year, dt.month)
     return None
-  
+
+
 def getYear(str_date):
     dt = strToDate(str_date)
     if dt:
-      return dt.year
+        return dt.year
     return None
-  
+
+
 def getYearStr(str_date):
     year = getYear(str_date)
     if year:
-      return "%s" % year
+        return "%s" % year
     return None
 
+
 def cleanFileName(inName):
-    repl_map = {
-            "Ö" : "Oe",
-            "Ü" : "Ue",
-            "Ä" : "Ae",
-            "ö" : "oe",
-            "ü" : "ue",
-            "ä" : "ae"
-    }
+    repl_map = {"Ö": "Oe", "Ü": "Ue", "Ä": "Ae", "ö": "oe", "ü": "ue", "ä": "ae"}
 
+    for key, value in repl_map.iteritems():
+        inName = inName.replace(key, value)
 
-    for key,value in repl_map.iteritems():
-        inName = inName.replace(key,value)
-
-    inName = inName.replace(", ","_")
-    inName = inName.replace(" ","_")
-    inName = re.sub("[^a-zA-Z0-9\-_ ,]","",inName)
+    inName = inName.replace(", ", "_")
+    inName = inName.replace(" ", "_")
+    inName = re.sub("[^a-zA-Z0-9\-_ ,]", "", inName)
     return inName
+
 
 def toList(inStr):
     strList = [str(x) for x in inStr]
     res = ",".join(strList)
     return "(%s)" % (res,)
 
+
 def idFirst(inIds):
     if isinstance(inIds, (int, long, float)):
         return inIds
-    if isinstance(inIds, (list,tuple)) and inIds:
+    if isinstance(inIds, (list, tuple)) and inIds:
         return inIds[0]
     return None
+
 
 def idList(inIds):
     if isinstance(inIds, (int, long, float)):
         inIds = [inIds]
     return inIds
 
-def createTempFileFromBinary(ext,data=None,datas=None):
+
+def createTempFileFromBinary(ext, data=None, datas=None):
     data = (datas and base64.decodestring(datas)) or data
     if data and ext:
         tempFile = tempfile.mktemp(ext)
-        fp = open(tempFile,"wb")
+        fp = open(tempFile, "wb")
         try:
             fp.write(data)
         finally:
@@ -481,12 +533,14 @@ def createTempFileFromBinary(ext,data=None,datas=None):
         return tempFile
     return None
 
+
 def model_get(inContext):
     data = inContext.get("data")
     model = data and data.get("model") or inContext.get("active_model") or None
     return model
 
-def active_ids(inContext,inObj=None):
+
+def active_ids(inContext, inObj=None):
     if inContext:
         active_ids = inContext.get("active_ids")
         if not active_ids:
@@ -495,130 +549,138 @@ def active_ids(inContext,inObj=None):
                 active_ids = [active_id]
         active_model = inContext.get("active_model")
         if inObj:
-            if not isinstance(inObj,basestring):
-                inObj=inObj._name
-            if active_ids and active_model==inObj:
+            if not isinstance(inObj, basestring):
+                inObj = inObj._name
+            if active_ids and active_model == inObj:
                 return active_ids
         elif active_ids:
             return active_ids
     return []
 
-def active_id(inContext,inObj=None):
-    ids = active_ids(inContext,inObj)
+
+def active_id(inContext, inObj=None):
+    ids = active_ids(inContext, inObj)
     return ids and ids[0] or None
 
-def removeIfEmpty(d,key):
+
+def removeIfEmpty(d, key):
     if d.has_key(key):
         val = d.get(key)
         if not val:
             del d[key]
 
-def data_get(inContext,multi=False):
+
+def data_get(inContext, multi=False):
     data = inContext.get("data")
     if not data:
         model = inContext.get("active_model")
         ids = inContext.get("active_ids")
         oid = ids and ids[0] or inContext.get("active_id") or None
         if model and oid:
-            data = {
-              "model" : model,
-              "id" : oid
-            }
+            data = {"model": model, "id": oid}
             if multi:
                 if ids:
-                    data["ids"]=ids
+                    data["ids"] = ids
                 else:
-                    data["ids"]=[oid]
+                    data["ids"] = [oid]
     return data or {}
 
-def password(size=10,charset="abcdefghijklmnopqrstuvwxyz0123456789"):
+
+def password(size=10, charset="abcdefghijklmnopqrstuvwxyz0123456789"):
     chars = []
-    i=0
-    while i<size:
+    i = 0
+    while i < size:
         chars.append(random.choice(charset))
-        i+=1
+        i += 1
     return "".join(chars)
+
 
 def bits(value):
     bits = 0
-    while (value >= (1 << bits)):
-        bits+=1
+    while value >= (1 << bits):
+        bits += 1
     return bits
 
-def writeProperties(path,properties,bool_true="true",bool_false="false"):
-    f = open(path,"w")
+
+def writeProperties(path, properties, bool_true="true", bool_false="false"):
+    f = open(path, "w")
     try:
-        for key,value in properties.items():
-            str_value=""
+        for key, value in properties.items():
+            str_value = ""
             if type(value) is bool:
-                str_value=value and bool_true or bool_false
-            elif value or type(value) in (int,long,float):
-                str_value=str(value)
-            f.write("%s=%s\n" % (key,str_value))
+                str_value = value and bool_true or bool_false
+            elif value or type(value) in (int, long, float):
+                str_value = str(value)
+            f.write("%s=%s\n" % (key, str_value))
     finally:
         f.close()
 
+
 def datePrivious(inDate):
     inDate = strToDate(inDate)
-    day =  date(inDate.year,inDate.month,inDate.day);
+    day = date(inDate.year, inDate.month, inDate.day)
     day -= relativedelta(days=1)
     return day
 
+
 def dateEasterSunday(inYear):
-    a =  inYear % 19
+    a = inYear % 19
     k = inYear / 100
-    m = 15 + (3*k + 3) / 4 - (8*k + 13) / 25
-    d = (19*a + m) % 30
-    s = 2 - (3*k + 3) / 4
+    m = 15 + (3 * k + 3) / 4 - (8 * k + 13) / 25
+    d = (19 * a + m) % 30
+    s = 2 - (3 * k + 3) / 4
     r = (d + a / 11) / 29
     og = 21 + d - r
     sz = 7 - (inYear + inYear / 4 + s) % 7
     oe = 7 - (og - sz) % 7
-    os = (og + oe)-1
-    easter_sunday = date(inYear,3,1)
+    os = (og + oe) - 1
+    easter_sunday = date(inYear, 3, 1)
     easter_sunday += relativedelta(days=os)
     return easter_sunday
 
-def sumUp(dictBase,dictOther):
+
+def sumUp(dictBase, dictOther):
     for key, otherValue in dictOther.items():
         if isinstance(otherValue, dict):
             value = dictBase.get(key)
             if not value:
-                dictBase[key]=otherValue
+                dictBase[key] = otherValue
             else:
-                sumUp(value,otherValue)
-        elif type(otherValue) in (long,int,float):
+                sumUp(value, otherValue)
+        elif type(otherValue) in (long, int, float):
             value = dictBase.get(key)
             if not value:
-                dictBase[key]=otherValue
+                dictBase[key] = otherValue
             else:
-                dictBase[key]=value+otherValue
+                dictBase[key] = value + otherValue
     return dictBase
+
 
 def getNames(values):
     """ return the names from the value record dict as list """
     res = []
     if not values:
         return res
-    for key,value in values.items():
-        if key=="id":
+    for key, value in values.items():
+        if key == "id":
             continue
-        if isinstance(value,tuple):
+        if isinstance(value, tuple):
             res.append(value[1])
         else:
             res.append(value)
     return res
 
+
 def getId(val):
     """ Parses an Id or return None if id is unparseable """
     if not val:
         return None
-    if isinstance(val,int):
+    if isinstance(val, int):
         return val
-    if isinstance(val,float):
+    if isinstance(val, float):
         return int(val)
-    if isinstance(val,basestring):
-        m=PATTERN_ID.match(val)
+    if isinstance(val, basestring):
+        m = PATTERN_ID.match(val)
         if m:
             return int(m.group(1))
     return None
@@ -629,21 +691,24 @@ def tryParseDate(val):
         :return: None if date unable to parse, or an tuble with
                   date time value and string
     """
-    if val and isinstance(val,basestring):
+    if val and isinstance(val, basestring):
         for f in DATE_FORMATS:
             try:
-                res = datetime.strptime(val,f)
-                return (res,datetime.strftime(res,f))
+                res = datetime.strptime(val, f)
+                return (res, datetime.strftime(res, f))
             except:
                 pass
     return None, None
 
-def getSalt(chars = string.letters + string.digits):
+
+def getSalt(chars=string.letters + string.digits):
     # generate a random 2-character 'salt'
     return random.choice(chars) + random.choice(chars)
 
+
 def crypt(password):
     return crypt.crypt(password, getSalt())
+
 
 def deepUpdate(d, u):
     for k, v in u.iteritems():
@@ -654,48 +719,62 @@ def deepUpdate(d, u):
             d[k] = u[k]
     return d
 
+
 def calcEanCRC(val):
-    fact = (1,3)
+    fact = (1, 3)
     crc = 0
-    for i,n in enumerate(val):
-        crc += int(n) * fact[i%2]
+    for i, n in enumerate(val):
+        crc += int(n) * fact[i % 2]
     crc = crc % 10
     if crc:
-        return val + str(10-crc)
+        return val + str(10 - crc)
     return val + "0"
-  
+
+
 def getTimeContext(time=None, context=None):
     if context is None:
         context = {}
 
-    if not time:        
-      time = datetime.now(pytz.timezone(context.get('tz') or 'UTC'))
+    if not time:
+        time = datetime.now(pytz.timezone(context.get("tz") or "UTC"))
     elif isinstance(time, basestring):
-      time = strToDate(time)
+        time = strToDate(time)
 
     sequences = {
-        'year': '%Y', 'month': '%m', 'day': '%d', 'y': '%y', 'doy': '%j', 'woy': '%W',
-        'weekday': '%w', 'h24': '%H', 'h12': '%I', 'min': '%M', 'sec': '%S'
+        "year": "%Y",
+        "month": "%m",
+        "day": "%d",
+        "y": "%y",
+        "doy": "%j",
+        "woy": "%W",
+        "weekday": "%w",
+        "h24": "%H",
+        "h12": "%I",
+        "min": "%M",
+        "sec": "%S",
     }
     return {key: time.strftime(sequence) for key, sequence in sequences.iteritems()}
 
+
 def strToIsoTime(time):
     if not time:
-      return None
-    time = strToTime(time)    
+        return None
+    time = strToTime(time)
     return time.strftime(ISO_FORMAT_UTC)
+
 
 def isoToStrTime(time):
     if not time:
-      return None
+        return None
     val = dateutil.parser.parse(time)
     if not val.tzinfo:
         val = pytz.utc.localize(val)
     val = val.astimezone(pytz.utc).replace(tzinfo=None)
-    return timeToStr(val)    
+    return timeToStr(val)
 
-if __name__ == '__main__':
-    print dateEasterSunday(2013)-dateEasterSunday(2012)
+
+if __name__ == "__main__":
+    print dateEasterSunday(2013) - dateEasterSunday(2012)
 #     print password(32)
 #
 #     res = getDateSequence("2011-04-01",[1,2,3,4,5,6],"2011-04-01",6,inDay=-1)

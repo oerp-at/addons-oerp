@@ -20,18 +20,19 @@
 
 from openerp.osv import fields, osv
 
+
 class sale_shop(osv.Model):
     _inherit = "sale.shop"
-    _columns = {
-        "carrier_id" : fields.many2one("delivery.carrier", "Carrier")
-    }
-    
+    _columns = {"carrier_id": fields.many2one("delivery.carrier", "Carrier")}
+
 
 class sale_order(osv.Model):
     _inherit = "sale.order"
-    
+
     def onchange_shop_id(self, cr, uid, ids, shop_id, state, project_id, context=None):
-        res = super(sale_order, self).onchange_shop_id(cr, uid, ids, shop_id, state, project_id, context=context)
+        res = super(sale_order, self).onchange_shop_id(
+            cr, uid, ids, shop_id, state, project_id, context=context
+        )
         if shop_id:
             shop = self.pool["sale.shop"].browse(cr, uid, shop_id, context=context)
             if shop.carrier_id:

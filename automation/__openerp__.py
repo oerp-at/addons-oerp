@@ -19,9 +19,9 @@
 ##############################################################################
 
 {
-    "name" : "Automation",
-    "summary" : "Implementation of a background task queue",
-    "description":"""
+    "name": "Automation",
+    "summary": "Implementation of a background task queue",
+    "description": """
 Automation
 ==========
 
@@ -30,17 +30,19 @@ Automation
 * Task workflow
 
     """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Automation",
-    "depends" : ["at_base"],
-    "data" : ["security.xml",
-              "data/cleanup_cron.xml",
-              "views/task_log.xml",
-              "views/stage_view.xml",
-              "views/task_view.xml",
-              "views/cron_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Automation",
+    "depends": ["at_base"],
+    "data": [
+        "security.xml",
+        "data/cleanup_cron.xml",
+        "views/task_log.xml",
+        "views/stage_view.xml",
+        "views/task_view.xml",
+        "views/cron_view.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

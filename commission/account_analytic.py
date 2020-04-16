@@ -20,8 +20,7 @@
 
 from openerp.osv import fields, osv
 
+
 class account_analytic_account(osv.Model):
     _inherit = "account.analytic.account"
-    _columns = {
-        "salesman_id" : fields.many2one("res.users", "Salesman")        
-    }
+    _columns = {"salesman_id": fields.many2one("res.users", "Salesman")}

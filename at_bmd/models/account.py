@@ -20,7 +20,8 @@
 
 from openerp import models, fields, api, _
 
+
 class account_tax(models.Model):
     _inherit = "account.tax"
-    
+
     bmd_steucod = fields.Char("BMD steucod")

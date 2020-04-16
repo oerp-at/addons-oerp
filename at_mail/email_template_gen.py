@@ -133,7 +133,7 @@ class email_template_gen(models.Model):
         "No Sanitize",
         help="Don't filter out unsecure elements",
         readonly=True,
-        states={"draft": [("readonly", False)]}
+        states={"draft": [("readonly", False)]},
     )
 
     def _assemble(self):
@@ -183,7 +183,7 @@ class email_template_gen(models.Model):
                     self.browse(template_gen.id).with_context(
                         lang=lang.code, update_template_by_gen=True
                     )._transfer()
-                
+
                 processed_template_ids.add(template.id)
                 processed_gen_ids.append(template_gen.id)
 

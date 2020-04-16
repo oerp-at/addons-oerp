@@ -17,8 +17,8 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Human Resources",
-    "description":"""
+    "name": "oerp.at Human Resources",
+    "description": """
 oerp.at Human Resource Extensions
 =================================
 
@@ -27,12 +27,12 @@ oerp.at Human Resource Extensions
 * Aeroo Reports for timesheet
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Human Resources",    
-    "depends" : ["hr","hr_timesheet_sheet","at_base","at_resource"],
-    "data" : [],
+    "category": "Human Resources",
+    "depends": ["hr", "hr_timesheet_sheet", "at_base", "at_resource"],
+    "data": [],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

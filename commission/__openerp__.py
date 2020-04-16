@@ -21,35 +21,39 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Commission",
-    "description":"""
+    "name": "oerp.at Commission",
+    "description": """
 Commission Base Module
 ======================
 
 Basic module for commission management
 
 """,
-    "version" : "1.2",
-    "author" :  "oerp.at",
-    "category" : "Commission",
-    "depends" : ["at_base",
-                 "at_account",
-                 "at_sale",
-                 "analytic",
-                 "product",
-                 "sale_margin",
-                 "automation"],
-    "data" : ["security.xml",
-              "menu.xml",
-              "view/commission_task_view.xml",
-              "view/company_view.xml",
-              "view/commission_view.xml",
-              "view/commission_invoice_wizard.xml",
-              "view/analytic_view.xml",
-              "view/product_view.xml",
-              "view/product_category_view.xml",
-              "data/product_categories.xml",
-              "data/product_uom.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.2",
+    "author": "oerp.at",
+    "category": "Commission",
+    "depends": [
+        "at_base",
+        "at_account",
+        "at_sale",
+        "analytic",
+        "product",
+        "sale_margin",
+        "automation",
+    ],
+    "data": [
+        "security.xml",
+        "menu.xml",
+        "view/commission_task_view.xml",
+        "view/company_view.xml",
+        "view/commission_view.xml",
+        "view/commission_invoice_wizard.xml",
+        "view/analytic_view.xml",
+        "view/product_view.xml",
+        "view/product_category_view.xml",
+        "data/product_categories.xml",
+        "data/product_uom.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

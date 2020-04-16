@@ -21,19 +21,19 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Invoice Merge",
-    "description":"""
+    "name": "oerp.at Invoice Merge",
+    "description": """
 oerp.at Invoice Merge
 =====================
 
 * Allow to merge non validated invoices of the same partner
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Accounting & Finance",
-    "depends" : ["at_account"],    
-    "data" : ["wizard/invoice_merge_wizard.xml"],
+    "category": "Accounting & Finance",
+    "depends": ["at_account"],
+    "data": ["wizard/invoice_merge_wizard.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

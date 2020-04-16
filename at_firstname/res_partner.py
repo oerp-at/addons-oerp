@@ -17,27 +17,23 @@
 #
 ##############################################################################
 
-from openerp.osv import fields,osv
+from openerp.osv import fields, osv
+
 
 class res_partner(osv.osv):
-    
     def default_get(self, cr, uid, fields_list, context=None):
         res = super(res_partner, self).default_get(cr, uid, fields_list, context)
         name = res.get("name")
         if name:
             surname, firstname = self._split_name(name)
-            
+
             if "firstname" in fields_list and not res.get("firstname") and firstname:
                 res["firstname"] = firstname
-                
+
             if "surname" in fields_list and not res.get("surname") and surname:
                 res["surname"] = surname
-             
+
         return res
-    
+
     _inherit = "res.partner"
-    _columns = {
-      "is_person": fields.boolean("Person")
-    }
-
-
+    _columns = {"is_person": fields.boolean("Person")}

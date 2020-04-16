@@ -19,19 +19,18 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at City Extension",
-    "description":"""
+    "name": "oerp.at City Extension",
+    "description": """
        City Resource Module
        ====================
        * Support for city resource
        * Support for city auto completion within partner form
     """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Base",
-    "depends" : ["base"],  
-    "data" : ["view/partner_view.xml",
-              "security.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Base",
+    "depends": ["base"],
+    "data": ["view/partner_view.xml", "security.xml"],
+    "auto_install": False,
+    "installable": True,
 }

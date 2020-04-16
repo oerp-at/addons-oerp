@@ -20,25 +20,37 @@
 #
 ##############################################################################
 
-from openerp.osv import fields,osv
+from openerp.osv import fields, osv
+
 
 class password_entry(osv.osv):
-    _rec_name = "subject" 
+    _rec_name = "subject"
     _columns = {
-        "subject" : fields.char("Name",select=True),
-        "login" : fields.char("Login",select=True),
-        "password" : fields.char("Password",select=True),
-        "partner_id" : fields.many2one("res.partner","Partner", select=True, ondelete="cascade") ,
-        "group_id" : fields.many2one("res.groups","Group"),
-        "description" : fields.text("Description", select=True),
-        "company_id" : fields.related("partner_id","company_id",type="many2one",relation="res.company",string="Company",store=True,readonly=True,select=True)
-    }    
-    _name="password.entry"
-    _description="Password Entry"
+        "subject": fields.char("Name", select=True),
+        "login": fields.char("Login", select=True),
+        "password": fields.char("Password", select=True),
+        "partner_id": fields.many2one(
+            "res.partner", "Partner", select=True, ondelete="cascade"
+        ),
+        "group_id": fields.many2one("res.groups", "Group"),
+        "description": fields.text("Description", select=True),
+        "company_id": fields.related(
+            "partner_id",
+            "company_id",
+            type="many2one",
+            relation="res.company",
+            string="Company",
+            store=True,
+            readonly=True,
+            select=True,
+        ),
+    }
+    _name = "password.entry"
+    _description = "Password Entry"
 
 
 class res_partner(osv.osv):
     _columns = {
-        "password_ids" : fields.one2many("password.entry","partner_id","Passwords")
-    }    
+        "password_ids": fields.one2many("password.entry", "partner_id", "Passwords")
+    }
     _inherit = "res.partner"

@@ -18,8 +18,8 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at jDoc",
-    "description":"""
+    "name": "oerp.at jDoc",
+    "description": """
 json Documents
 ==============
 
@@ -27,12 +27,12 @@ json Documents
 * CouchDB Sync
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Hidden",
-    "depends" : ["at_base"],
-    "data" : ["security.xml"],
+    "category": "Hidden",
+    "depends": ["at_base"],
+    "data": ["security.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

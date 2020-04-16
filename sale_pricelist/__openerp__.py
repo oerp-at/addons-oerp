@@ -19,19 +19,19 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Sale Pricelist",
-    "summary" : "Filter for products which exist in the pricelist",
-    "description":"""
+    "name": "oerp.at Sale Pricelist",
+    "summary": "Filter for products which exist in the pricelist",
+    "description": """
 oerp.at Sale Pricelist
 ======================
 * Filter products which exist in the selected price list
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Sale",
-    "depends" : ["sale","at_sale"],
-    "data" : [],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Sale",
+    "depends": ["sale", "at_sale"],
+    "data": [],
+    "auto_install": False,
+    "installable": True,
 }

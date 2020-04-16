@@ -20,14 +20,17 @@
 
 from openerp.osv import fields, osv
 
+
 class sale_order(osv.Model):
     _inherit = "sale.order"
-    
+
     def _writeable(self, cr, uid, ids, field_name, arg, context=None):
         writable = self.check_access_rights(cr, uid, "write", raise_exception=False)
         res = dict.fromkeys(ids, writable)
         return res
-    
+
     _columns = {
-        "writeable" : fields.function(_writeable, string="Writeable", type="boolean", store=False)
+        "writeable": fields.function(
+            _writeable, string="Writeable", type="boolean", store=False
+        )
     }

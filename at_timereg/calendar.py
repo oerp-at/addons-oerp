@@ -20,9 +20,17 @@
 
 from openerp.osv import fields, osv
 
+
 class calendar_event_type(osv.Model):
 
-    _inherit = 'calendar.event.type'
+    _inherit = "calendar.event.type"
     _columns = {
-       "leave_type" : fields.selection([("holiday","Holiday"),("sickness","Sickness"),("compensatory_days","Compensatory Days")],"Leave Type")
+        "leave_type": fields.selection(
+            [
+                ("holiday", "Holiday"),
+                ("sickness", "Sickness"),
+                ("compensatory_days", "Compensatory Days"),
+            ],
+            "Leave Type",
+        )
     }

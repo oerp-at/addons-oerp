@@ -19,19 +19,17 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Logistic",
-    "description":"""
+    "name": "oerp.at Logistic",
+    "description": """
 oerp.at Logistic
 =================
 * Adds logistic menu and users
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Logistic",
-    "depends" : ["at_base"],
-    "data" : ["security.xml",
-              "menu.xml"
-              ],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Logistic",
+    "depends": ["at_base"],
+    "data": ["security.xml", "menu.xml"],
+    "auto_install": False,
+    "installable": True,
 }

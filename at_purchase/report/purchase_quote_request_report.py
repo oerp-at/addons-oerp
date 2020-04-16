@@ -23,28 +23,33 @@
 from openerp.report import report_sxw
 from openerp.tools.translate import _
 
+
 class Parser(report_sxw.rml_parse):
     def __init__(self, cr, uid, name, context=None):
         super(Parser, self).__init__(cr, uid, name, context=context)
-        self.localcontext.update({
-            "address_lines" : self._address_lines,
-            "delivery_address_lines" : self._delivery_address_lines
-        })
+        self.localcontext.update(
+            {
+                "address_lines": self._address_lines,
+                "delivery_address_lines": self._delivery_address_lines,
+            }
+        )
 
-    def _address_lines(self,purchase):
+    def _address_lines(self, purchase):
         partner = purchase.partner_id or None
         if partner:
             partner_obj = self.pool.get("res.partner")
-            return partner_obj._build_address_text(self.cr, self.uid, partner) 
-        return []  
-    
-    def _delivery_address_lines(self,purchase):
-        partner = purchase.dest_address_id or (purchase.warehouse_id and purchase.warehouse_id.partner_id) or None
+            return partner_obj._build_address_text(self.cr, self.uid, partner)
+        return []
+
+    def _delivery_address_lines(self, purchase):
+        partner = (
+            purchase.dest_address_id
+            or (purchase.warehouse_id and purchase.warehouse_id.partner_id)
+            or None
+        )
         if partner:
             partner_obj = self.pool.get("res.partner")
             return partner_obj._build_address_text(self.cr, self.uid, partner)
         elif purchase.warehouse_id:
-            return [purchase.warehouse_id.name]        
-        return []  
-    
-    
+            return [purchase.warehouse_id.name]
+        return []

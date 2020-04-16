@@ -23,59 +23,74 @@ import logging
 
 _logger = logging.getLogger(__file__)
 
+
 class log_basic(osv.AbstractModel):
     _name = "log.basic"
     _description = "Basic Log"
-    _columns = {        
-        "severity" : fields.selection([("i","Info"),("w","Warning"),("e","Error")],"Severity",required=True),
-        "name" : fields.char("Message"),
-        "detail" : fields.text("Detail")
+    _columns = {
+        "severity": fields.selection(
+            [("i", "Info"), ("w", "Warning"), ("e", "Error")], "Severity", required=True
+        ),
+        "name": fields.char("Message"),
+        "detail": fields.text("Detail"),
     }
-    
-    def log(self,cr,uid,message,detail=None,context=None):
+
+    def log(self, cr, uid, message, detail=None, context=None):
         _logger.info(message)
-        return self.create(cr, uid, { "name" : message, "severity" : "i", "detail" : detail }, context=context)
-        
-    def warn(self,cr,uid,message,detail=None,context=None):
+        return self.create(
+            cr,
+            uid,
+            {"name": message, "severity": "i", "detail": detail},
+            context=context,
+        )
+
+    def warn(self, cr, uid, message, detail=None, context=None):
         _logger.warn(message)
-        return self.create(cr, uid, { "name" : message, "severity" : "w", "detail" : detail }, context=context)
-        
-    def error(self,cr,uid,message,detail=None,context=None):
+        return self.create(
+            cr,
+            uid,
+            {"name": message, "severity": "w", "detail": detail},
+            context=context,
+        )
+
+    def error(self, cr, uid, message, detail=None, context=None):
         _logger.error(message)
-        return self.create(cr, uid, { "name" : message, "severity" : "e", "detail" : detail }, context=context)
-    
-    _default = {
-        "severity" : "i"
-    }
-        
+        return self.create(
+            cr,
+            uid,
+            {"name": message, "severity": "e", "detail": detail},
+            context=context,
+        )
+
+    _default = {"severity": "i"}
+
 
 class log_temp(osv.TransientModel):
     _name = "log.temp"
     _inherit = "log.basic"
     _description = "Temporary Log"
-    
+
 
 class log_temp_wizard(osv.TransientModel):
-
     def show_logs(self, cr, uid, log_ids, context=None):
         ir_obj = self.pool.get("ir.model.data")
-        wizard_form_id = ir_obj.get_object_reference(cr, uid, 'at_base', 'wizard_log_temp')[1]
+        wizard_form_id = ir_obj.get_object_reference(
+            cr, uid, "at_base", "wizard_log_temp"
+        )[1]
         log_context = dict(context)
-        log_context["default_log_ids"]=log_ids
-        return  {
-           "name" : "Logs",
-           "type": "ir.actions.act_window",
-           "view_type": "form",
-           "view_mode": "form",
-           "res_model": "log.temp.wizard",
-           "views": [(wizard_form_id, "form")],
-           "view_id": wizard_form_id,
-           "context" : log_context,
-           "target": "new"
+        log_context["default_log_ids"] = log_ids
+        return {
+            "name": "Logs",
+            "type": "ir.actions.act_window",
+            "view_type": "form",
+            "view_mode": "form",
+            "res_model": "log.temp.wizard",
+            "views": [(wizard_form_id, "form")],
+            "view_id": wizard_form_id,
+            "context": log_context,
+            "target": "new",
         }
-    
+
     _name = "log.temp.wizard"
     _description = "Logs"
-    _columns = {
-        "log_ids" : fields.many2many("log.temp", string="Logs",readonly=True)
-    } 
+    _columns = {"log_ids": fields.many2many("log.temp", string="Logs", readonly=True)}

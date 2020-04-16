@@ -22,10 +22,10 @@
 
 import stock_delivery_report
 
+
 class Parser(stock_delivery_report.Parser):
     def __init__(self, cr, uid, name, context):
         super(Parser, self).__init__(cr, uid, name, context=context)
-    
+
     def _all_pickings(self):
         return True
-    

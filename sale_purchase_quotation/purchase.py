@@ -22,87 +22,105 @@ from openerp.osv import fields, osv
 from openerp.tools.translate import _
 
 import logging
+
 logger = logging.getLogger(__name__)
 
+
 class purchase_order_line(osv.osv):
-    
-    def _get_pricelist_price(self, cr, uid, ids, field_name=None, arg=None, context=None):
+    def _get_pricelist_price(
+        self, cr, uid, ids, field_name=None, arg=None, context=None
+    ):
         """Get price by analyzing the pricelist of the given supplier."""
         res = dict.fromkeys(ids)
         pricelist_obj = self.pool.get("product.pricelist")
-        
+
         for line in self.browse(cr, uid, ids, context=context):
             partner = line.partner_id
             pricelist = partner.property_product_pricelist_purchase
             product = line.product_id
-            
+
             if not product or not pricelist or not partner:
                 continue
-            
+
             res[line.id] = product.standard_price
-            
+
             if pricelist:
-                price_dict = pricelist_obj.price_get(cr, uid, [pricelist.id], product.id, line.product_qty, context=context)
+                price_dict = pricelist_obj.price_get(
+                    cr,
+                    uid,
+                    [pricelist.id],
+                    product.id,
+                    line.product_qty,
+                    context=context,
+                )
                 if price_dict:
                     price = price_dict[pricelist.id]
                     if price:
                         res[line.id] = price
-                        
+
         return res
-    
+
     def _send_supplier_mail(self, cr, uid, ids, context=None):
         if not ids:
             return True
-        
+
         model_obj = self.pool["ir.model.data"]
-        
+
         # get template
         try:
-            template_id = model_obj.get_object_reference(cr, uid, "sale_purchase_quotation", "email_purchase_quotation")[1]
+            template_id = model_obj.get_object_reference(
+                cr, uid, "sale_purchase_quotation", "email_purchase_quotation"
+            )[1]
         except ValueError:
-            _logger.warn("Mail Template 'sale_purchase_quotation.email_to_supplier_with_quotation' not found")
+            _logger.warn(
+                "Mail Template 'sale_purchase_quotation.email_to_supplier_with_quotation' not found"
+            )
             template_id = False
-            
+
         # get compose form
-#         try:
-#             compose_form_id = model_obj.get_object_reference(cr, uid, "mail", "email_compose_message_wizard_inherit_form")[1]
-#         except ValueError:
-#             _logger.warn("Compose form 'mail_template.email_compose_message_wizard_inherit_form' not found")
-        compose_form_id = False 
-        
-        except_supplier_mail_sent = context and context.get("except_supplier_mail_sent") or False
+        #         try:
+        #             compose_form_id = model_obj.get_object_reference(cr, uid, "mail", "email_compose_message_wizard_inherit_form")[1]
+        #         except ValueError:
+        #             _logger.warn("Compose form 'mail_template.email_compose_message_wizard_inherit_form' not found")
+        compose_form_id = False
+
+        except_supplier_mail_sent = (
+            context and context.get("except_supplier_mail_sent") or False
+        )
         composition_mode = len(ids) > 1 and "mass_mail" or "comment"
-        
-        purchase_ids = []        
+
+        purchase_ids = []
         for line in self.browse(cr, uid, ids, context):
 
             # check mail send
             if line.quot_sent:
                 if except_supplier_mail_sent:
-                    raise osv.except_osv(_('Warning!'), _('E-mail was already sent to this supplier!'))
+                    raise osv.except_osv(
+                        _("Warning!"), _("E-mail was already sent to this supplier!")
+                    )
                 else:
                     continue
-            
+
             # add order for mail
             purchase_order = line.order_id
             if not purchase_order.id in purchase_ids:
                 purchase_ids.append(purchase_order.id)
-            
+
         if not purchase_ids:
             return True
-        
+
         email_context = {
-            "active_ids" : purchase_ids,
-            "active_id" : purchase_ids[0],
-            "active_model" : "purchase.order",
-            "context_origin" : "_send_supplier_mail",
-            "default_model" : "purchase.order",
-            "default_res_id" : purchase_ids[0],
-            "default_composition_mode" : composition_mode,
-            "default_template_id" : template_id,
-            "default_use_template" : bool(template_id)
+            "active_ids": purchase_ids,
+            "active_id": purchase_ids[0],
+            "active_model": "purchase.order",
+            "context_origin": "_send_supplier_mail",
+            "default_model": "purchase.order",
+            "default_res_id": purchase_ids[0],
+            "default_composition_mode": composition_mode,
+            "default_template_id": template_id,
+            "default_use_template": bool(template_id),
         }
-        
+
         return {
             "type": "ir.actions.act_window",
             "view_type": "form",
@@ -113,43 +131,55 @@ class purchase_order_line(osv.osv):
             "target": "new",
             "context": email_context,
         }
-          
-    def send_mail_supplier_one(self, cr, uid, ids, context=None):        
+
+    def send_mail_supplier_one(self, cr, uid, ids, context=None):
         if context is None:
             context = {}
         else:
             context = dict(context)
-            
-        context["except_supplier_mail_sent"]=True
+
+        context["except_supplier_mail_sent"] = True
         return self._send_supplier_mail(cr, uid, ids, context)
-    
-     
+
     _inherit = "purchase.order.line"
     _columns = {
-       "quot_sent" : fields.boolean("Selected"),
-       "pricelist_price" : fields.function(_get_pricelist_price, type="float", string="Pricelist Price")
-    }   
-    
-    
-class mail_compose_message(osv.TransientModel):
+        "quot_sent": fields.boolean("Selected"),
+        "pricelist_price": fields.function(
+            _get_pricelist_price, type="float", string="Pricelist Price"
+        ),
+    }
 
+
+class mail_compose_message(osv.TransientModel):
     def send_mail(self, cr, uid, ids, context=None):
-        if context and context.get("active_model") == "purchase.order" and context.get("context_origin") == "_send_supplier_mail":
+        if (
+            context
+            and context.get("active_model") == "purchase.order"
+            and context.get("context_origin") == "_send_supplier_mail"
+        ):
             active_ids = context.get("active_ids")
             if active_ids:
-                
+
                 # mark sent
                 purchase_line_obj = self.pool["purchase.order.line"]
-                mark_send_ids = purchase_line_obj.search(cr, uid, [("order_id","in",active_ids)], context=context)
-                purchase_line_obj.write(cr, uid, mark_send_ids, {"quot_sent":True}, context=context)
-                
-                # signal workflow                 
+                mark_send_ids = purchase_line_obj.search(
+                    cr, uid, [("order_id", "in", active_ids)], context=context
+                )
+                purchase_line_obj.write(
+                    cr, uid, mark_send_ids, {"quot_sent": True}, context=context
+                )
+
+                # signal workflow
                 context = dict(context)
-                # prevent trigger again in inherited method of addons/purchase/purchase.py               
-                context["default_res_id"]=None
-                context["mail_post_autofollow"]=True
-                self.pool["purchase.order"].signal_workflow(cr, uid, active_ids, 'send_rfq')
+                # prevent trigger again in inherited method of addons/purchase/purchase.py
+                context["default_res_id"] = None
+                context["mail_post_autofollow"] = True
+                self.pool["purchase.order"].signal_workflow(
+                    cr, uid, active_ids, "send_rfq"
+                )
 
-        return super(mail_compose_message, self).send_mail(cr, uid, ids, context=context)
+        return super(mail_compose_message, self).send_mail(
+            cr, uid, ids, context=context
+        )
 
-    _inherit = "mail.compose.message" 
+    _inherit = "mail.compose.message"

@@ -20,7 +20,8 @@
 
 from openerp import models, fields, api, _
 
+
 class SaleOrder(models.Model):
     _inherit = "sale.order"
-    
+
     layout_hide_sum = fields.Boolean("Hide Sum")

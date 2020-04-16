@@ -20,11 +20,12 @@
 
 from openerp.tests.common import TransactionCase
 
+
 class TestEcho(TransactionCase):
-  """Test Description"""
-  
-  def setUp(self):
-    super(TestEcho, self).setUp()
-  
-  def test_echo(self):
-    self.assertEqual(10, 10, "Test Sample")
+    """Test Description"""
+
+    def setUp(self):
+        super(TestEcho, self).setUp()
+
+    def test_echo(self):
+        self.assertEqual(10, 10, "Test Sample")

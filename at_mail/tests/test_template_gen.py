@@ -26,13 +26,17 @@ class TestTemplateGen(TransactionCase):
 
     def test_template_gen(self):
         company_obj = self.env["res.company"]
-        company = company_obj.browse(company_obj._company_default_get("sunhill.email.task"))
+        company = company_obj.browse(
+            company_obj._company_default_get("sunhill.email.task")
+        )
 
         email_template_obj = self.env["email.template"]
         email_template = self.env["email.template"].create(
             {
                 "name": "Test Template",
-                "model_id": self.env["ir.model"].search([("model", "=", "res.partner")], limit=1).id,
+                "model_id": self.env["ir.model"]
+                .search([("model", "=", "res.partner")], limit=1)
+                .id,
                 "subject": "${object.name}",
                 "body_html": "<p>${object.name}</p>",
             }
@@ -49,21 +53,47 @@ class TestTemplateGen(TransactionCase):
 
         email_gen_obj = self.env["email.template.gen"]
         email_gen = email_gen_obj.create(
-            {"name": "Test Generator", "header_id": email_header.id, "template_id": email_template.id}
+            {
+                "name": "Test Generator",
+                "header_id": email_header.id,
+                "template_id": email_template.id,
+            }
         )
 
         email_gen.with_context(lang="de_DE").write(
-            {"subject": "Test DE ${object.name}", "body_html": "<p>Hallo ${object.name}</p>"}
+            {
+                "subject": "Test DE ${object.name}",
+                "body_html": "<p>Hallo ${object.name}</p>",
+            }
         )
 
         email_gen.with_context(lang="en_US").write(
-            {"subject": "Test ${object.name}", "body_html": "<p>Hello ${object.name}</p>"}
+            {
+                "subject": "Test ${object.name}",
+                "body_html": "<p>Hello ${object.name}</p>",
+            }
         )
 
-        self.assertEqual(email_gen.with_context(lang="en_US").subject, "Test ${object.name}", "Test subject")
-        self.assertEqual(email_gen.with_context(lang="de_DE").subject, "Test DE ${object.name}", "Test subject DE")
-        self.assertEqual(email_gen.with_context(lang="en_US").body_html, "<p>Hello ${object.name}</p>", "Test body")
-        self.assertEqual(email_gen.with_context(lang="de_DE").body_html, "<p>Hallo ${object.name}</p>", "Test body DE")
+        self.assertEqual(
+            email_gen.with_context(lang="en_US").subject,
+            "Test ${object.name}",
+            "Test subject",
+        )
+        self.assertEqual(
+            email_gen.with_context(lang="de_DE").subject,
+            "Test DE ${object.name}",
+            "Test subject DE",
+        )
+        self.assertEqual(
+            email_gen.with_context(lang="en_US").body_html,
+            "<p>Hello ${object.name}</p>",
+            "Test body",
+        )
+        self.assertEqual(
+            email_gen.with_context(lang="de_DE").body_html,
+            "<p>Hallo ${object.name}</p>",
+            "Test body DE",
+        )
 
         email_header.action_validate()
         self.assertEqual(email_gen.state, "draft", "Check if it is still in draft")
@@ -71,20 +101,38 @@ class TestTemplateGen(TransactionCase):
         email_gen.action_validate()
         self.assertEqual(email_gen.state, "valid", "Check if valid")
 
-        result_en = "<p>Header for %(name)s</p>\n<p>Hello ${object.name}</p>\n<p>Footer for %(name)s</p>" % {
-            "name": company.partner_id.name
-        }
-        result_de = "<p>Header for %(name)s</p>\n<p>Hallo ${object.name}</p>\n<p>Footer for %(name)s</p>" % {
-            "name": company.partner_id.name
-        }
+        result_en = (
+            "<p>Header for %(name)s</p>\n<p>Hello ${object.name}</p>\n<p>Footer for %(name)s</p>"
+            % {"name": company.partner_id.name}
+        )
+        result_de = (
+            "<p>Header for %(name)s</p>\n<p>Hallo ${object.name}</p>\n<p>Footer for %(name)s</p>"
+            % {"name": company.partner_id.name}
+        )
 
         subject_en = "Test ${object.name}"
         subject_de = "Test DE ${object.name}"
 
-        self.assertEqual(email_template.with_context(lang="en_US").body_html, result_en, "Check body EN")
-        self.assertEqual(email_template.with_context(lang="de_DE").body_html, result_de, "Check body DE")
-        self.assertEqual(email_template.with_context(lang="en_US").subject, subject_en, "Check subject EN")
-        self.assertEqual(email_template.with_context(lang="de_DE").subject, subject_de, "Check subject DE")
+        self.assertEqual(
+            email_template.with_context(lang="en_US").body_html,
+            result_en,
+            "Check body EN",
+        )
+        self.assertEqual(
+            email_template.with_context(lang="de_DE").body_html,
+            result_de,
+            "Check body DE",
+        )
+        self.assertEqual(
+            email_template.with_context(lang="en_US").subject,
+            subject_en,
+            "Check subject EN",
+        )
+        self.assertEqual(
+            email_template.with_context(lang="de_DE").subject,
+            subject_de,
+            "Check subject DE",
+        )
 
         email_gen2 = email_gen_obj.create(
             {

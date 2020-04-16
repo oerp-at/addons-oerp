@@ -20,10 +20,13 @@
 
 from openerp.osv import fields, osv
 
+
 class res_partner(osv.osv):
-    
-    _inherit="res.partner"
+
+    _inherit = "res.partner"
     _columns = {
-        "noremind" : fields.boolean("No Remind", 
-                                    help="If 'No Remind' is true, then the actual customer never gets a reminder!"),
+        "noremind": fields.boolean(
+            "No Remind",
+            help="If 'No Remind' is true, then the actual customer never gets a reminder!",
+        ),
     }

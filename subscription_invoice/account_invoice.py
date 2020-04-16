@@ -20,29 +20,37 @@
 #
 ##############################################################################
 
-from openerp.osv import fields,osv
+from openerp.osv import fields, osv
+
 
 class account_invoice(osv.osv):
-    _inherit="account.invoice"
-    
+    _inherit = "account.invoice"
+
     def _get_next_invoice(self, cr, uid, ids, field_name, args, context=None):
-        
+
         res = dict.fromkeys(ids)
         subscription_obj = self.pool.get("subscription.subscription")
         dates = []
-        
+
         for invoice_id in ids:
-            subscription_ids = subscription_obj.search(cr, uid, [("doc_source","=","account.invoice,"+str(invoice_id))])
-            
+            subscription_ids = subscription_obj.search(
+                cr, uid, [("doc_source", "=", "account.invoice," + str(invoice_id))]
+            )
+
             if subscription_ids:
                 for subscription in subscription_obj.browse(cr, uid, subscription_ids):
                     dates.append(subscription.cron_id.nextcall)
-                
+
                 res[invoice_id] = min(dates)
-                
+
         return res
-    
+
     _columns = {
-        "next_invoice" : fields.function(_get_next_invoice, type="datetime", obj="ir.cron", method=True, string="Next Invoice")
+        "next_invoice": fields.function(
+            _get_next_invoice,
+            type="datetime",
+            obj="ir.cron",
+            method=True,
+            string="Next Invoice",
+        )
     }
-    

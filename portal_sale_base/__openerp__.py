@@ -21,11 +21,11 @@
 
 
 {
-    'name': 'Portal Sale Base',
-    'version': '0.1',
-    'category': 'Tools',
-    'complexity': 'easy',
-    'description': """
+    "name": "Portal Sale Base",
+    "version": "0.1",
+    "category": "Tools",
+    "complexity": "easy",
+    "description": """
 This module adds a Sales menu to your portal as soon as sale and portal are installed.
 ======================================================================================
 
@@ -40,16 +40,16 @@ via the following menus:
   - Payments/Refunds
 
 """,
-    'author': 'OpenERP SA',
-    'depends': ['sale', 'portal', 'payment'],
-    'data': [
-        'security.xml',
-        'security/portal_security.xml',
-        'portal_sale_view.xml',
-        'security/ir.model.access.csv',
+    "author": "OpenERP SA",
+    "depends": ["sale", "portal", "payment"],
+    "data": [
+        "security.xml",
+        "security/portal_security.xml",
+        "portal_sale_view.xml",
+        "security/ir.model.access.csv",
     ],
-    'auto_install': True,
-    'category': 'Hidden',
+    "auto_install": True,
+    "category": "Hidden",
 }
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

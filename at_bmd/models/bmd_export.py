@@ -39,7 +39,7 @@ class ExporterException(Exception):
 class Exporter(object):
     def writeln(self, data):
         pass
-    
+
     def close(self):
         pass
 
@@ -54,27 +54,27 @@ class CsvExport(Exporter):
     def _writeln_header(self, data, mapping=False):
         self._writeln_fct = self._writeln
         for data_field in data:
-            field_description = field_name = data_field[0]            
+            field_description = field_name = data_field[0]
             if mapping and len(data_field) > 1:
                 field_name = data_field[1]
-            self.fields.append(field_name)          
+            self.fields.append(field_name)
             self.buf.write(field_description)
             self.buf.write(";")
 
         self.buf.write(self.lf)
         if not mapping:
             self._writeln(data)
-            
+
     def writeln_header(self, data):
         self._writeln_header(data, mapping=True)
 
     def _quote(self, value):
         if not value:
             return value
-        return value.replace(";",",")
+        return value.replace(";", ",")
 
     def _writeln(self, data):
-        data = dict(((f[0],f[1]) for f in data))
+        data = dict(((f[0], f[1]) for f in data))
         for field in self.fields:
             value = data.get(field, "")
             if isinstance(value, date):
@@ -82,7 +82,7 @@ class CsvExport(Exporter):
             elif isinstance(value, float):
                 self.buf.write(("%.2f" % value).replace(".", ","))
             elif isinstance(value, basestring):
-                self.buf.write(self._quote(value))          
+                self.buf.write(self._quote(value))
             else:
                 self.buf.write(self._quote(value and str(value) or ""))
 
@@ -92,10 +92,10 @@ class CsvExport(Exporter):
 
     def writeln(self, data):
         self._writeln_fct(data)
-        
+
     def close(self):
         self.buf.close()
-        
+
     def getvalue(self):
         return self.buf.getvalue().encode("cp1252", "ignore")
 
@@ -153,10 +153,10 @@ class FixLenExport(Exporter):
 
             self.buf.write(line)
             self.buf.write(self.lf)
-            
+
     def close(self):
         self.buf.close()
-        
+
     def getvalue(self):
         return self.buf.getvalue().encode("cp1252", "ignore")
 
@@ -164,7 +164,7 @@ class FixLenExport(Exporter):
 class BmdExportFile(models.Model):
     _name = "bmd.export.file"
     _description = "BMD Export Datei"
-    
+
     _inherits = {"ir.attachment": "attachment_id"}
     _rec_name = "export_name"
 
@@ -179,30 +179,30 @@ class BmdExport(models.Model):
     _name = "bmd.export"
     _description = "BMD Export"
     _order = "id desc"
-    
+
     _inherit = ["mail.thread", "util.time", "util.report"]
     _inherits = {"automation.task": "task_id"}
-    
-    _re_belegnr =  [re.compile("^.*[^0-9]([0-9]+)$"),
-                    re.compile("^([0-9]+)$")]
 
+    _re_belegnr = [re.compile("^.*[^0-9]([0-9]+)$"), re.compile("^([0-9]+)$")]
 
     @api.model
     def _default_profile(self):
-        company_id = self.env['res.company']._company_default_get("bmd.export.profile")
-        return self.env["bmd.export.profile"].search([("company_id","=",company_id)], limit=1)
-    
+        company_id = self.env["res.company"]._company_default_get("bmd.export.profile")
+        return self.env["bmd.export.profile"].search(
+            [("company_id", "=", company_id)], limit=1
+        )
+
     @api.model
     def _default_period(self):
         period_start = self._firstOfLastMonth()
         period_obj = self.env["account.period"]
-        
-        period = period_obj.search([("date_start","=",period_start)], limit=1)
+
+        period = period_obj.search([("date_start", "=", period_start)], limit=1)
         if not period:
             period = period_obj.search([], limit=1, order="date_start desc")
-        
+
         return period
-    
+
     @api.onchange("period_id", "profile_id")
     def _onchange_period_profile(self):
         name = []
@@ -214,34 +214,48 @@ class BmdExport(models.Model):
         self.name = name
         if self.profile_id:
             self.company_id = self.profile_id.company_id
-        
 
     task_id = fields.Many2one(
         "automation.task", "Task", required=True, index=True, ondelete="cascade"
     )
-    period_id = fields.Many2one("account.period", "Periode", required=True,
-                                ondelete="restrict",
-                                default=_default_period,
-                                readonly=True, states={'draft': [('readonly', False)]})
-    
-    profile_id = fields.Many2one("bmd.export.profile", "Profil", 
-        ondelete="restrict", required=True, default=_default_profile,
-        readonly=True, states={'draft': [('readonly', False)]}
+    period_id = fields.Many2one(
+        "account.period",
+        "Periode",
+        required=True,
+        ondelete="restrict",
+        default=_default_period,
+        readonly=True,
+        states={"draft": [("readonly", False)]},
     )
-    
-    company_id = fields.Many2one("res.company", "Company", relation="profile_id.company_id", 
-                                 readonly=True)
 
-    line_ids = fields.One2many("bmd.export.line", "bmd_export_id", "BMD Export Zeilen", readonly=True)
+    profile_id = fields.Many2one(
+        "bmd.export.profile",
+        "Profil",
+        ondelete="restrict",
+        required=True,
+        default=_default_profile,
+        readonly=True,
+        states={"draft": [("readonly", False)]},
+    )
+
+    company_id = fields.Many2one(
+        "res.company", "Company", relation="profile_id.company_id", readonly=True
+    )
+
+    line_ids = fields.One2many(
+        "bmd.export.line", "bmd_export_id", "BMD Export Zeilen", readonly=True
+    )
     export_lines = fields.Integer(
         "Export Zeilen", compute="_compute_export_lines", store=False
     )
-    
-    export_file_ids = fields.One2many("bmd.export.file", "bmd_export_id", "Export Datei(en)",
-                                      readonly=True)
-    
-    number_from = fields.Char("Ab Nummer", readonly=True, states={'draft': [('readonly', False)]})
-    
+
+    export_file_ids = fields.One2many(
+        "bmd.export.file", "bmd_export_id", "Export Datei(en)", readonly=True
+    )
+
+    number_from = fields.Char(
+        "Ab Nummer", readonly=True, states={"draft": [("readonly", False)]}
+    )
 
     @api.model
     @api.returns("self", lambda self: self.id)
@@ -307,10 +321,9 @@ class BmdExport(models.Model):
         for obj in self:
             obj.export_lines = len(obj.line_ids)
 
-    
     def _sanitize_belegnr(self, value):
         if value:
-            value = value.replace("/","")
+            value = value.replace("/", "")
             for re_belegnr in self._re_belegnr:
                 result = re_belegnr.match(value)
                 if result:
@@ -320,7 +333,8 @@ class BmdExport(models.Model):
     def _export_file(self, taskc, export_name, file_name, data=None, datas=None):
         export_obj = self.env["bmd.export.file"]
         export_file = export_obj.search(
-            [("bmd_export_id", "=", self.id), ("export_name", "=", export_name)], limit=1
+            [("bmd_export_id", "=", self.id), ("export_name", "=", export_name)],
+            limit=1,
         )
         values = {
             "export_name": export_name,
@@ -329,7 +343,7 @@ class BmdExport(models.Model):
             "datas_fname": file_name,
             "res_model": "bmd.export",
             "res_id": self.id,
-            "bmd_export_id": self.id
+            "bmd_export_id": self.id,
         }
 
         if export_file:
@@ -338,7 +352,7 @@ class BmdExport(models.Model):
             export_file = export_obj.create(values)
         return export_file
 
-    def _export_buerf(self, taskc, file_name="buerf", exp=None):        
+    def _export_buerf(self, taskc, file_name="buerf", exp=None):
         exp = CsvExport()
         try:
             for line in self.line_ids:
@@ -361,24 +375,22 @@ class BmdExport(models.Model):
                         ("steucod", line.steucod or line.steucod_tax or ""),
                     )
                 )
-            return self._export_file(
-                taskc,
-                "buerf",
-                file_name,
-                data=exp.getvalue()
-            )
+            return self._export_file(taskc, "buerf", file_name, data=exp.getvalue())
         finally:
             exp.close()
 
     def _export_stamerf(self, taskc, file_name="stamerf", exp=None):
         ir_property = self.env["ir.property"]
-        default_partner_receivable = ir_property.get("property_account_receivable","res.partner")
-        default_partner_payable_id =  ir_property.get("property_account_payable","res.partner")
+        default_partner_receivable = ir_property.get(
+            "property_account_receivable", "res.partner"
+        )
+        default_partner_payable_id = ir_property.get(
+            "property_account_payable", "res.partner"
+        )
 
-        
         if not exp:
             exp = FixLenExport()
-            
+
         try:
             company = self.period_id.company_id
             profile = self.profile_id
@@ -555,45 +567,44 @@ class BmdExport(models.Model):
                     )
 
                 return self._export_file(
-                    taskc,
-                    "stamerf",
-                    file_name,
-                    data=exp.getvalue()
+                    taskc, "stamerf", file_name, data=exp.getvalue()
                 )
 
         finally:
             exp.close()
-            
+
     def _export_bmd5(self, taskc=None):
         self._export_buerf(taskc)
         self._export_stamerf(taskc)
 
     def _export_ntcs(self, taskc=None):
         self._export_buerf(taskc, file_name="buchungen.csv")
-        
+
         partner_exp = CsvExport()
-        partner_exp.writeln_header([
-            ("KontoNummer","1-kontonummer"),
-            ("Name","4-name"),
-            ("PLZ","7-plz"),
-            ("Ort","8-ort"),
-            ("Land","12-staat"),
-            ("UID","18-ustid"),
-            ("IBAN","52-iban"),
-            ("BIC","41-blz"),
-            ("Sammelkonto","56-sammelkonto"),
-            ("Zahlungsziel","22-zahlungsziel"),
-            ("Skonto%","23-skonto"),
-            ("Skontotage","26-skontotage"),
-        ])
-        self._export_stamerf(taskc, file_name="personenkonten.csv",exp=partner_exp)
+        partner_exp.writeln_header(
+            [
+                ("KontoNummer", "1-kontonummer"),
+                ("Name", "4-name"),
+                ("PLZ", "7-plz"),
+                ("Ort", "8-ort"),
+                ("Land", "12-staat"),
+                ("UID", "18-ustid"),
+                ("IBAN", "52-iban"),
+                ("BIC", "41-blz"),
+                ("Sammelkonto", "56-sammelkonto"),
+                ("Zahlungsziel", "22-zahlungsziel"),
+                ("Skonto%", "23-skonto"),
+                ("Skontotage", "26-skontotage"),
+            ]
+        )
+        self._export_stamerf(taskc, file_name="personenkonten.csv", exp=partner_exp)
 
     def _create_lines(self, taskc=None):
         # unlink privious lines
         self.line_ids.unlink()
 
         cr = self._cr
-        
+
         invoice_obj = self.env["account.invoice"]
         move_obj = self.env["account.move"]
         account_obj = self.env["account.account"]
@@ -610,12 +621,11 @@ class BmdExport(models.Model):
             def __init__(self, account_code, tax, steucod, amount=0.0, amount_tax=0.0):
                 self.code = account_code
                 self.tax = tax
-                self.tax_value = int(tax.amount * 100) if tax else 0   
+                self.tax_value = int(tax.amount * 100) if tax else 0
                 self.steucod = steucod
-                self.steucod_tax = tax.bmd_steucod if tax else None                
+                self.steucod_tax = tax.bmd_steucod if tax else None
                 self.amount = amount
-                self.amount_tax = amount_tax        
-                
+                self.amount_tax = amount_tax
 
         def exportInvoice(invoice):
             company = invoice.company_id
@@ -661,7 +671,7 @@ class BmdExport(models.Model):
                 "gegenbuchkz": "E",
                 "verbuchkz": "A",
                 "symbol": (invoice.journal_id and invoice.journal_id.code) or "",
-                "journal_id": invoice.journal_id.id
+                "journal_id": invoice.journal_id.id,
             }
 
             sign = 1.0
@@ -726,7 +736,7 @@ class BmdExport(models.Model):
                 tax = None
                 if taxes:
                     tax = taxes[0]
-                
+
                 account_key = (account.code, tax and tax.id or 0, steucod)
                 account_data = accounts.get(account_key)
                 if not account_data:
@@ -757,7 +767,7 @@ class BmdExport(models.Model):
 
                 if account_data.steucod:
                     bmd_line_copy["steucod"] = account_data.steucod
-                
+
                 if account_data.steucod_tax:
                     bmd_line_copy["steucod_tax"] = account_data.steucod_tax
 
@@ -784,8 +794,8 @@ class BmdExport(models.Model):
                     ],
                     limit=1,
                 ).id
-                
-                bmd_line_copy["account_contra_id"] = account_obj.search(                   
+
+                bmd_line_copy["account_contra_id"] = account_obj.search(
                     [
                         ("company_id", "=", company.id),
                         ("code", "=", bmd_line_copy["gkto"]),
@@ -902,7 +912,7 @@ class BmdExport(models.Model):
                     "kost": invoice and self._sanitize_belegnr(invoice.number) or None,
                     "invoice_id": invoice and invoice.id or None,
                     "zziel": "0",
-                    "journal_id": journal.id
+                    "journal_id": journal.id,
                 }
 
                 for line_data in lines:
@@ -955,7 +965,7 @@ class BmdExport(models.Model):
 
     def _create_reports(self, taskc):
         cr = self._cr
-        
+
         invoice_obj = self.env["account.invoice"]
         account_voucher_obj = self.env["account.voucher"]
         account_bank_statement_obj = self.env["account.bank.statement"]
@@ -965,7 +975,6 @@ class BmdExport(models.Model):
         profile = self.profile_id
         period = self.period_id
         company = profile.company_id
-        
 
         period_name = period.name
         export_name = self.name
@@ -988,9 +997,7 @@ class BmdExport(models.Model):
                 )
 
                 if file_name:
-                    self._export_file(
-                        taskc, export_name, file_name, data=report_data
-                    )
+                    self._export_file(taskc, export_name, file_name, data=report_data)
                 else:
                     taskc.logw("Report *%s* not able to export" % report_name)
 
@@ -1017,7 +1024,9 @@ class BmdExport(models.Model):
             )
 
         if profile.send_statements:
-            for journal in account_journal_obj.search([("company_id", "=", company.id)]):
+            for journal in account_journal_obj.search(
+                [("company_id", "=", company.id)]
+            ):
 
                 statements = account_bank_statement_obj.search(
                     [
@@ -1161,21 +1170,21 @@ class BmdExport(models.Model):
                     valid_invoices,
                     "%s-invoices" % invoice_type,
                     title="%s %s" % (invoice_name, period_name),
-                    report_name=invoice_report
+                    report_name=invoice_report,
                 )
-                
+
     @api.multi
     def action_send_email(self):
         self.ensure_one()
-        
+
         attachment_ids = self.export_file_ids.mapped("attachment_id").ids
-        
+
         wizard_form = self.env.ref("mail.email_compose_message_wizard_form")
         wizard_context = {
             "default_model": "bmd.export",
             "default_res_id": self.id,
             "default_composition_mode": "comment",
-            "default_attachment_ids": attachment_ids            
+            "default_attachment_ids": attachment_ids,
         }
         return {
             "type": "ir.actions.act_window",
@@ -1195,7 +1204,9 @@ class BmdExportLine(models.Model):
     _order = "belegnr"
     _name_rec = "belegnr"
 
-    bmd_export_id = fields.Many2one("bmd.export", "BMD Export", index=True, required=True)
+    bmd_export_id = fields.Many2one(
+        "bmd.export", "BMD Export", index=True, required=True
+    )
     move_line_id = fields.Many2one("account.move.line", "Buchungszeile", readonly=True)
     invoice_id = fields.Many2one("account.invoice", "Rechnung", readonly=True)
     partner_id = fields.Many2one("res.partner", "Partner")
@@ -1250,7 +1261,7 @@ class BmdExportLine(models.Model):
             ("79", "Aufwände Son.Leistungen EU mit VSt-Abzug"),
         ],
         "Steuer Code",
-        index=True
+        index=True,
     )
     steucod_tax = fields.Char("Steuer Code (Definiert)", index=True)
 
@@ -1296,8 +1307,8 @@ class BmdExportProfile(models.Model):
 
     active = fields.Boolean("Aktiv", default=True)
     version = fields.Selection(
-        [("bmd55", "5.5"), ("ntcs", "NTCS")], "Version", default="bmd55"
-    , required=True)
+        [("bmd55", "5.5"), ("ntcs", "NTCS")], "Version", default="bmd55", required=True
+    )
 
     company_id = fields.Many2one(
         "res.company",

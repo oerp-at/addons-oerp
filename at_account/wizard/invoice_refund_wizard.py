@@ -21,18 +21,19 @@
 from openerp.osv import fields, osv
 from openerp.tools.translate import _
 
-class account_invoice_refund(osv.osv_memory):
-  _inherit = "account.invoice.refund"
 
-  def _get_reason(self, cr, uid, context=None):
-    active_id = context and context.get('active_id', False)
-    if active_id:
-        inv = self.pool.get('account.invoice').browse(cr, uid, active_id, context=context)
-        refund_reason = inv.number or inv.internal_number or inv.name or ''
-        if refund_reason:
-          return _("Refund %s") % refund_reason
-    return ''
-  
-  _defaults = {
-    "description": _get_reason
-  }
+class account_invoice_refund(osv.osv_memory):
+    _inherit = "account.invoice.refund"
+
+    def _get_reason(self, cr, uid, context=None):
+        active_id = context and context.get("active_id", False)
+        if active_id:
+            inv = self.pool.get("account.invoice").browse(
+                cr, uid, active_id, context=context
+            )
+            refund_reason = inv.number or inv.internal_number or inv.name or ""
+            if refund_reason:
+                return _("Refund %s") % refund_reason
+        return ""
+
+    _defaults = {"description": _get_reason}

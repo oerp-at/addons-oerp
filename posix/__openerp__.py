@@ -21,23 +21,25 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at POSIX",
-    "description":"""
+    "name": "oerp.at POSIX",
+    "description": """
 POSIX -> Portable Operating System Interface
 ============================================
 
 Basic OS/Application Management Module
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "System",
-    "depends" : ["at_base"],
-    "data" : ["security.xml",
-              "view/domain_view.xml",
-              "view/group_view.xml",
-              "view/user_view.xml",
-              "menu.xml"],
+    "category": "System",
+    "depends": ["at_base"],
+    "data": [
+        "security.xml",
+        "view/domain_view.xml",
+        "view/group_view.xml",
+        "view/user_view.xml",
+        "menu.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

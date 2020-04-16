@@ -17,22 +17,24 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Purchase",
-    "description":"""
+    "name": "oerp.at Purchase",
+    "description": """
 oerp.at Purchase Base
 =====================
 
 * Aeroo Reports
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Purchase",
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Purchase",
     "website": "http://www.funkring.net",
-    "depends" : ["at_procurement","purchase","procurement_jit"],
-    "data" : ["view/purchase_view.xml",
-              "report/purchase_order_report.xml",
-              "report/purchase_quote_request_report.xml"],
+    "depends": ["at_procurement", "purchase", "procurement_jit"],
+    "data": [
+        "view/purchase_view.xml",
+        "report/purchase_order_report.xml",
+        "report/purchase_quote_request_report.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

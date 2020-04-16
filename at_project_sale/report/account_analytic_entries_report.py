@@ -21,14 +21,19 @@
 from openerp.osv import fields, osv
 from openerp import tools
 
+
 class analytic_entries_report(osv.Model):
     _inherit = "analytic.entries.report"
     _columns = {
-        "root_account_id" : fields.many2one("account.analytic.account","Main Analytic Account", readonly=True)
+        "root_account_id": fields.many2one(
+            "account.analytic.account", "Main Analytic Account", readonly=True
+        )
     }
+
     def init(self, cr):
-        tools.drop_view_if_exists(cr, 'analytic_entries_report')
-        cr.execute("""
+        tools.drop_view_if_exists(cr, "analytic_entries_report")
+        cr.execute(
+            """
             create or replace view analytic_entries_report as (
                  select
                      min(a.id) as id,
@@ -56,5 +61,5 @@ class analytic_entries_report(osv.Model):
                      a.account_id,analytic.root_account_id,a.general_account_id,a.journal_id,
                      a.move_id,a.product_id,a.product_uom_id
             )
-        """)
-    
+        """
+        )

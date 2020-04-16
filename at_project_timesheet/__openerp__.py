@@ -21,25 +21,20 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Project Timesheet Extensions",
-    "description":"""
+    "name": "oerp.at Project Timesheet Extensions",
+    "description": """
 Project Timesheet Extensions
 ============================
 
 * Allow change task in project timesheet
 
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
+    "version": "1.0",
+    "author": "oerp.at",
     "website": "http://www.oerp.at",
-    "category" : "Project Management",
-    "depends" : ["at_base",
-                 "at_project",
-                 "at_project_sale",
-                 "project_timesheet"],
-    "data" : ["wizard/change_task_wizard.xml",
-              "view/project_timesheet_view.xml"],
+    "category": "Project Management",
+    "depends": ["at_base", "at_project", "at_project_sale", "project_timesheet"],
+    "data": ["wizard/change_task_wizard.xml", "view/project_timesheet_view.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }
-

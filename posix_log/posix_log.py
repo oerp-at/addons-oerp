@@ -21,53 +21,68 @@
 from openerp.osv import fields, osv
 from openerp.tools.translate import _
 
+
 class posix_log(osv.Model):
     _name = "posix.log"
     _inherit = ["mail.thread"]
     _description = "Posix Log"
-    
+
     def do_quit(self, cr, uid, ids, context=None):
         return {
-            "name" : _("Quit Alarm"),
+            "name": _("Quit Alarm"),
             "view_type": "form",
             "view_mode": "form",
             "res_model": "posix.log.wizard",
             "type": "ir.actions.act_window",
-            "target" : "new",
+            "target": "new",
             "context": context,
         }
-    
+
     _columns = {
-        "name" : fields.char("Name", size=64, readonly=True),
-        "priority" : fields.selection([("0", "0 Emergency"), 
-                                       ("1", "1 Alert"),
-                                       ("2", "2 Critical"), 
-                                       ("3", "3 Error"), 
-                                       ("4", "4 Warning"),
-                                       ("5", "5 Notice"), 
-                                       ("6", "6 Informational"), 
-                                       ("7", "7 Debug")], "Priority", size=1, readonly=True),
-        "facility_id" : fields.many2one("posix.log.facility", "Facility", readonly=True),
-        "date" : fields.datetime("Date", readonly=True),
-        "source" : fields.char("Source", size=64, readonly=True),
-        "message" : fields.text("Message", readonly=True),
-        "confirm_id" : fields.many2one("mail.message", "Note", readonly=True),
+        "name": fields.char("Name", size=64, readonly=True),
+        "priority": fields.selection(
+            [
+                ("0", "0 Emergency"),
+                ("1", "1 Alert"),
+                ("2", "2 Critical"),
+                ("3", "3 Error"),
+                ("4", "4 Warning"),
+                ("5", "5 Notice"),
+                ("6", "6 Informational"),
+                ("7", "7 Debug"),
+            ],
+            "Priority",
+            size=1,
+            readonly=True,
+        ),
+        "facility_id": fields.many2one("posix.log.facility", "Facility", readonly=True),
+        "date": fields.datetime("Date", readonly=True),
+        "source": fields.char("Source", size=64, readonly=True),
+        "message": fields.text("Message", readonly=True),
+        "confirm_id": fields.many2one("mail.message", "Note", readonly=True),
     }
-    
+
 
 class posix_log_facilty(osv.Model):
     _name = "posix.log.facility"
     _description = "Log facility"
     _columns = {
-        "code" : fields.char("Code", size=16, select=True),
-        "priority" : fields.selection([("0", "0 Emergency"), 
-                                       ("1", "1 Alert"),
-                                       ("2", "2 Critical"), 
-                                       ("3", "3 Error"), 
-                                       ("4", "4 Warning"),
-                                       ("5", "5 Notice"), 
-                                       ("6", "6 Informational"), 
-                                       ("7", "7 Debug")], "Priority", size=1, readonly=True),
-        "name" : fields.char("Name", size=64, translateable=True),
-        "description" : fields.text("Description"),
+        "code": fields.char("Code", size=16, select=True),
+        "priority": fields.selection(
+            [
+                ("0", "0 Emergency"),
+                ("1", "1 Alert"),
+                ("2", "2 Critical"),
+                ("3", "3 Error"),
+                ("4", "4 Warning"),
+                ("5", "5 Notice"),
+                ("6", "6 Informational"),
+                ("7", "7 Debug"),
+            ],
+            "Priority",
+            size=1,
+            readonly=True,
+        ),
+        "name": fields.char("Name", size=64, translateable=True),
+        "description": fields.text("Description"),
     }

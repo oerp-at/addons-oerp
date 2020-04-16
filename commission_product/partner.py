@@ -22,9 +22,12 @@
 
 from openerp.osv import fields, osv
 
+
 class res_partner(osv.osv):
-        
+
     _inherit = "res.partner"
     _columns = {
-        "product_commission_ids" : fields.one2many("commission_product.commission","partner_id","Product Commission"),    
+        "product_commission_ids": fields.one2many(
+            "commission_product.commission", "partner_id", "Product Commission"
+        ),
     }

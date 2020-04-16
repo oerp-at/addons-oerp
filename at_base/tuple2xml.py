@@ -26,25 +26,26 @@ import logging
 
 _logger = logging.getLogger(__file__)
 
+
 def translate(f, data, indent="", default_indent="    "):
     if not data:
         return
-    
+
     tag = data[0]
     tag_only = len(data) == 1
 
     try:
         f.write(indent)
-        f.write("<")    
+        f.write("<")
         f.write(tag)
-            
-        if tag_only:        
+
+        if tag_only:
             f.write("/>\n")
             return
-            
-        attribs = None    
-        value = data[1]        
-        
+
+        attribs = None
+        value = data[1]
+
         if len(data) == 3:
             attribs = data[2]
             if attribs:
@@ -54,49 +55,64 @@ def translate(f, data, indent="", default_indent="    "):
                     f.write('="')
                     f.write(str(attr_value))
                     f.write('"')
-    
+
         if value is None:
             f.write("/>\n")
             return
-        
+
         f.write(">")
-        
-        if isinstance(value,list):
+
+        if isinstance(value, list):
             f.write("\n")
             for child in value:
-                translate(f,child,indent+default_indent)
+                translate(f, child, indent + default_indent)
             f.write(indent)
-        elif isinstance(value,tuple):
+        elif isinstance(value, tuple):
             f.write("\n")
-            translate(f,value,indent+default_indent)
+            translate(f, value, indent + default_indent)
             f.write(indent)
         else:
             f.write(escape(str(value)))
-        
+
         f.write("</")
         f.write(tag)
         f.write(">\n")
         return f
-    except Exception,e:
-        _logger.exception("Error by tag %s" % (tag,))        
+    except Exception, e:
+        _logger.exception("Error by tag %s" % (tag,))
         raise e
-    
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sf = StringIO()
-    translate(sf,("Test",[
-      ("EinfachesUnterElement",),
-      ("UnterElementMitString","Eine Zeichenkette"),
-      ("UnterElementMitFloat",1.0),
-      ("UnterElementMitInteger",1),
-      ("UnterElementMitAttributen",None,{"attr1" : 10, "attr2" : "TextWert", "attr3" : 10.1} ),
-      ("VerschachteltesUnterElement",("IstVerschachtelt","Ja")),
-      ("KomplexesElement",[
-         ("UnterElement1VonKomplexesElement","TestWert"),
-         ("UnterElement2VonKomplexesElement",[
-               ("NochEinUnterElement","Mit Wert")  
-            ]) 
-      ],{"mit_attribut" : "xyz"})
-    ]))
-    
+    translate(
+        sf,
+        (
+            "Test",
+            [
+                ("EinfachesUnterElement",),
+                ("UnterElementMitString", "Eine Zeichenkette"),
+                ("UnterElementMitFloat", 1.0),
+                ("UnterElementMitInteger", 1),
+                (
+                    "UnterElementMitAttributen",
+                    None,
+                    {"attr1": 10, "attr2": "TextWert", "attr3": 10.1},
+                ),
+                ("VerschachteltesUnterElement", ("IstVerschachtelt", "Ja")),
+                (
+                    "KomplexesElement",
+                    [
+                        ("UnterElement1VonKomplexesElement", "TestWert"),
+                        (
+                            "UnterElement2VonKomplexesElement",
+                            [("NochEinUnterElement", "Mit Wert")],
+                        ),
+                    ],
+                    {"mit_attribut": "xyz"},
+                ),
+            ],
+        ),
+    )
+
     print sf.getvalue()

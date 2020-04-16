@@ -20,8 +20,8 @@
 
 from openerp.osv import fields, osv
 
+
 class sale_order_report(osv.Model):
-    
     def _select(self):
         select_str = super(sale_order_report, self)._select()
         select_str += """
@@ -52,19 +52,19 @@ class sale_order_report(osv.Model):
                  ) AS inv_draft_in
                  """
         return select_str
-    
+
     def _group_by(self):
         group_by_str = super(sale_order_report, self)._group_by()
         group_by_str += """
                 ,o.margin
         """
         return group_by_str
-    
+
     _inherit = "sale.order.report"
     _columns = {
         "inv_out": fields.float("Customer Invoice", readonly=True),
         "inv_draft_out": fields.float("Customer Invoice (Draft)", readonly=True),
-        "inv_in" : fields.float("Supplier Invoice", readonly=True),
-        "inv_draft_in" : fields.float("Supplier Invoice (Draft)", readonly=True),
-        "margin" : fields.float("Pre Calculation", readonly=True)
+        "inv_in": fields.float("Supplier Invoice", readonly=True),
+        "inv_draft_in": fields.float("Supplier Invoice (Draft)", readonly=True),
+        "margin": fields.float("Pre Calculation", readonly=True),
     }

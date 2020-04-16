@@ -19,13 +19,13 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at MRP",
-    "description":"Funkring.net MRP Extensions",
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Manufacturing",
-    "depends" : ["at_base","mrp"],
-    "data" : ["view/mrp_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "name": "oerp.at MRP",
+    "description": "Funkring.net MRP Extensions",
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Manufacturing",
+    "depends": ["at_base", "mrp"],
+    "data": ["view/mrp_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

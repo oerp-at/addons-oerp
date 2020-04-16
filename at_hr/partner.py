@@ -20,24 +20,28 @@
 #
 ##############################################################################
 
-from openerp.osv import osv,fields
+from openerp.osv import osv, fields
 
-class res_partner(osv.osv):        
-    
+
+class res_partner(osv.osv):
     def _employee(self, cr, uid, ids, field_name, arg, context=None):
         res = dict.fromkeys(ids)
-                
-        cr.execute("SELECT p.id, e.id FROM res_partner p"
-                       " INNER JOIN hr_employee e ON e.address_home_id = p.id "
-                       " WHERE p.id IN %s ",(tuple(ids),) )
-        
+
+        cr.execute(
+            "SELECT p.id, e.id FROM res_partner p"
+            " INNER JOIN hr_employee e ON e.address_home_id = p.id "
+            " WHERE p.id IN %s ",
+            (tuple(ids),),
+        )
+
         rows = cr.fetchall()
         for row in rows:
-            res[row[0]]= row[1]
+            res[row[0]] = row[1]
         return res
-    
-    
-    _inherit = "res.partner"   
-    _columns = {               
-         "employee_id" : fields.function(_employee, string="Employee",type="many2one",obj="hr.employee")      
+
+    _inherit = "res.partner"
+    _columns = {
+        "employee_id": fields.function(
+            _employee, string="Employee", type="many2one", obj="hr.employee"
+        )
     }

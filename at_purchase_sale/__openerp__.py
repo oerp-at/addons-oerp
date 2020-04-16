@@ -21,8 +21,8 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Purchase + Sale",
-    "description":"""
+    "name": "oerp.at Purchase + Sale",
+    "description": """
 oerp.at Purchase + Sale combination
 ===================================
 * extension of stock_sale
@@ -31,27 +31,31 @@ oerp.at Purchase + Sale combination
 * delivery report
 * neutral delivery
 """,
-    "version" : "1.2",
-    "author" :  "funkring.net",
+    "version": "1.2",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Sale Management/Purchase Management",
-    "depends" : ["sale",
-                 "sale_stock",
-                 "delivery",
-                 "at_stock",
-                 "at_purchase",
-                 "at_sale",
-                 "at_product"],
-    "data" : ["security.xml",
-              "view/shop_view.xml",
-              "view/sale_order_view.xml",
-              "view/purchase_view.xml",
-              "view/picking_view.xml",
-              "view/stock_widget.xml",
-              "report/stock_picking_report.xml",
-              "report/stock_delivery_label.xml",
-              "report/purchase_delivery_report.xml"],
+    "category": "Sale Management/Purchase Management",
+    "depends": [
+        "sale",
+        "sale_stock",
+        "delivery",
+        "at_stock",
+        "at_purchase",
+        "at_sale",
+        "at_product",
+    ],
+    "data": [
+        "security.xml",
+        "view/shop_view.xml",
+        "view/sale_order_view.xml",
+        "view/purchase_view.xml",
+        "view/picking_view.xml",
+        "view/stock_widget.xml",
+        "report/stock_picking_report.xml",
+        "report/stock_delivery_label.xml",
+        "report/purchase_delivery_report.xml",
+    ],
     "qweb": ["static/src/xml/picking.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

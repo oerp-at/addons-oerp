@@ -25,8 +25,8 @@ from openerp.tools.translate import _
 
 from openerp import api
 
+
 class account_fiscal_position(osv.osv):
-    
     def unmap_tax(self, cr, uid, fposition, mapped_taxes, context=None):
         if not mapped_taxes:
             return []
@@ -39,85 +39,104 @@ class account_fiscal_position(osv.osv):
                 tax_dest = tax.tax_dest_id
                 if tax_dest and tax_dest.id == mapped_tax.id:
                     if unmapped:
-                        raise osv.except_osv( _("Error"), _("Cannot do reverse mapping of Tax %s because or than one tax match") % (tax_dest.name,) )
-                    unmapped = tax.tax_src_id       
+                        raise osv.except_osv(
+                            _("Error"),
+                            _(
+                                "Cannot do reverse mapping of Tax %s because or than one tax match"
+                            )
+                            % (tax_dest.name,),
+                        )
+                    unmapped = tax.tax_src_id
             if not unmapped:
-                raise osv.except_osv( _("Error"), _("Cannot do reverse mapping of Tax %s because no one match") % (tax_dest.name,) )
+                raise osv.except_osv(
+                    _("Error"),
+                    _("Cannot do reverse mapping of Tax %s because no one match")
+                    % (tax_dest.name,),
+                )
             result.append(unmapped)
         return result
-    
-    _inherit = 'account.fiscal.position'
+
+    _inherit = "account.fiscal.position"
 
 
 class account_account(osv.osv):
-    
-    def _compute_account(self,cr,uid,ids,date_till=None,context=None):
+    def _compute_account(self, cr, uid, ids, date_till=None, context=None):
         query = []
         query_params = []
         if date_till:
-            query.append("l.date <= '%s'" % (date_till,) )
-        
-        query_str = " AND ".join(query)        
-        return self.__compute(cr,uid,ids,field_names=["credit","debit","balance"], arg=None, context=context, query=query_str , query_params=tuple(query_params))
-    
+            query.append("l.date <= '%s'" % (date_till,))
+
+        query_str = " AND ".join(query)
+        return self.__compute(
+            cr,
+            uid,
+            ids,
+            field_names=["credit", "debit", "balance"],
+            arg=None,
+            context=context,
+            query=query_str,
+            query_params=tuple(query_params),
+        )
+
     _inherit = "account.account"
 
 
 class account_period(osv.osv):
-    
     def find_period_id(self, cr, uid, dt, context=None):
         if dt:
-            args = [('date_start','<=',dt),('date_stop','>=',dt)]
-            
+            args = [("date_start", "<=", dt), ("date_stop", ">=", dt)]
+
             # add company
-            if context and context.get('company_id', False):
-                args.append(('company_id', '=', context['company_id']))
+            if context and context.get("company_id", False):
+                args.append(("company_id", "=", context["company_id"]))
             else:
-                company_id = self.pool.get('res.users').browse(cr, uid, uid, context=context).company_id.id
-                args.append(('company_id', '=', company_id))
-                
+                company_id = (
+                    self.pool.get("res.users")
+                    .browse(cr, uid, uid, context=context)
+                    .company_id.id
+                )
+                args.append(("company_id", "=", company_id))
+
             ids = self.search(cr, uid, args, limit=1, context=context)
             if ids:
                 return ids[0]
         return None
-    
+
     _inherit = "account.period"
 
 
 class account_invoice(osv.osv):
-    
     def _cancel_invoice_all(self, cr, uid, invoice, context=None):
-        if invoice.state in ("cancel","draft"):
+        if invoice.state in ("cancel", "draft"):
             return False
-        
+
         voucher_obj = self.pool["account.voucher"]
         move_obj = self.pool["account.move"]
         invoice_obj = self.pool["account.invoice"]
-        
+
         move_ids = set()
         voucher_ids = []
-        
+
         for move_line in invoice.payment_ids:
             move_ids.add(move_line.move_id.id)
-        
+
         # cancel moves and get vouchers
         move_ids = list(move_ids)
         for move_id in move_ids:
-            voucher_ids.extend(voucher_obj.search(cr, uid, [("move_id","=",move_id)]))
+            voucher_ids.extend(voucher_obj.search(cr, uid, [("move_id", "=", move_id)]))
         move_obj.button_cancel(cr, uid, move_ids, context=context)
-            
+
         # cancel and delete voucher
         voucher_obj.cancel_voucher(cr, uid, voucher_ids, context=context)
-        voucher_obj.unlink(cr, uid, voucher_ids, context=context)         
+        voucher_obj.unlink(cr, uid, voucher_ids, context=context)
         # cancel invoice
         invoice_obj.action_cancel(cr, uid, [invoice.id], context=context)
         return True
-    
+
     _inherit = "account.invoice"
-    
+
 
 class account_journal(osv.osv):
-    
     def name_get(self, cr, user, ids, context=None):
         """
         Returns a list of tupples containing id, name.
@@ -141,25 +160,37 @@ class account_journal(osv.osv):
                 currency = rs.currency
             else:
                 currency = rs.company_id.currency_id
-                
+
             company_code = rs.company_id.code
             if company_code:
                 name = "%s %s (%s)" % (rs.name, company_code, currency.name)
             else:
                 name = "%s (%s)" % (rs.name, currency.name)
-                
+
             res += [(rs.id, name)]
         return res
-    
+
     _inherit = "account.journal"
-    
-    
+
+
 class account_tax(osv.osv):
-    
+
     _inherit = "account.tax"
-    
+
     @api.v7
-    def compute_full(self, cr, uid, taxes, price_unit, quantity, product=None, partner=None, force_excluded=False, force_included=False, netto_to_price=False):
+    def compute_full(
+        self,
+        cr,
+        uid,
+        taxes,
+        price_unit,
+        quantity,
+        product=None,
+        partner=None,
+        force_excluded=False,
+        force_included=False,
+        netto_to_price=False,
+    ):
         """
         :param force_excluded: boolean used to say that we don't want to consider the value of field price_include of
             tax. It's used in encoding by line where you don't matter if you encoded a tax with that boolean to True or
@@ -182,9 +213,12 @@ class account_tax(osv.osv):
         # precision when we round the tax amount for each line (we use
         # the 'Account' decimal precision + 5), and that way it's like
         # rounding after the sum of the tax amounts of each line
-        precision = self.pool.get('decimal.precision').precision_get(cr, uid, 'Account')
+        precision = self.pool.get("decimal.precision").precision_get(cr, uid, "Account")
         tax_compute_precision = precision
-        if taxes and taxes[0].company_id.tax_calculation_rounding_method == 'round_globally':
+        if (
+            taxes
+            and taxes[0].company_id.tax_calculation_rounding_method == "round_globally"
+        ):
             tax_compute_precision += 5
         totalin = totalex = round(price_unit * quantity, precision)
         tin = []
@@ -200,26 +234,58 @@ class account_tax(osv.osv):
                 else:
                     tin.append(tax)
             # funkring.net - end
-        tin = self.compute_inv(cr, uid, tin, price_unit, quantity, product=product, partner=partner, precision=tax_compute_precision)
+        tin = self.compute_inv(
+            cr,
+            uid,
+            tin,
+            price_unit,
+            quantity,
+            product=product,
+            partner=partner,
+            precision=tax_compute_precision,
+        )
         for r in tin:
-            totalex -= r.get('amount', 0.0)
+            totalex -= r.get("amount", 0.0)
         totlex_qty = 0.0
         try:
-            totlex_qty = totalex/quantity
+            totlex_qty = totalex / quantity
         except:
             pass
-        tex = self._compute(cr, uid, tex, totlex_qty, quantity, product=product, partner=partner, precision=tax_compute_precision)
+        tex = self._compute(
+            cr,
+            uid,
+            tex,
+            totlex_qty,
+            quantity,
+            product=product,
+            partner=partner,
+            precision=tax_compute_precision,
+        )
         for r in tex:
-            totalin += r.get('amount', 0.0)
-        return {
-            'total': totalex,
-            'total_included': totalin,
-            'taxes': tin + tex
-        }
+            totalin += r.get("amount", 0.0)
+        return {"total": totalex, "total_included": totalin, "taxes": tin + tex}
 
     @api.v8
-    def compute_full(self, price_unit, quantity, product=None, partner=None, force_excluded=False, force_included=False, netto_to_price=False):
+    def compute_full(
+        self,
+        price_unit,
+        quantity,
+        product=None,
+        partner=None,
+        force_excluded=False,
+        force_included=False,
+        netto_to_price=False,
+    ):
         return account_tax.compute_all(
-            self._model, self._cr, self._uid, self, price_unit, quantity,
-            product=product, partner=partner, force_excluded=force_excluded, force_included=force_included, netto_to_price=netto_to_price)
-    
+            self._model,
+            self._cr,
+            self._uid,
+            self,
+            price_unit,
+            quantity,
+            product=product,
+            partner=partner,
+            force_excluded=force_excluded,
+            force_included=force_included,
+            netto_to_price=netto_to_price,
+        )

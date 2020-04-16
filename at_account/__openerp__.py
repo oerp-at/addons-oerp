@@ -17,8 +17,8 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Accounting and Finance",
-    "description":"""
+    "name": "oerp.at Accounting and Finance",
+    "description": """
 oerp.at Accounting and Finance Extensions
 =========================================
 
@@ -29,32 +29,31 @@ oerp.at Accounting and Finance Extensions
  * Tax Crossover - Ust and Vst merged into one
 
 """,
-    "version" : "1.1",
-    "author" :  "funkring.net",
-    "category" : "Accounting & Finance",
+    "version": "1.1",
+    "author": "funkring.net",
+    "category": "Accounting & Finance",
     "website": "http://www.funkring.net",
-    "depends" : ["account",
-                 "account_voucher",
-                 "at_base",
-                 "at_product"],
-    "data" :       ["report/account_invoice_report.xml",
-                    "report/account_voucher_list_report.xml",
-                    "report/account_invoice_list_report.xml",
-                    "report/account_bank_statement_report.xml",
-                    "report/account_bank_statement_report_detail.xml",
-                    "report/account_account_report.xml",
-                    "report/transfer_form_report.xml",
-                    "report/payment_overview_report.xml",
-                    "wizard/ofx_import_wizard.xml",
-                    "view/company_view.xml",
-                    "view/account_bank_statement.xml",
-                    "wizard/invoice_attachment_wizard.xml",
-                    "wizard/invoice_cancel_wizard.xml",                    
-                    "view/invoice_view.xml",
-                    "view/fiscal_position_view.xml",
-                    "view/partner_view.xml",
-                    "menu.xml",
-                    "security.xml"],
+    "depends": ["account", "account_voucher", "at_base", "at_product"],
+    "data": [
+        "report/account_invoice_report.xml",
+        "report/account_voucher_list_report.xml",
+        "report/account_invoice_list_report.xml",
+        "report/account_bank_statement_report.xml",
+        "report/account_bank_statement_report_detail.xml",
+        "report/account_account_report.xml",
+        "report/transfer_form_report.xml",
+        "report/payment_overview_report.xml",
+        "wizard/ofx_import_wizard.xml",
+        "view/company_view.xml",
+        "view/account_bank_statement.xml",
+        "wizard/invoice_attachment_wizard.xml",
+        "wizard/invoice_cancel_wizard.xml",
+        "view/invoice_view.xml",
+        "view/fiscal_position_view.xml",
+        "view/partner_view.xml",
+        "menu.xml",
+        "security.xml",
+    ],
     "installable": True,
-    "application" : True
+    "application": True,
 }

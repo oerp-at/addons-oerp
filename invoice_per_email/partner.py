@@ -22,10 +22,9 @@
 
 from openerp.osv import fields, osv
 
+
 class res_partner(osv.osv):
 
     _inherit = "res.partner"
     _name = "res.partner"
-    _columns = {
-        "invoice_per_email" : fields.boolean("Invoice per E-Mail")
-    }
+    _columns = {"invoice_per_email": fields.boolean("Invoice per E-Mail")}

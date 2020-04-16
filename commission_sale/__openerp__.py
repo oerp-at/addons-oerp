@@ -21,8 +21,8 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Sale Commission",
-    "description":"""
+    "name": "oerp.at Sale Commission",
+    "description": """
 Commission based on Sale
 ========================
 
@@ -30,28 +30,31 @@ Commission based on Sale
 * creates commission based on contracts
 
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "category" : "Commission",
-    "depends" : ["at_base",
-                 "at_sale",
-                 "at_account",
-                 "commission",
-                 "sales_team",
-                 "product",
-                 "account"],
-    "data" : ["security.xml",
-              "data/analytic_journals.xml",
-              "data/products.xml",
-              "data/properties.xml",
-              "view/pricelist_item_view.xml",
-              "view/crm_section_view.xml",
-              "view/bonus_view.xml",
-              "view/product_view.xml",
-              "view/sale_view.xml",
-              "view/invoice_view.xml",
-              "report/sale_commission_report.xml"             
-              ],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "category": "Commission",
+    "depends": [
+        "at_base",
+        "at_sale",
+        "at_account",
+        "commission",
+        "sales_team",
+        "product",
+        "account",
+    ],
+    "data": [
+        "security.xml",
+        "data/analytic_journals.xml",
+        "data/products.xml",
+        "data/properties.xml",
+        "view/pricelist_item_view.xml",
+        "view/crm_section_view.xml",
+        "view/bonus_view.xml",
+        "view/product_view.xml",
+        "view/sale_view.xml",
+        "view/invoice_view.xml",
+        "report/sale_commission_report.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

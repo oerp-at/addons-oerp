@@ -21,8 +21,8 @@
 ##############################################################################
 
 {
-    "name" : "Invoice per Mail",
-    "description":"""
+    "name": "Invoice per Mail",
+    "description": """
 Invoice per Mail
 ================
 
@@ -30,14 +30,11 @@ An checkbox for the customer to, inform that invoice is send
 per Mail
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Sales",
-    "depends" : ["at_account"],
-    "data" : [
-          "view/partner_view.xml",
-          "view/invoice_view.xml"
-        ],
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Sales",
+    "depends": ["at_account"],
+    "data": ["view/partner_view.xml", "view/invoice_view.xml"],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

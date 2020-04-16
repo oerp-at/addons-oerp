@@ -20,20 +20,25 @@
 #
 ##############################################################################
 
-from openerp.osv import fields,osv
+from openerp.osv import fields, osv
 from openerp.addons.at_base import util
 
+
 class res_company(osv.osv):
-    
-    def nonworking_day_count(self,cr,uid,company,start_date,end_date,context=None):        
-        if company.calendar_id:            
+    def nonworking_day_count(
+        self, cr, uid, company, start_date, end_date, context=None
+    ):
+        if company.calendar_id:
             cal_obj = self.pool.get("resource.calendar")
-            return cal_obj.nonworking_day_count(cr,uid,company.calendar_id,util.strToDate(start_date),util.strToDate(end_date))
+            return cal_obj.nonworking_day_count(
+                cr,
+                uid,
+                company.calendar_id,
+                util.strToDate(start_date),
+                util.strToDate(end_date),
+            )
         else:
             return 0
-        
-                    
+
     _inherit = "res.company"
-    _columns = {
-        "calendar_id" : fields.many2one("resource.calendar","Calendar")
-    }
+    _columns = {"calendar_id": fields.many2one("resource.calendar", "Calendar")}

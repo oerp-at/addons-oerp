@@ -17,8 +17,8 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Base Modul",
-    "description":"""
+    "name": "oerp.at Base Modul",
+    "description": """
 oerp.at Framework Basics
 ========================
 
@@ -30,23 +30,27 @@ Modules
 * Basic wizards
 
 """,
-    "version" : "1.6",
-    "author" :  "funkring.net",
+    "version": "1.6",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Base",
-    "depends" : ["base",
-                 "base_city",
-                 "web",
-                 "report",
-                 "report_aeroo",
-                 "report_aeroo_ooo",
-                 "report_aeroo_printscreen"],
-    "data" : ["sequence_tmpl.xml",
-              "view/partner_view.xml",
-              "wizard/info_wizard.xml",
-              "view/log_view.xml",
-              "wizard/log_wizard.xml",
-              "security.xml"],
-    "auto_install" : False,
-    "installable": True
+    "category": "Base",
+    "depends": [
+        "base",
+        "base_city",
+        "web",
+        "report",
+        "report_aeroo",
+        "report_aeroo_ooo",
+        "report_aeroo_printscreen",
+    ],
+    "data": [
+        "sequence_tmpl.xml",
+        "view/partner_view.xml",
+        "wizard/info_wizard.xml",
+        "view/log_view.xml",
+        "wizard/log_wizard.xml",
+        "security.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

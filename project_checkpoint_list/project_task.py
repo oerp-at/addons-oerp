@@ -22,24 +22,25 @@
 
 from openerp.osv import fields, osv
 
+
 class project_task(osv.osv):
     _inherit = "project.task"
     _columns = {
-        "checkpoint_ids" : fields.one2many("project.task_checklist","task_id","Checkpoints"),
+        "checkpoint_ids": fields.one2many(
+            "project.task_checklist", "task_id", "Checkpoints"
+        ),
     }
 
+
 class project_task_checklist(osv.osv):
-        
+
     _name = "project.task_checklist"
-    _description = "Checklist"    
+    _description = "Checklist"
     _columns = {
-            
-        "name" : fields.char("Name"),
-        "task_id" : fields.many2one("project.task","Project Task"),       
-        "check" : fields.boolean("Check"),
-        "sequence" : fields.integer("Sequence")
+        "name": fields.char("Name"),
+        "task_id": fields.many2one("project.task", "Project Task"),
+        "check": fields.boolean("Check"),
+        "sequence": fields.integer("Sequence"),
     }
-    _defaults = {
-        "sequence" : 10
-    }
+    _defaults = {"sequence": 10}
     _order = "sequence asc"

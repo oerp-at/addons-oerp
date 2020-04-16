@@ -21,31 +21,34 @@
 from openerp import models, fields, api, _
 from openerp.exceptions import Warning
 
+
 class sale_order_edit_wizard_line(models.TransientModel):
     _inherit = "sale.order.edit.wizard.line"
-    
+
     commission_custom = fields.Float("Custom Commission %")
-    
+
 
 class sale_order_edit_wizard(models.TransientModel):
     _inherit = "sale.order.edit.wizard"
-    
+
     recalc_commission = fields.Boolean("Recalc Commission")
-    
+
     @api.model
     def _get_line_default(self, line):
-      res = super(sale_order_edit_wizard, self)._get_line_default(line)
-      res["commission_custom"] = line.commission_custom
-      return res
-      
+        res = super(sale_order_edit_wizard, self)._get_line_default(line)
+        res["commission_custom"] = line.commission_custom
+        return res
+
     def _prepare_line_modification(self, line_modify):
-      res = super(sale_order_edit_wizard, self)._prepare_line_modification(line_modify)
-      res["commission_custom"] = line_modify.commission_custom
-      return res
-    
+        res = super(sale_order_edit_wizard, self)._prepare_line_modification(
+            line_modify
+        )
+        res["commission_custom"] = line_modify.commission_custom
+        return res
+
     @api.one
     def _after_modified(self):
-      super(sale_order_edit_wizard, self)._after_modified()
-      # recalc commission
-      if self.recalc_commission:
-        self.order_id._calc_sale_commission(force=True)
+        super(sale_order_edit_wizard, self)._after_modified()
+        # recalc commission
+        if self.recalc_commission:
+            self.order_id._calc_sale_commission(force=True)

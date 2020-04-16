@@ -17,19 +17,16 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Basis Daten zu Österreich",
-    "description":"""
+    "name": "oerp.at Basis Daten zu Österreich",
+    "description": """
        Basis Daten zu Österreich
     """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
+    "version": "1.0",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Base",
-    "depends" : ["base",
-                 "base_city"],   
-    "data" : ["data/country_state.xml",
-                    "data/plz.xml",
-                    "data/banks_at.xml"],
-    "auto_install" : False,
-    "installable": True
+    "category": "Base",
+    "depends": ["base", "base_city"],
+    "data": ["data/country_state.xml", "data/plz.xml", "data/banks_at.xml"],
+    "auto_install": False,
+    "installable": True,
 }

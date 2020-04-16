@@ -21,21 +21,19 @@
 ##############################################################################
 
 {
-    "name" : "Commission Discount Calculation",
-    "description":"""
+    "name": "Commission Discount Calculation",
+    "description": """
 Commission Discount Calculation
 ===============================
 
 * Add rules to handle discounts within calculation
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Commission",
-    "depends" : ["commission",
-                 "commission_sale",
-                 "sale_discountcalc"],
-    "data" : ["view/company_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Commission",
+    "depends": ["commission", "commission_sale", "sale_discountcalc"],
+    "data": ["view/company_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

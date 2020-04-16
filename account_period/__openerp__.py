@@ -21,32 +21,35 @@
 ##############################################################################
 
 {
-    "name" : "Account Period",
-    "description":"""
+    "name": "Account Period",
+    "description": """
 BMD Period
 ==========
 
 Implements monthly period task, for setting up a monthly workflow
 
 """,
-    "version" : "8.0.1.0.0",
-    "author" :  "funkring.net",
+    "version": "8.0.1.0.0",
+    "author": "funkring.net",
     "website": "https://github.com/o-erp",
-    "category" : "Accounting",
-    "depends" : ["mail",
-                 "util_time",
-                 "util_report",
-                 "util_test",
-                 "automation",
-                 "at_account"],
-    "data" : ["security/security.xml",
-              "views/company_view.xml",
-              "views/period_task_view.xml",
-              "views/journal_view.xml",
-              "views/account_view.xml",
-              "views/period_entry_view.xml",
-              "views/period_tax_view.xml"
-              ],
+    "category": "Accounting",
+    "depends": [
+        "mail",
+        "util_time",
+        "util_report",
+        "util_test",
+        "automation",
+        "at_account",
+    ],
+    "data": [
+        "security/security.xml",
+        "views/company_view.xml",
+        "views/period_task_view.xml",
+        "views/journal_view.xml",
+        "views/account_view.xml",
+        "views/period_entry_view.xml",
+        "views/period_tax_view.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

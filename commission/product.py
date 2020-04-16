@@ -22,36 +22,50 @@
 
 from openerp.osv import fields, osv
 import openerp.addons.decimal_precision as dp
-   
+
+
 class product_category(osv.osv):
-  
+
     _inherit = "product.category"
     _columns = {
-        "delivery_cost" : fields.float("Deliver Costs", type="float",  digits_compute=dp.get_precision("Product Price"))        
+        "delivery_cost": fields.float(
+            "Deliver Costs",
+            type="float",
+            digits_compute=dp.get_precision("Product Price"),
+        )
     }
-   
-   
+
+
 class product_template(osv.osv):
-    
+
     _inherit = "product.template"
-    _columns = {      
-        "delivery_cost" : fields.related("product_variant_ids", "delivery_cost", type="float", string="Delivery Costs",  digits_compute=dp.get_precision("Product Price"))        
+    _columns = {
+        "delivery_cost": fields.related(
+            "product_variant_ids",
+            "delivery_cost",
+            type="float",
+            string="Delivery Costs",
+            digits_compute=dp.get_precision("Product Price"),
+        )
     }
-    
-    
+
+
 class product_product(osv.osv):
-    
     def _delivery_cost_co(self, cr, uid, ids, field_name, arg, context=None):
-      res = dict.fromkeys(ids, 0.0)
-      for obj in self.browse(cr, uid, ids, context):
-        res[obj.id] = obj.delivery_cost or obj.categ_id.delivery_cost or 0.0 
-      return res
-    
-       
+        res = dict.fromkeys(ids, 0.0)
+        for obj in self.browse(cr, uid, ids, context):
+            res[obj.id] = obj.delivery_cost or obj.categ_id.delivery_cost or 0.0
+        return res
+
     _inherit = "product.product"
     _columns = {
-        "delivery_cost" : fields.float("Delivery Costs",  digits_compute=dp.get_precision("Product Price")),
-        "delivery_cost_co": fields.function(_delivery_cost_co, string="Delivery Costs (Combined)", type="float", digits_compute=dp.get_precision("Product Price"))
+        "delivery_cost": fields.float(
+            "Delivery Costs", digits_compute=dp.get_precision("Product Price")
+        ),
+        "delivery_cost_co": fields.function(
+            _delivery_cost_co,
+            string="Delivery Costs (Combined)",
+            type="float",
+            digits_compute=dp.get_precision("Product Price"),
+        ),
     }
-    
-      

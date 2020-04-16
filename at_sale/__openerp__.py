@@ -17,8 +17,8 @@
 #
 ##############################################################################
 {
-    "name" : "oerp.at Sale",
-    "description":"""
+    "name": "oerp.at Sale",
+    "description": """
 oerp.at Sale Extensions
 =======================
 
@@ -29,31 +29,35 @@ oerp.at Sale Extensions
 * Shop for picking
 
 """,
-    "version" : "1.1",
-    "author" :  "funkring.net",
+    "version": "1.1",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Sales",
-    "depends" : ["account",
-                 "sale",
-                 "sale_crm",
-                 "sale_stock",
-                 "at_base",
-                 "at_product",
-                 "at_account",
-                 "at_resource",
-                 "at_procurement",
-                 "at_product",
-                 "at_stock",
-                 "at_crm"],
-    "data" : [ "view/partner_view.xml",
-               "security.xml",
-               "view/shop_view.xml",
-               "view/sale_view.xml",
-               "view/sale_tree_view.xml",
-               "view/stock_picking_view.xml",
-               "view/product_view.xml",
-               "view/invoice_view.xml",
-               "report/sale_order_report.xml"],
+    "category": "Sales",
+    "depends": [
+        "account",
+        "sale",
+        "sale_crm",
+        "sale_stock",
+        "at_base",
+        "at_product",
+        "at_account",
+        "at_resource",
+        "at_procurement",
+        "at_product",
+        "at_stock",
+        "at_crm",
+    ],
+    "data": [
+        "view/partner_view.xml",
+        "security.xml",
+        "view/shop_view.xml",
+        "view/sale_view.xml",
+        "view/sale_tree_view.xml",
+        "view/stock_picking_view.xml",
+        "view/product_view.xml",
+        "view/invoice_view.xml",
+        "report/sale_order_report.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

@@ -20,12 +20,12 @@
 
 from openerp.osv import fields, osv
 
-class hr_timesheet_sheet(osv.Model):
-  _inherit = "hr.analytic.timesheet"
 
-  def action_change_task(self, cr, uid, ids, context=None):
-    for line in self.browse(cr, uid, ids, context=context):
-      pass
-    
-    return True
-  
+class hr_timesheet_sheet(osv.Model):
+    _inherit = "hr.analytic.timesheet"
+
+    def action_change_task(self, cr, uid, ids, context=None):
+        for line in self.browse(cr, uid, ids, context=context):
+            pass
+
+        return True

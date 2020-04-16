@@ -22,10 +22,11 @@
 
 from openerp.osv import fields, osv
 
+
 class product_pricelist_item(osv.osv):
-        
-    _inherit="product.pricelist.item"
+
+    _inherit = "product.pricelist.item"
     _columns = {
-        "commission" : fields.float("Commission"),
-        "commission_active" : fields.boolean("Commission Active")
+        "commission": fields.float("Commission"),
+        "commission_active": fields.boolean("Commission Active"),
     }

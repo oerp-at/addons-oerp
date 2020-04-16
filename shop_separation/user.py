@@ -20,9 +20,12 @@
 
 from openerp.osv import fields, osv
 
+
 class res_users(osv.Model):
     _inherit = "res.users"
     _columns = {
-        "shop_id" : fields.many2one("sale.shop","Preferred Shop"),
-        "shop_ids" : fields.many2many("sale.shop", "user_shop_rel", "user_id", "shop_id", "Assigned Shops")
+        "shop_id": fields.many2one("sale.shop", "Preferred Shop"),
+        "shop_ids": fields.many2many(
+            "sale.shop", "user_shop_rel", "user_id", "shop_id", "Assigned Shops"
+        ),
     }

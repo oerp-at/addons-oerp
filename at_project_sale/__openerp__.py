@@ -21,8 +21,8 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Project + Sale",
-    "description":"""
+    "name": "oerp.at Project + Sale",
+    "description": """
 oerp.at Project + Sale
 ======================
 
@@ -31,37 +31,39 @@ oerp.at Project + Sale
 
 
     """,
-    "version" : "1.2",
-    "author" :  "funkring.net",
+    "version": "1.2",
+    "author": "funkring.net",
     "website": "http://www.funkring.net",
-    "category" : "Sales Management/Project Management",
-    "depends" : ["at_project",
-                 "at_sale",
-                 "sale",
-                 "account",
-                 "analytic",
-                 "account_analytic_analysis",
-                 "project_timesheet",
-                 "sale_margin",                 
-                 "at_hr",
-                 "sale_service",
-                 "hr_timesheet_invoice"],
-    "data" : [ 
-                "security.xml",
-                "view/analytic_account_view.xml",
-                "view/sale_shop_view.xml",
-                "view/sale_order_view.xml",
-                "wizard/correct_time_wizard.xml",
-                "view/task_view.xml",
-                "view/partner_view.xml",
-                "view/product_view.xml",
-                "view/project_view.xml",
-                "report/sale_order_report.xml",
-                "report/account_invoice_report.xml",
-                "report/account_analytic_entries_report.xml",
-                "data/properties.xml",
-                "data/recurring_task_cron.xml"
-                ],
+    "category": "Sales Management/Project Management",
+    "depends": [
+        "at_project",
+        "at_sale",
+        "sale",
+        "account",
+        "analytic",
+        "account_analytic_analysis",
+        "project_timesheet",
+        "sale_margin",
+        "at_hr",
+        "sale_service",
+        "hr_timesheet_invoice",
+    ],
+    "data": [
+        "security.xml",
+        "view/analytic_account_view.xml",
+        "view/sale_shop_view.xml",
+        "view/sale_order_view.xml",
+        "wizard/correct_time_wizard.xml",
+        "view/task_view.xml",
+        "view/partner_view.xml",
+        "view/product_view.xml",
+        "view/project_view.xml",
+        "report/sale_order_report.xml",
+        "report/account_invoice_report.xml",
+        "report/account_analytic_entries_report.xml",
+        "data/properties.xml",
+        "data/recurring_task_cron.xml",
+    ],
     "auto_install": False,
-    "installable": True
+    "installable": True,
 }

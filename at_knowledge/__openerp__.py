@@ -19,21 +19,21 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Documents",
-    "summary" : "Extension for knowledge module",
-    "description":"""
+    "name": "oerp.at Documents",
+    "summary": "Extension for knowledge module",
+    "description": """
 Documents
 =========
 
 * Extension for odoo knowledge module
 
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Hidden/Dependency",
-    "depends" : ["at_base","knowledge"],
-    "data" : ["menu.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Hidden/Dependency",
+    "depends": ["at_base", "knowledge"],
+    "data": ["menu.xml"],
+    "auto_install": False,
+    "installable": True,
 }

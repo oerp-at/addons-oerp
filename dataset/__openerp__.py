@@ -19,8 +19,8 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Dataset",
-    "description":"""
+    "name": "oerp.at Dataset",
+    "description": """
 oerp.at Dataset Extension
 =========================
 
@@ -29,14 +29,16 @@ oerp.at Dataset Extension
 * data views based on existing models
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Tools",
-    "depends" : ["web","at_base"],
-    "data" : ["security.xml",
-              "view/dataset_view.xml",
-              "view/dataset_data_view.xml",
-              "view/dataset_spec_view.xml"],
-    "auto_install" : False,
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Tools",
+    "depends": ["web", "at_base"],
+    "data": [
+        "security.xml",
+        "view/dataset_view.xml",
+        "view/dataset_data_view.xml",
+        "view/dataset_spec_view.xml",
+    ],
+    "auto_install": False,
     "installable": True,
 }

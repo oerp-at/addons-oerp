@@ -20,52 +20,93 @@
 #
 ##############################################################################
 
-from openerp.osv import fields,osv
+from openerp.osv import fields, osv
+
 
 class account_invoice(osv.osv):
-    
-    def onchange_shop(self, cr, uid, ids, shop_id, company_id, part_id, type, invoice_line, currency_id):
+    def onchange_shop(
+        self,
+        cr,
+        uid,
+        ids,
+        shop_id,
+        company_id,
+        part_id,
+        type,
+        invoice_line,
+        currency_id,
+    ):
         if shop_id and company_id:
             shop_obj = self.pool["sale.shop"]
             shop = shop_obj.browse(cr, uid, shop_id)
             if shop and shop.company_id and shop.company_id.id != company_id:
                 new_company_id = shop.company_id.id
-                res = self.onchange_company_id(cr, uid, ids, new_company_id, part_id, type, invoice_line, currency_id)
+                res = self.onchange_company_id(
+                    cr,
+                    uid,
+                    ids,
+                    new_company_id,
+                    part_id,
+                    type,
+                    invoice_line,
+                    currency_id,
+                )
                 res["value"]["company_id"] = new_company_id
-                return res            
+                return res
         return {}
-    
+
     def _default_shop_id(self, cr, uid, context=None):
-        company_id = self.pool["res.company"]._company_default_get(cr, uid, "account.invoice", context=context)
+        company_id = self.pool["res.company"]._company_default_get(
+            cr, uid, "account.invoice", context=context
+        )
         res = None
         if company_id:
             shop_obj = self.pool["sale.shop"]
-            res = shop_obj.search_id(cr, uid, [("company_id","=",company_id)],context=context)
+            res = shop_obj.search_id(
+                cr, uid, [("company_id", "=", company_id)], context=context
+            )
             if not res:
-                res = shop_obj.search_id(cr, uid, [("company_id","=",False)],context=context)
+                res = shop_obj.search_id(
+                    cr, uid, [("company_id", "=", False)], context=context
+                )
         return res
-        
+
     def _get_performance_start(self, cr, uid, inv, context=None):
         order_date = None
         for order in inv.sale_order_ids:
-            order_date = (not order_date and order.date_order) or min(order_date,order.date_order)
-        return order_date or super(account_invoice, self)._get_performance_start(cr, uid, inv, context=context)
-        
+            order_date = (not order_date and order.date_order) or min(
+                order_date, order.date_order
+            )
+        return order_date or super(account_invoice, self)._get_performance_start(
+            cr, uid, inv, context=context
+        )
+
     _inherit = "account.invoice"
     _columns = {
-        "sale_order_ids" : fields.many2many("sale.order","sale_order_invoice_rel","invoice_id","order_id","Orders",readonly=True),
-        "shop_id" : fields.many2one("sale.shop", "Shop", required=True, readonly=True, states={"draft": [("readonly", False)]}, select=True)
+        "sale_order_ids": fields.many2many(
+            "sale.order",
+            "sale_order_invoice_rel",
+            "invoice_id",
+            "order_id",
+            "Orders",
+            readonly=True,
+        ),
+        "shop_id": fields.many2one(
+            "sale.shop",
+            "Shop",
+            required=True,
+            readonly=True,
+            states={"draft": [("readonly", False)]},
+            select=True,
+        ),
     }
-    _defaults = {
-        "shop_id" : _default_shop_id
-    }
+    _defaults = {"shop_id": _default_shop_id}
 
 
 class account_invoice_line(osv.osv):
-
     def _order_info(self, cr, uid, ids, field_name, args, context=None):
         res = dict.fromkeys(ids)
-        for invoice_line in self.browse(cr, uid, ids):        
+        for invoice_line in self.browse(cr, uid, ids):
             order_lines = invoice_line.sale_order_line_ids
             if order_lines:
                 for order_line in order_lines:
@@ -84,6 +125,12 @@ class account_invoice_line(osv.osv):
 
     _inherit = "account.invoice.line"
     _columns = {
-        "order_info" : fields.function(_order_info, type="text", string="Order Info"),
-        "sale_order_line_ids" : fields.many2many("sale.order.line", "sale_order_line_invoice_rel", "invoice_id", "order_line_id", "Sale Order Lines")
+        "order_info": fields.function(_order_info, type="text", string="Order Info"),
+        "sale_order_line_ids": fields.many2many(
+            "sale.order.line",
+            "sale_order_line_invoice_rel",
+            "invoice_id",
+            "order_line_id",
+            "Sale Order Lines",
+        ),
     }

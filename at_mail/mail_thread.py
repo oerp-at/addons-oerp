@@ -22,8 +22,9 @@ from openerp.osv import fields, osv
 
 
 class mail_thread(osv.Model):
-    
-    def message_duplicate(self, cr, uid, message_id, new_res_id, new_model, context=None):
+    def message_duplicate(
+        self, cr, uid, message_id, new_res_id, new_model, context=None
+    ):
         """
         duplicate a message
 
@@ -32,18 +33,23 @@ class mail_thread(osv.Model):
         :param new_model : the name of the new model of the mail.message
 
         """
-        
+
         message_obj = self.pool["mail.message"]
-        origin_parent = message_obj.read(cr, uid, message_id, ["parent_id"],  context=context)["parent_id"]
+        origin_parent = message_obj.read(
+            cr, uid, message_id, ["parent_id"], context=context
+        )["parent_id"]
         parent_id = None
         if origin_parent:
-            parent_id = message_obj.search_id(cr, uid, [("origin_id","=",origin_parent[0])])
-        
-        return message_obj.copy(cr, uid, message_id, { "parent_id" : parent_id,
-                                                       "model" : new_model,
-                                                       "res_id" :new_res_id },
-                                                        context=context ) 
-        
-    
-    
+            parent_id = message_obj.search_id(
+                cr, uid, [("origin_id", "=", origin_parent[0])]
+            )
+
+        return message_obj.copy(
+            cr,
+            uid,
+            message_id,
+            {"parent_id": parent_id, "model": new_model, "res_id": new_res_id},
+            context=context,
+        )
+
     _inherit = "mail.thread"

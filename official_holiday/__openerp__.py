@@ -21,22 +21,23 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Official Holiday",
-    "description":"""
+    "name": "oerp.at Official Holiday",
+    "description": """
 oerp.at Official Holiday
 ========================
   * This module sets the holidays for austria
     """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Human Resources",
-    "depends" : ["at_timereg", "at_hr"],
-    "data" : ["view/official_holiday_view.xml",
-              "wizard/official_holiday_wizard.xml",
-              "menu.xml",
-              "data/holiday_at.xml",
-              "security.xml",
-              ],
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Human Resources",
+    "depends": ["at_timereg", "at_hr"],
+    "data": [
+        "view/official_holiday_view.xml",
+        "wizard/official_holiday_wizard.xml",
+        "menu.xml",
+        "data/holiday_at.xml",
+        "security.xml",
+    ],
     "active": False,
-    "installable": True
+    "installable": True,
 }

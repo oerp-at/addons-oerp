@@ -21,113 +21,133 @@
 ##############################################################################
 
 import psycopg2
-          
-class XmlWriter:    
-        
-    def __init__(self,fileName):
-        self.writer = open(fileName,"w")
-        self.indent=""        
-        self.level=0
-        
+
+
+class XmlWriter:
+    def __init__(self, fileName):
+        self.writer = open(fileName, "w")
+        self.indent = ""
+        self.level = 0
+
     def enter(self):
-        self.level+=1
-        self.indent = "".rjust(self.level*2)        
-        
+        self.level += 1
+        self.indent = "".rjust(self.level * 2)
+
     def exit(self):
-        self.level-=1
-        self.indent = "".rjust(self.level*2)   
-        
-    def write(self,inStr):
-        self.writer.write(self.indent+inStr+"\n")
-            
-    def getChartName(self,inCode):
-        return "chart"+inCode
-            
-    def writeRecord(self,inCode,inParentCode,inName,inType,inUserType):
-        self.write('<record id="' + self.getChartName(inCode) + '" model="account.account.template">')
+        self.level -= 1
+        self.indent = "".rjust(self.level * 2)
+
+    def write(self, inStr):
+        self.writer.write(self.indent + inStr + "\n")
+
+    def getChartName(self, inCode):
+        return "chart" + inCode
+
+    def writeRecord(self, inCode, inParentCode, inName, inType, inUserType):
+        self.write(
+            '<record id="'
+            + self.getChartName(inCode)
+            + '" model="account.account.template">'
+        )
         self.enter()
-        self.write('<field name="code">'+inCode+'</field>')       
-        self.write('<field name="name">'+inName+'</field>')
+        self.write('<field name="code">' + inCode + "</field>")
+        self.write('<field name="name">' + inName + "</field>")
         self.write('<field name="reconcile" eval="False"/>')
-        
+
         if not inParentCode and inCode != "BASE":
-            inParentCode="BASE"
-        
+            inParentCode = "BASE"
+
         if inParentCode:
-            self.write('<field name="parent_id" ref="'+self.getChartName(inParentCode)+'"/>')
-            
-        self.write('<field name="type">'+inType+'</field>')
-        self.write('<field name="user_type" ref="'+inUserType+'"/>')     
-        
+            self.write(
+                '<field name="parent_id" ref="'
+                + self.getChartName(inParentCode)
+                + '"/>'
+            )
+
+        self.write('<field name="type">' + inType + "</field>")
+        self.write('<field name="user_type" ref="' + inUserType + '"/>')
+
         self.exit()
-        self.write('</record>')
-                
-        self.write('')
-    
+        self.write("</record>")
+
+        self.write("")
+
     def startDocument(self):
         self.write('<?xml version="1.0" encoding="utf-8"?>')
-        self.write('<openerp>')
-        self.write('<data>')
+        self.write("<openerp>")
+        self.write("<data>")
         self.enter()
-    
+
     def endDocument(self):
-        self.exit()        
-        self.write('</data>')
-        self.write('</openerp>')    
-    
+        self.exit()
+        self.write("</data>")
+        self.write("</openerp>")
+
     def close(self):
         self.writer.close()
-        
-        
+
+
 def main():
     conn_string = "host='primary' dbname='funkring' user='funkring' password='meet9Eel'"
     conn = psycopg2.connect(conn_string)
     cr = conn.cursor()
- 
-    
-    
-    w = XmlWriter("../account_chart.xml")    
-    w.startDocument()
-    
-    
-    cr.execute("SELECT a.code, a.name, a.type, t.code, p.code parent" 
-               " FROM account_account a " 
-               " LEFT JOIN account_account p ON p.id = a.parent_id "
-               " LEFT JOIN account_account_type t ON t.id = a.user_type "
-               " WHERE a.company_id = 1 AND NOT a.id = 1 AND a.code LIKE 'V%' "
-               " ORDER BY a.code  ")
-    
-    for r in cr.fetchall():
-        code = r[0]
-        name = r[1]
-        atype = r[2]
-        user_type = r[3]
-        parent_code = r[4]
-        w.writeRecord(code,parent_code,name,atype,"account.data_account_type_%s" % (user_type,))
-    
-       
-    cr.execute("SELECT a.code, a.name, a.type, t.code, p.code parent" 
-               " FROM account_account a " 
-               " LEFT JOIN account_account p ON p.id = a.parent_id "
-               " LEFT JOIN account_account_type t ON t.id = a.user_type "
-               " WHERE a.company_id = 1 AND NOT a.id = 1 " 
-               "   AND NOT a.code LIKE 'V%' "
-               "   AND ( length(a.code) != 6 OR "
-               "   ( NOT ( a.code >= '200000' AND a.code < '2999999'  AND a.code != '200999' )"
-               "   AND NOT ( a.code >= '300000' AND a.code < '399999' AND a.code != '300999' ) ) )"
-               " ORDER BY a.code  ")
-    
-    for r in cr.fetchall():
-        code = r[0]
-        name = r[1]
-        atype = r[2]
-        user_type = r[3]
-        parent_code = r[4]
-        w.writeRecord(code,parent_code,name,atype,"account.data_account_type_%s" % (user_type,))
-     
-    w.endDocument()   
-    w.close()   
-    
 
-if __name__ == '__main__':
+    w = XmlWriter("../account_chart.xml")
+    w.startDocument()
+
+    cr.execute(
+        "SELECT a.code, a.name, a.type, t.code, p.code parent"
+        " FROM account_account a "
+        " LEFT JOIN account_account p ON p.id = a.parent_id "
+        " LEFT JOIN account_account_type t ON t.id = a.user_type "
+        " WHERE a.company_id = 1 AND NOT a.id = 1 AND a.code LIKE 'V%' "
+        " ORDER BY a.code  "
+    )
+
+    for r in cr.fetchall():
+        code = r[0]
+        name = r[1]
+        atype = r[2]
+        user_type = r[3]
+        parent_code = r[4]
+        w.writeRecord(
+            code,
+            parent_code,
+            name,
+            atype,
+            "account.data_account_type_%s" % (user_type,),
+        )
+
+    cr.execute(
+        "SELECT a.code, a.name, a.type, t.code, p.code parent"
+        " FROM account_account a "
+        " LEFT JOIN account_account p ON p.id = a.parent_id "
+        " LEFT JOIN account_account_type t ON t.id = a.user_type "
+        " WHERE a.company_id = 1 AND NOT a.id = 1 "
+        "   AND NOT a.code LIKE 'V%' "
+        "   AND ( length(a.code) != 6 OR "
+        "   ( NOT ( a.code >= '200000' AND a.code < '2999999'  AND a.code != '200999' )"
+        "   AND NOT ( a.code >= '300000' AND a.code < '399999' AND a.code != '300999' ) ) )"
+        " ORDER BY a.code  "
+    )
+
+    for r in cr.fetchall():
+        code = r[0]
+        name = r[1]
+        atype = r[2]
+        user_type = r[3]
+        parent_code = r[4]
+        w.writeRecord(
+            code,
+            parent_code,
+            name,
+            atype,
+            "account.data_account_type_%s" % (user_type,),
+        )
+
+    w.endDocument()
+    w.close()
+
+
+if __name__ == "__main__":
     main()

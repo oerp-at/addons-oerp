@@ -19,23 +19,25 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Sale Layout",
-    "summary" : "Sale layout extensions",
-    "description":"""
+    "name": "oerp.at Sale Layout",
+    "summary": "Sale layout extensions",
+    "description": """
 oerp.at Sale Layout
 ===================
 * headlines
 * sums 
 """,
-    "version" : "1.0",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Sale",
-    "depends" : ["sale","sale_layout","at_sale"],
-    "data" : ["view/layout_category_view.xml",
-              "view/sale_order_view.xml",
-              "report/account_invoice_report.xml",
-              "report/sale_order_report.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Sale",
+    "depends": ["sale", "sale_layout", "at_sale"],
+    "data": [
+        "view/layout_category_view.xml",
+        "view/sale_order_view.xml",
+        "report/account_invoice_report.xml",
+        "report/sale_order_report.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

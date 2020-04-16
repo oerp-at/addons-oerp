@@ -19,9 +19,9 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Portal Download",
-    "summary" : "Publish downloads for partner",
-    "description":"""
+    "name": "oerp.at Portal Download",
+    "summary": "Publish downloads for partner",
+    "description": """
 Download Module
 ===============
 
@@ -29,17 +29,19 @@ Download Module
 * Manager Download Versions
     
 """,
-    "version" : "1.2",
-    "author" :  "oerp.at",
-    "website" : "http://oerp.at",
-    "category" : "Portal",
-    "depends" : ["at_base","mail","web","at_knowledge","portal"],
-    "data" : ["security.xml",
-              "template.xml",
-              "view/portal_download_view.xml",
-              "view/download_view.xml",
-              "view/download_perm_view.xml",
-              "view/partner_view.xml"],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.2",
+    "author": "oerp.at",
+    "website": "http://oerp.at",
+    "category": "Portal",
+    "depends": ["at_base", "mail", "web", "at_knowledge", "portal"],
+    "data": [
+        "security.xml",
+        "template.xml",
+        "view/portal_download_view.xml",
+        "view/download_view.xml",
+        "view/download_perm_view.xml",
+        "view/partner_view.xml",
+    ],
+    "auto_install": False,
+    "installable": True,
 }

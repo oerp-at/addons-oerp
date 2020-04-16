@@ -19,21 +19,19 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Sale Layout Light",
-    "description":"""
+    "name": "oerp.at Sale Layout Light",
+    "description": """
 Sale Order Layout
 =================
 * adds simple layout options to sale order
 * no endsum option
 
     """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Sale",
-    "depends" : ["sale",
-                 "at_sale"],
-    "data" : ["view/sale_view.xml"
-              ],
-    "auto_install" : False,
-    "installable": True
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Sale",
+    "depends": ["sale", "at_sale"],
+    "data": ["view/sale_view.xml"],
+    "auto_install": False,
+    "installable": True,
 }

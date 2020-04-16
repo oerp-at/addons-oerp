@@ -19,16 +19,16 @@
 ##############################################################################
 
 {
-    "name" : "oerp.at Website Embeddable Layout",
-    "description":"""
+    "name": "oerp.at Website Embeddable Layout",
+    "description": """
 Embeddable Website Layout
 =========================
 
 """,
-    "version" : "1.0",
-    "author" :  "funkring.net",
-    "category" : "Hidden",
-    "depends" : ["website"],
-    "data" : ["view/website_template.xml"],
-    "installable": True
+    "version": "1.0",
+    "author": "funkring.net",
+    "category": "Hidden",
+    "depends": ["website"],
+    "data": ["view/website_template.xml"],
+    "installable": True,
 }

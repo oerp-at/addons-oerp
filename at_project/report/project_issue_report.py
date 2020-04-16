@@ -23,21 +23,8 @@ import time
 
 from openerp.addons.at_base import extreport
 
+
 class Parser(extreport.basic_parser):
     def __init__(self, cr, uid, name, context=None):
         super(Parser, self).__init__(cr, uid, name, context=context)
-        self.localcontext.update({
-        })
-
-
-
-
-
-
-
-
-
-
-
-
-
+        self.localcontext.update({})

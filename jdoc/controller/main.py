@@ -28,8 +28,12 @@ from openerp.addons.web.http import Response
 
 
 class jdoc_controller(http.Controller):
-    
-    @http.route("/jdoc/attachment/<docid>/<name>", type="http", methods=["PUT","GET"], auth="user")
+    @http.route(
+        "/jdoc/attachment/<docid>/<name>",
+        type="http",
+        methods=["PUT", "GET"],
+        auth="user",
+    )
     def jdoc_attachment(self, session=None, **kwargs):
         """ Upload/Download attachment for jdoc 
             If session is applied, attachment is available after sync_commit of the session

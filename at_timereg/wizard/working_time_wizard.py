@@ -21,35 +21,46 @@
 from openerp import models, fields, api, _
 from openerp.addons.at_base import util
 
+
 class WorkingTimeWizard(models.TransientModel):
     _name = "at_timereg.working.time.wizard"
     _description = "Working Time Wizard"
-        
-    date = fields.Date("Date", default=lambda self: util.getFirstOfLastMonth(), required=True, help="Create working report from date, always the first day of the select month was taken")
-    months = fields.Integer("Months", default=1, required=True, help="How many month should the report include")
-    
+
+    date = fields.Date(
+        "Date",
+        default=lambda self: util.getFirstOfLastMonth(),
+        required=True,
+        help="Create working report from date, always the first day of the select month was taken",
+    )
+    months = fields.Integer(
+        "Months",
+        default=1,
+        required=True,
+        help="How many month should the report include",
+    )
+
     def _report_action(self, name):
         report_context = self._context and dict(self._context) or {}
-        
+
         date_from = util.getFirstOfMonth(self.date)
-        date_to = util.getNextDayOfMonth(date_from,inMonth=self.months)
-         
+        date_to = util.getNextDayOfMonth(date_from, inMonth=self.months)
+
         return {
-            "type" : "ir.actions.report.xml",
-            "report_name" : name,
-            "context" : {
-                "active_ids" : self._context.get("active_ids"),
-                "active_model" : self._context.get("active_model"),
-                "date_from" : date_from,
-                "date_to" : date_to
-             }
+            "type": "ir.actions.report.xml",
+            "report_name": name,
+            "context": {
+                "active_ids": self._context.get("active_ids"),
+                "active_model": self._context.get("active_model"),
+                "date_from": date_from,
+                "date_to": date_to,
+            },
         }
-    
+
     @api.multi
     def action_print_working_time(self):
         for wizard in self:
             return wizard._report_action("at_timereg.employee.working")
-    
+
     @api.multi
     def action_print_time_only(self):
         for wizard in self:

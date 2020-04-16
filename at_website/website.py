@@ -22,24 +22,26 @@ from openerp.osv import orm, osv, fields
 from openerp.addons.web.http import request
 import uuid
 
+
 class website_menu(osv.osv):
-    _inherit = "website.menu"    
+    _inherit = "website.menu"
     _columns = {
         "inv_header": fields.boolean("Invisible in Header"),
-        "inv_footer": fields.boolean("Invisible in Footer")
+        "inv_footer": fields.boolean("Invisible in Footer"),
     }
+
 
 class website(osv.osv):
     _inherit = "website"
-    
+
     def create_uuid(self, **kwargs):
         return uuid.uuid4()
-    
+
     def get_language(self, cr, uid, ids, context=None):
         lang_first = None
         lang_default = None
-        
-        lang = request.context.get('lang')
+
+        lang = request.context.get("lang")
         website = self.browse(cr, uid, ids[0])
         for lang_data in self._get_languages(cr, uid, website.id):
             if lang == lang_data[0]:

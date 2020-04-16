@@ -21,11 +21,11 @@
 
 
 {
-    'name': 'Portal Sale',
-    'version': '0.1',
-    'category': 'Tools',
-    'complexity': 'easy',
-    'description': """
+    "name": "Portal Sale",
+    "version": "0.1",
+    "category": "Tools",
+    "complexity": "easy",
+    "description": """
 This module adds a Sales menu to your portal as soon as sale and portal are installed.
 ======================================================================================
 
@@ -43,15 +43,11 @@ If online payment acquirers are configured, portal users will also be given the 
 pay online on their Sale Orders and Invoices that are not paid yet. Paypal is included
 by default, you simply need to configure a Paypal account in the Accounting/Invoicing settings.
     """,
-    'author': 'OpenERP SA',
-    'depends': ['portal_sale_base'],
-    'data': [
-        'portal_sale_view.xml',
-        'portal_sale_data.xml',
-        'res_config_view.xml'
-    ],
-    'auto_install': True,
-    'category': 'Hidden',
+    "author": "OpenERP SA",
+    "depends": ["portal_sale_base"],
+    "data": ["portal_sale_view.xml", "portal_sale_data.xml", "res_config_view.xml"],
+    "auto_install": True,
+    "category": "Hidden",
 }
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
