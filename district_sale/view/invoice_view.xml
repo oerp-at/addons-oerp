@@ -1,0 +1,21 @@
+<openerp>
+  <data>
+    
+    <record id="search_invoice" model="ir.ui.view">
+      <field name="name">district_sale.search_invoice</field>
+      <field name="model">account.invoice</field>
+      <field name="inherit_id" ref="account.view_account_invoice_filter"/>
+      <field name="type">form</field>
+      <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="district_id"/>
+            </field>
+            <filter string="Salesperson" position="after">
+                <filter string="District" context="{'group_by':'district_id'}"/>
+            </filter>
+      </field>
+    </record>
+
+    
+  </data>
+</openerp>

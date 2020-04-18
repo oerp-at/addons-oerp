@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+ <data>
+    
+    <record id="form_mrp_production" model="ir.ui.view">
+      <field name="name">sale_dynamic_bom.form_mrp_production</field>
+      <field name="model">mrp.production</field>
+      <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+      <field name="arch" type="xml">
+        <xpath expr="//sheet/group" position="inside">
+          <div>          
+          <field name="procurement_info"/>
+          </div>
+        </xpath>    
+      </field>
+    </record>
+    
+  </data>  
+</openerp>

@@ -1,0 +1,35 @@
+<openerp>
+  <data>
+
+        <record id="access_district_district_group_user" model="ir.model.access">
+          <field name="name">district_district/group_user</field>
+          <field name="model_id" ref="model_district_district"/>
+          <field name="group_id" ref="base.group_user"/>
+          <field name="perm_read" eval="True"/>
+          <field name="perm_unlink" eval="False"/>
+          <field name="perm_create" eval="False"/>
+          <field name="perm_write" eval="False"/>
+        </record>
+        
+        <record id="access_district_district_group_portal" model="ir.model.access">
+          <field name="name">district_district/group_portal</field>
+          <field name="model_id" ref="model_district_district"/>
+          <field name="group_id" ref="base.group_portal"/>
+          <field name="perm_read" eval="True"/>
+          <field name="perm_unlink" eval="False"/>
+          <field name="perm_create" eval="False"/>
+          <field name="perm_write" eval="False"/>
+        </record>
+
+        <record id="access_district_district_sale_manager" model="ir.model.access">
+          <field name="name">district_district/sale_manager</field>
+          <field name="model_id" ref="model_district_district"/>
+          <field name="group_id" ref="base.group_sale_manager"/>
+          <field name="perm_read" eval="True"/>
+          <field name="perm_unlink" eval="True"/>
+          <field name="perm_create" eval="True"/>
+          <field name="perm_write" eval="True"/>
+        </record>
+
+  </data>
+</openerp>

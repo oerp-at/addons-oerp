@@ -1,0 +1,109 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* sale_dynamic_bom
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 8.0\n"
+"Language: de_DE\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2018-02-03 12:35+0000\n"
+"PO-Revision-Date: 2018-02-03 13:36+0100\n"
+"Last-Translator: Martin Reisenhofer <martin.reisenhofer@funkring.net>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: \n"
+"X-Generator: Poedit 1.5.4\n"
+
+#. module: sale_dynamic_bom
+#: model:ir.model,name:sale_dynamic_bom.model_mrp_bom
+msgid "Bill of Material"
+msgstr "Stückliste"
+
+#. module: sale_dynamic_bom
+#: field:product.template,dynbom:0
+msgid "BoM from Sales Order"
+msgstr "Stückliste aus Verkaufsauftrag"
+
+#. module: sale_dynamic_bom
+#: field:stock.location,dynbom:0
+msgid "Dynamic Production"
+msgstr "Dynamische Stücklisten/Produktion"
+
+#. module: sale_dynamic_bom
+#: model:ir.model,name:sale_dynamic_bom.model_stock_location
+msgid "Inventory Locations"
+msgstr "Inventurlager"
+
+#. module: sale_dynamic_bom
+#: help:stock.location,dynbom:0
+msgid "Location for dynamic BoM production"
+msgstr ""
+"Lagerplatz wo Komponenten für auftragsbezogene, dynamische Produktionen "
+"gelagert werden"
+
+#. module: sale_dynamic_bom
+#: model:ir.model,name:sale_dynamic_bom.model_mrp_production
+msgid "Manufacturing Order"
+msgstr "Fertigungsauftrag"
+
+#. module: sale_dynamic_bom
+#: code:addons/sale_dynamic_bom/sale.py:75
+#, python-format
+msgid "Only one dynamic production could added to sale order"
+msgstr ""
+"Es darf nur ein Produkt hinzugefügt werden, wo die gesamten Auftragsprodukte "
+"zur Fertigung hinzugefügt werden"
+
+#. module: sale_dynamic_bom
+#: model:ir.model,name:sale_dynamic_bom.model_stock_picking
+msgid "Picking List"
+msgstr "Pickliste"
+
+#. module: sale_dynamic_bom
+#: model:ir.model,name:sale_dynamic_bom.model_procurement_order
+msgid "Procurement"
+msgstr "Beschaffung"
+
+#. module: sale_dynamic_bom
+#: model:ir.model,name:sale_dynamic_bom.model_product_template
+msgid "Product Template"
+msgstr "Produktvorlage"
+
+#. module: sale_dynamic_bom
+#: model:ir.actions.act_window,name:sale_dynamic_bom.sale_production_action
+msgid "Production"
+msgstr "Produktion"
+
+#. module: sale_dynamic_bom
+#: field:sale.order,dynbom_location_id:0
+msgid "Production Location"
+msgstr "Produktionslager"
+
+#. module: sale_dynamic_bom
+#: view:sale.order:sale_dynamic_bom.form_sale_order_purchase
+msgid "Productions"
+msgstr "Produktionen"
+
+#. module: sale_dynamic_bom
+#: field:mrp.bom,sale_order_bom:0
+msgid "Sale Order is BoM"
+msgstr "Verkaufsauftrag als Stückliste"
+
+#. module: sale_dynamic_bom
+#: model:ir.model,name:sale_dynamic_bom.model_sale_order
+msgid "Sales Order"
+msgstr "Verkaufsauftrag"
+
+#. module: sale_dynamic_bom
+#: model:ir.model,name:sale_dynamic_bom.model_stock_move
+msgid "Stock Move"
+msgstr "Bestandsbuchung"
+
+#. module: sale_dynamic_bom
+#: code:addons/sale_dynamic_bom/sale.py:94
+#, python-format
+msgid "There is no free location for production"
+msgstr "Es gibt keinen freien Lagerort um den Auftrag zu produzieren"

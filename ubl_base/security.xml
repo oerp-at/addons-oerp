@@ -1,0 +1,45 @@
+<openerp>	
+	<data>
+	
+		<record id="access_ubl_profile_user" model="ir.model.access">
+			<field name="name">ubl_profile/user</field>
+			<field name="model_id" ref="model_ubl_profile"/>
+			<field name="group_id" ref="base.group_user"/>
+			<field name="perm_read" eval="True"/>			
+			<field name="perm_unlink" eval="False"/>
+			<field name="perm_create" eval="False"/>
+			<field name="perm_write" eval="False"/>
+		</record>
+		
+		<record id="access_ubl_uom_user" model="ir.model.access">
+			<field name="name">ubl_uom/user</field>
+			<field name="model_id" ref="model_ubl_uom"/>
+			<field name="group_id" ref="base.group_user"/>
+			<field name="perm_read" eval="True"/>			
+			<field name="perm_unlink" eval="False"/>
+			<field name="perm_create" eval="False"/>
+			<field name="perm_write" eval="False"/>
+		</record>
+		
+		<record id="access_ubl_ws_type_user" model="ir.model.access">
+			<field name="name">ubl_ws_type/user</field>
+			<field name="model_id" ref="model_ubl_ws_type"/>
+			<field name="group_id" ref="base.group_user"/>
+			<field name="perm_read" eval="True"/>			
+			<field name="perm_unlink" eval="False"/>
+			<field name="perm_create" eval="False"/>
+			<field name="perm_write" eval="False"/>
+		</record>
+		
+		<record id="access_ubl_rule_partner_user" model="ir.model.access">
+			<field name="name">ubl_rule_partner/user</field>
+			<field name="model_id" ref="model_ubl_rule_partner"/>
+			<field name="group_id" ref="base.group_user"/>
+			<field name="perm_read" eval="True"/>			
+			<field name="perm_unlink" eval="False"/>
+			<field name="perm_create" eval="False"/>
+			<field name="perm_write" eval="False"/>
+		</record>
+		
+	</data>
+</openerp>

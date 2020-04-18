@@ -1,0 +1,228 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* ubl_invoice
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 8.0\n"
+"Language: de_DE\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2018-02-19 20:44+0000\n"
+"PO-Revision-Date: 2018-09-24 23:12+0100\n"
+"Last-Translator: Martin Reisenhofer <martin.reisenhofer@funkring.net>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: \n"
+"X-Generator: Poedit 1.5.4\n"
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,ubl_action:0
+msgid "Action"
+msgstr "Aktion"
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,att_ids:0
+msgid "Attachments"
+msgstr "Anhänge"
+
+#. module: ubl_invoice
+#: view:ubl.transfer.wizard:ubl_invoice.wizard_ubl_transfer
+msgid "Close"
+msgstr "Schließen"
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,create_uid:0
+msgid "Created by"
+msgstr ""
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,create_date:0
+msgid "Created on"
+msgstr ""
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,display_name:0
+msgid "Display Name"
+msgstr "Anzeigename"
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,email:0
+msgid "E-Mail"
+msgstr ""
+
+#. module: ubl_invoice
+#: code:addons/ubl_invoice/invoice.py:82
+#: code:addons/ubl_invoice/invoice.py:126
+#: code:addons/ubl_invoice/invoice.py:199
+#: code:addons/ubl_invoice/wizard/ubl_transfer_wizard.py:121
+#, python-format
+msgid "Error"
+msgstr "Fehler"
+
+#. module: ubl_invoice
+#: selection:ubl.transfer.wizard,ubl_action:0
+msgid "Except"
+msgstr "Unterbrechen"
+
+#. module: ubl_invoice
+#: selection:account.invoice,ubl_status:0
+msgid "Exception"
+msgstr "Unterbrechnung"
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,id:0
+msgid "ID"
+msgstr ""
+
+#. module: ubl_invoice
+#: model:ir.model,name:ubl_invoice.model_account_invoice
+#: field:ubl.transfer.wizard,invoice_id:0
+msgid "Invoice"
+msgstr "Rechnung"
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,__last_update:0
+msgid "Last Modified on"
+msgstr ""
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,write_uid:0
+msgid "Last Updated by"
+msgstr ""
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,write_date:0
+msgid "Last Updated on"
+msgstr ""
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,no_delivery_address:0
+msgid "No Delivery Address"
+msgstr "Keine Lieferadresse"
+
+#. module: ubl_invoice
+#: code:addons/ubl_invoice/invoice.py:82
+#, python-format
+msgid "No Order Reference!"
+msgstr "Keine Auftragsreferenz!"
+
+#. module: ubl_invoice
+#: code:addons/ubl_invoice/invoice.py:126
+#, python-format
+msgid "No UBL Profile defined!"
+msgstr "Kein UBL Profil definiert!"
+
+#. module: ubl_invoice
+#: code:addons/ubl_invoice/wizard/ubl_transfer_wizard.py:121
+#, python-format
+msgid "No webservice defined for sending the invoice"
+msgstr "Kein Webservice zum senden der Rechnung"
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,partner_id:0
+msgid "Partner"
+msgstr ""
+
+#. module: ubl_invoice
+#: view:ubl.profile:ubl_invoice.form_ubl_profile
+#: field:ubl.profile,payment_note:0
+msgid "Payment Note"
+msgstr "Zahlungsnotiz"
+
+#. module: ubl_invoice
+#: selection:account.invoice,ubl_status:0
+msgid "Preparation"
+msgstr "Vorbereitung"
+
+#. module: ubl_invoice
+#: selection:ubl.transfer.wizard,ubl_action:0
+msgid "Prepare"
+msgstr "Vorbereiten"
+
+#. module: ubl_invoice
+#: view:ubl.transfer.wizard:ubl_invoice.wizard_ubl_transfer
+#: selection:ubl.transfer.wizard,ubl_action:0
+msgid "Send"
+msgstr "Übermitteln"
+
+#. module: ubl_invoice
+#: selection:account.invoice,ubl_status:0
+msgid "Sent"
+msgstr "Gesendet"
+
+#. module: ubl_invoice
+#: view:account.invoice:ubl_invoice.search_invoice
+msgid "Status"
+msgstr ""
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,test:0
+msgid "Test"
+msgstr ""
+
+#. module: ubl_invoice
+#: code:addons/ubl_invoice/invoice.py:199
+#, python-format
+msgid "There is no bank account for the company partner defined"
+msgstr "Es wurde kein Bankkonto für die Firma defniert"
+
+#. module: ubl_invoice
+#: model:ir.model,name:ubl_invoice.model_ubl_transfer_wizard
+msgid "Transfer Wizard"
+msgstr "E-Rechnung Übermittlung Assistent"
+
+#. module: ubl_invoice
+#: view:account.invoice:ubl_invoice.search_invoice
+msgid "UBL Excepted"
+msgstr "UBL Unterbrechnung"
+
+#. module: ubl_invoice
+#: code:addons/ubl_invoice/wizard/ubl_transfer_wizard.py:124
+#, python-format
+msgid "UBL Invoice %s with reference %s transfered"
+msgstr "UBL/eRechnung %s mit der Referenz %s wurde gesendet"
+
+#. module: ubl_invoice
+#: view:account.invoice:ubl_invoice.search_invoice
+msgid "UBL Invoices"
+msgstr "UBL Rechnungen"
+
+#. module: ubl_invoice
+#: view:account.invoice:ubl_invoice.search_invoice
+msgid "UBL Prepare"
+msgstr "UBL Vorbereitung"
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,profile_id:0
+msgid "UBL Profile"
+msgstr "UBL Profil"
+
+#. module: ubl_invoice
+#: field:account.invoice,ubl_ref:0 field:ubl.transfer.wizard,ubl_ref:0
+msgid "UBL Reference"
+msgstr "UBL Referenz"
+
+#. module: ubl_invoice
+#: view:account.invoice:ubl_invoice.search_invoice
+#: field:account.invoice,ubl_status:0
+msgid "UBL Status"
+msgstr ""
+
+#. module: ubl_invoice
+#: view:account.invoice:ubl_invoice.form_invoice
+#: model:ir.actions.act_window,name:ubl_invoice.action_ubl_transfer
+#: view:ubl.transfer.wizard:ubl_invoice.wizard_ubl_transfer
+msgid "UBL Transfer"
+msgstr ""
+
+#. module: ubl_invoice
+#: field:ubl.transfer.wizard,xml_data:0
+msgid "XML Data"
+msgstr "XML Daten"
+
+#. module: ubl_invoice
+#: view:ubl.transfer.wizard:ubl_invoice.wizard_ubl_transfer
+msgid "or"
+msgstr "oder"

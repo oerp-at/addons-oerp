@@ -1,0 +1,40 @@
+<openerp>
+  <data noupdate="1">
+    
+    <record id="email_template_expense_alert" model="email.template">
+        <field name="name">Expense Alert</field>
+        <field name="lang">${object.partner_id.lang}</field> 
+        <field name="email_from">${(user.email or '')|safe}</field>
+        <field name="subject">${object.name}: Expense Alert</field>
+        <field name="partner_to">${object.partner_id.id}</field>
+        <field name="model_id" ref="analytic.model_account_analytic_account"/>
+        <field name="body_html"><![CDATA[
+                <div style="font-family: 'Lucica Grande', Ubuntu, Arial, Verdana, sans-serif; font-size: 11pt;">
+                   <p>${object.partner_id.mail_salutation}, </p>
+                   <p><strong>following effort will be invoiced:</strong></p>
+                   <table border="1">
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>Unit</th>
+                            <th>Invoice</th>
+                        </tr>
+                        % for line in object.expense_alert_line_ids:
+                        <tr>
+                            <td>${formatLang(line.date,date=True)}</td>
+                            <td>${line.name}</td>
+                            <td>${formatLang(line.unit_amount)}</td>
+                            <td>${line.product_uom_id and line.product_uom_id.name or ''}</td>
+                            <td>${line.to_invoice.name}</td>
+                        </tr>
+                        % endfor
+                    </table>                            
+                    <p>Best Regards</p>
+                    <p>${object.company_id.name}</p>
+                </div>
+        ]]></field>
+    </record>
+    
+  </data>
+</openerp>

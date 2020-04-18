@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+ <data>
+    <record id="form_account_analytic_view" model="ir.ui.view">
+      <field name="name">expenses_alert.form_account_analytic_view</field>
+      <field name="model">account.analytic.account</field>
+      <field name="inherit_id" ref="account_analytic_analysis.account_analytic_account_form_form"/>
+      <field name="arch" type="xml">
+        <field name="to_invoice" position="after">
+            <field name="expense_alert"/>
+            <field name="expense_alert_date" attrs="{'invisible':[('expense_alert','!=',True)]}"/>
+        </field>
+      </field>
+    </record>
+  </data>
+</openerp>

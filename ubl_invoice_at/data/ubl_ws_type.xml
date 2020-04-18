@@ -1,0 +1,8 @@
+<openerp>
+	<data>
+		<record id="ws_type_at" model="ubl.ws.type">
+			<field name="name">E-Rechnung Austria</field>
+			<field name="code">usp.gv.at</field>
+		</record>
+	</data>
+</openerp>

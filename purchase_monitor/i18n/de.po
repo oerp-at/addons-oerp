@@ -1,0 +1,39 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* purchase_monitor
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 8.0\n"
+"Language: de_DE\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2018-05-27 16:22+0000\n"
+"PO-Revision-Date: 2018-05-27 18:23+0100\n"
+"Last-Translator: Martin Reisenhofer <martin.reisenhofer@funkring.net>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: \n"
+"X-Generator: Poedit 1.5.4\n"
+
+#. module: purchase_monitor
+#: code:addons/purchase_monitor/purchase_order.py:40
+#, python-format
+msgid "No confirmation for %s orders"
+msgstr "Keine Bestätigung von %s Bestellungen"
+
+#. module: purchase_monitor
+#: model:mail.group,name:purchase_monitor.group_purchase_monitor
+msgid "Purchase Monitor"
+msgstr "Bestellmonitor"
+
+#. module: purchase_monitor
+#: model:ir.model,name:purchase_monitor.model_purchase_order
+msgid "Purchase Order"
+msgstr "Bestellung"
+
+#. module: purchase_monitor
+#: field:purchase.order,recv_confirm:0
+msgid "Received Confirmation"
+msgstr "Bestätigung empfangen"

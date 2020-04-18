@@ -1,0 +1,200 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+#	* ubl_base
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 8.0\n"
+"Language: de_DE\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2017-01-19 01:03+0000\n"
+"PO-Revision-Date: 2017-01-19 01:03+0000\n"
+"Last-Translator: <>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: ubl_base
+#: help:ubl.profile,ubl_ref:0
+msgid "A Python evaluated string.\n"
+"* 'partner' browseable passed as global variable\n"
+"* 'invoice' browseable passed as global variable\n"
+"* 'profile' browseable passed as global variable\n"
+""
+msgstr "Ein als Python interpretierter String\n"
+"* 'partner' browseable wird als globale variable übergeben\n"
+"* 'invoice' browseable wird als globale variable übergeben\n"
+"* 'profile' browseable wird als globale variable übergeben\n"
+""
+
+#. module: ubl_base
+#: field:ubl.ws.type,code:0
+msgid "Code"
+msgstr ""
+
+#. module: ubl_base
+#: field:ubl.profile,create_uid:0
+#: field:ubl.rule.partner,create_uid:0
+#: field:ubl.uom,create_uid:0
+#: field:ubl.ws.type,create_uid:0
+msgid "Created by"
+msgstr ""
+
+#. module: ubl_base
+#: field:ubl.profile,create_date:0
+#: field:ubl.rule.partner,create_date:0
+#: field:ubl.uom,create_date:0
+#: field:ubl.ws.type,create_date:0
+msgid "Created on"
+msgstr ""
+
+#. module: ubl_base
+#: field:ubl.profile,display_name:0
+#: field:ubl.rule.partner,display_name:0
+#: field:ubl.uom,display_name:0
+#: field:ubl.ws.type,display_name:0
+msgid "Display Name"
+msgstr ""
+
+#. module: ubl_base
+#: view:ubl.profile:ubl_base.form_ubl_profile
+msgid "General"
+msgstr "Allgemein"
+
+#. module: ubl_base
+#: field:ubl.profile,code:0
+#: field:ubl.profile,id:0
+#: field:ubl.rule.partner,id:0
+#: field:ubl.uom,id:0
+#: field:ubl.ws.type,id:0
+msgid "ID"
+msgstr ""
+
+#. module: ubl_base
+#: field:ubl.profile,__last_update:0
+#: field:ubl.rule.partner,__last_update:0
+#: field:ubl.uom,__last_update:0
+#: field:ubl.ws.type,__last_update:0
+msgid "Last Modified on"
+msgstr ""
+
+#. module: ubl_base
+#: field:ubl.profile,write_uid:0
+#: field:ubl.rule.partner,write_uid:0
+#: field:ubl.uom,write_uid:0
+#: field:ubl.ws.type,write_uid:0
+msgid "Last Updated by"
+msgstr ""
+
+#. module: ubl_base
+#: field:ubl.profile,write_date:0
+#: field:ubl.rule.partner,write_date:0
+#: field:ubl.uom,write_date:0
+#: field:ubl.ws.type,write_date:0
+msgid "Last Updated on"
+msgstr ""
+
+#. module: ubl_base
+#: field:ubl.profile,name:0
+#: field:ubl.uom,name:0
+#: field:ubl.ws.type,name:0
+msgid "Name"
+msgstr ""
+
+#. module: ubl_base
+#: field:ubl.rule.partner,no_delivery_address:0
+msgid "No Delivery Address"
+msgstr "Keine Lieferadresse"
+
+#. module: ubl_base
+#: view:ubl.profile:ubl_base.form_ubl_profile
+#: field:ubl.rule.partner,name:0
+msgid "Partner"
+msgstr ""
+
+#. module: ubl_base
+#: view:ubl.profile:ubl_base.form_ubl_profile
+msgid "Partner Assignment"
+msgstr "Partner Zuweisung"
+
+#. module: ubl_base
+#: field:ubl.profile,partner_rule_ids:0
+msgid "Partner Rules"
+msgstr "Partner Regeln"
+
+#. module: ubl_base
+#: field:ubl.rule.partner,profile_id:0
+#: field:ubl.uom,profile_id:0
+msgid "Profile"
+msgstr "Profil"
+
+#. module: ubl_base
+#: field:ubl.rule.partner,state_id:0
+msgid "State"
+msgstr "Bundesland"
+
+#. module: ubl_base
+#: model:ir.actions.act_window,name:ubl_base.action_ubl_profile
+#: model:ir.ui.menu,name:ubl_base.menu_ubl_profile
+#: view:ubl.profile:ubl_base.form_ubl_profile
+msgid "UBL Profile"
+msgstr "UBL Profil"
+
+#. module: ubl_base
+#: view:ubl.profile:ubl_base.tree_ubl_profile
+msgid "UBL Profiles"
+msgstr "UBL Profile"
+
+#. module: ubl_base
+#: field:ubl.profile,ubl_ref:0
+msgid "UBL Reference Pattern"
+msgstr "UBL Referenz Muster"
+
+#. module: ubl_base
+#: model:ir.model,name:ubl_base.model_ubl_uom
+#: field:ubl.profile,uom_ids:0
+msgid "UBL Unit of Measures"
+msgstr "UBL Einheit"
+
+#. module: ubl_base
+#: model:ir.model,name:ubl_base.model_ubl_ws_type
+msgid "UBL WebService Type"
+msgstr "UBL Webservice Typ"
+
+#. module: ubl_base
+#: view:ubl.profile:ubl_base.form_ubl_profile
+msgid "Unit Assignment"
+msgstr "Einheiten Umlegung"
+
+#. module: ubl_base
+#: field:ubl.uom,uom_id:0
+msgid "Unit of Measure"
+msgstr "Einheit"
+
+#. module: ubl_base
+#: view:ubl.profile:ubl_base.form_ubl_profile
+msgid "Units"
+msgstr "Einheiten"
+
+#. module: ubl_base
+#: view:ubl.profile:ubl_base.form_ubl_profile
+msgid "Web Service"
+msgstr ""
+
+#. module: ubl_base
+#: field:ubl.profile,ws_password:0
+msgid "Webservice Password"
+msgstr ""
+
+#. module: ubl_base
+#: field:ubl.profile,ws_type_id:0
+msgid "Webservice Type"
+msgstr "Webservice Typ"
+
+#. module: ubl_base
+#: field:ubl.profile,ws_user:0
+msgid "Webservice User"
+msgstr ""
+

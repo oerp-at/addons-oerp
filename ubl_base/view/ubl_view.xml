@@ -1,0 +1,68 @@
+<openerp>
+	<data>
+	
+		<record id="form_ubl_profile" model="ir.ui.view">
+            <field name="name">ubl.form_ubl_profile</field>
+            <field name="model">ubl.profile</field>
+            <field name="arch" type="xml">
+                <form string="UBL Profile">
+                    <header/>
+                    <group>
+                    	<group string="General">
+    	                    <field name="name"/>
+    	                    <field name="code"/>
+    	                    <field name="ubl_ref"/>
+                        </group>
+                        <group string="Web Service">
+                        	<field name="ws_type_id"/>
+                        	<field name="ws_user"/>
+                        	<field name="ws_password"/>
+                        </group>
+                    </group>
+                    <notebook>
+                    	<page string="Unit Assignment">
+		                    <field name="uom_ids" colspan="4" nolabel="1">
+		                    	<tree string="Units" editable="bottom">
+		                    		<field name="name"/>
+		                    		<field name="uom_id"/>
+		                    	</tree>
+		                    </field>
+	                    </page>
+	                    <page string="Partner Assignment">
+	                    	<field name="partner_rule_ids" colspan="4" nolabel="1">
+	                    		<tree string="Partner" editable="bottom">
+	                    			<field name="state_id"/>
+	                    			<field name="name"/>
+	                    			<field name="no_delivery_address"/> 
+	                    		</tree>
+	                    	</field>	                    
+	                    </page>
+                    </notebook>
+                </form>
+            </field>
+        </record>
+
+        <record id="tree_ubl_profile" model="ir.ui.view">
+            <field name="name">ubl.tree_ubl_profile</field>
+            <field name="model">ubl.profile</field>
+            <field name="arch" type="xml">
+                <tree string="UBL Profiles">
+                	<field name="name"/>
+                	<field name="code"/>
+                	<field name="ws_type_id"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record id="action_ubl_profile" model="ir.actions.act_window">
+            <field name="name">UBL Profile</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">ubl.profile</field>            
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+				
+        <menuitem id="menu_ubl_profile" name="UBL Profile" parent="base.menu_config" sequence="1000"
+        		  action="action_ubl_profile"/>		
+	</data>
+</openerp>

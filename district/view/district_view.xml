@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+  <data>
+    <record id="form_district" model="ir.ui.view">
+      <field name="name">district.form_district</field>
+      <field name="model">district.district</field>
+      <field name="arch" type="xml">
+        <form string="District">
+          <sheet>
+            <group>
+                <group>
+                    <field name="name"/>
+                </group>
+                <group>
+                    <field name="state_id"/>
+                    <field name="country_id"/>
+                </group>
+            </group>
+          </sheet>
+        </form>
+      </field>
+    </record>
+
+    <record id="tree_district" model="ir.ui.view">
+      <field name="name">district.tree_district</field>
+      <field name="model">district.district</field>
+      <field name="arch" type="xml">
+        <tree string="more">
+            <field name="name"/>
+            <field name="state_id"/>
+            <field name="country_id"/>
+        </tree>
+      </field>
+    </record>
+
+    <record id="search_district" model="ir.ui.view">
+      <field name="name">district.search_district</field>
+      <field name="model">district.district</field>
+      <field name="arch" type="xml">
+        <search string="District">
+            <field name="name"/>
+            <field name="state_id"/>
+            <field name="country_id"/>
+            <group expand="0" string="Group By...">
+               <filter string="Country" context="{'group_by':'country_id'}"/>
+               <filter string="State" context="{'group_by':'state_id'}"/>               
+            </group>
+        </search>
+      </field>
+    </record>
+    
+    <record id="action_district" model="ir.actions.act_window">
+      <field name="name">District</field>
+      <field name="res_model">district.district</field>
+      <field name="view_type">form</field>
+      <field name="view_mode">tree,form</field>     
+    </record>
+
+    <menuitem id="menu_district" name="District" parent="base.menu_localisation"
+      sequence="20"
+      action="action_district"/>
+      
+  </data>
+</openerp>

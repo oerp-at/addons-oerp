@@ -1,0 +1,31 @@
+<openerp>
+  <data>
+    
+    <record id="kanban_project" model="ir.ui.view">
+      <field name="name">contract_hours.kanban_project</field>
+      <field name="model">project.project</field>
+      <field name="inherit_id" ref="project.view_project_kanban"/>
+      <field name="type">form</field>
+      <field name="arch" type="xml">
+         
+         <field name="doc_count" position="after">
+            <field name="ct_remaining_hours"/>
+            <field name="ct_year_hours"/>
+         </field>
+         
+         <div class="oe_kanban_footer_left" position="inside">            
+            <span t-if="record.ct_year_hours.raw_value &gt; 0 and record.ct_remaining_hours.raw_value &gt;= 0">
+                <span class="oe_e">d</span><t t-esc="Math.round(record.ct_remaining_hours.raw_value)"/>/<t t-esc="Math.round(record.ct_year_hours.raw_value)"/> <field name="company_uom_id"/> 
+            </span>
+            <span t-if="record.ct_year_hours.raw_value &gt; 0 and record.ct_remaining_hours.raw_value &lt; 0" style="color: red;">
+                <span class="oe_e">d</span><t t-esc="Math.round(record.ct_remaining_hours.raw_value)"/>/<t t-esc="Math.round(record.ct_year_hours.raw_value)"/> <field name="company_uom_id"/>
+            </span>            
+         </div>
+         
+      </field>
+    </record>
+    
+  </data>
+</openerp>
+
+

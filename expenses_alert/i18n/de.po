@@ -1,0 +1,127 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* expenses_alert
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 8.0\n"
+"Language: de_DE\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2016-08-10 06:05+0000\n"
+"PO-Revision-Date: 2016-08-10 08:05+0100\n"
+"Last-Translator: Martin Reisenhofer <martin.reisenhofer@funkring.net>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: \n"
+"X-Generator: Poedit 1.5.4\n"
+
+#. module: expenses_alert
+#: model:email.template,body_html:expenses_alert.email_template_expense_alert
+msgid ""
+"\n"
+"                <div style=\"font-family: 'Lucica Grande', Ubuntu, Arial, "
+"Verdana, sans-serif; font-size: 11pt;\">\n"
+"                   <p>${object.partner_id.mail_salutation}, </p>\n"
+"                   <p><strong>following effort will be invoiced:</strong></"
+"p>\n"
+"                   <table border=\"1\">\n"
+"                        <tr>\n"
+"                            <th>Date</th>\n"
+"                            <th>Description</th>\n"
+"                            <th>Amount</th>\n"
+"                            <th>Unit</th>\n"
+"                            <th>Invoice</th>\n"
+"                        </tr>\n"
+"                        % for line in object.expense_alert_line_ids:\n"
+"                        <tr>\n"
+"                            <td>${formatLang(line.date,date=True)}</td>\n"
+"                            <td>${line.name}</td>\n"
+"                            <td>${formatLang(line.unit_amount)}</td>\n"
+"                            <td>${line.product_uom_id and line."
+"product_uom_id.name or ''}</td>\n"
+"                            <td>${line.to_invoice.name}</td>\n"
+"                        </tr>\n"
+"                        % endfor\n"
+"                    </table>                            \n"
+"                    <p>Best Regards</p>\n"
+"                    <p>${object.company_id.name}</p>\n"
+"                </div>\n"
+"        "
+msgstr ""
+"\n"
+"                <div style=\"font-family: 'Lucica Grande', Ubuntu, Arial, "
+"Verdana, sans-serif; font-size: 11pt;\">\n"
+"                   <p>${object.partner_id.mail_salutation}, </p>\n"
+"                   <p><strong>der folgende Aufwand wird in Rechnung gestellt:"
+"</strong></p>\n"
+"                   <table border=\"1\">\n"
+"                        <tr>\n"
+"                            <th>Datum</th>\n"
+"                            <th>Beschreibung</th>\n"
+"                            <th>Menge</th>\n"
+"                            <th>Einheit</th>\n"
+"                            <th>Verrechnung</th>\n"
+"                        </tr>\n"
+"                        % for line in object.expense_alert_line_ids:\n"
+"                        <tr>\n"
+"                            <td>${formatLang(line.date,date=True)}</td>\n"
+"                            <td>${line.name}</td>\n"
+"                            <td>${formatLang(line.unit_amount)}</td>\n"
+"                            <td>${line.product_uom_id and line."
+"product_uom_id.name or ''}</td>\n"
+"                            <td>${line.to_invoice.name}</td>\n"
+"                        </tr>\n"
+"                        % endfor\n"
+"                    </table>                            \n"
+"                    <p>Mit freundlichen Grüßen</p>\n"
+"                    <p>${object.company_id.name}</p>\n"
+"                </div>\n"
+"        "
+
+#. module: expenses_alert
+#: model:email.template,subject:expenses_alert.email_template_expense_alert
+msgid "${object.name}: Expense Alert"
+msgstr "${object.name}: Aufwandsbestätigung"
+
+#. module: expenses_alert
+#: field:account.analytic.account,expense_alert_date:0
+#: field:res.partner,expense_alert_date:0
+msgid "Alert Date"
+msgstr "Benachrichtigungsdatum"
+
+#. module: expenses_alert
+#: model:ir.model,name:expenses_alert.model_account_analytic_account
+msgid "Analytic Account"
+msgstr "Kostenstelle"
+
+#. module: expenses_alert
+#: model:ir.model,name:expenses_alert.model_account_analytic_line
+msgid "Analytic Line"
+msgstr "Kostenbuchung"
+
+#. module: expenses_alert
+#: field:account.analytic.account,expense_alert:0
+msgid "Expense Alert"
+msgstr "Aufwandbenachrichtigung"
+
+#. module: expenses_alert
+#: field:account.analytic.account,expense_alert_line_ids:0
+msgid "Expense Alert Lines"
+msgstr "Aufwandspositionen"
+
+#. module: expenses_alert
+#: help:account.analytic.account,expense_alert:0
+msgid "Expense alert should be done"
+msgstr "Die Aufwandbenachrichtigung wurde gemacht"
+
+#. module: expenses_alert
+#: help:res.partner,expense_alert_date:0
+msgid "Last expense alert date"
+msgstr "Letzte Aufwandsbenachrichtigung"
+
+#. module: expenses_alert
+#: model:ir.model,name:expenses_alert.model_res_partner
+msgid "Partner"
+msgstr ""

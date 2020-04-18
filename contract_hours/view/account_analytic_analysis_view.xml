@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+ <data>
+ 
+    <record id="form_account_analytic_account" model="ir.ui.view">
+      <field name="name">overdue_amount.form_account_analytic_account</field>
+      <field name="model">account.analytic.account</field>
+      <field name="inherit_id" ref="analytic.view_account_analytic_account_form"/>
+      <field name="arch" type="xml">        
+        <xpath expr='//div[@name="duration"]' position="after">
+            <label for="ct_month_hours"/>
+            <div>
+                <field name="ct_month_hours"/>
+                <div attrs="{'invisible': [('ct_month_hours','=',0)]}" class="oe_grey">
+                    <field name="ct_year_hours" class="oe_inline"/> Hours per Year
+                </div>
+                <div attrs="{'invisible': [('ct_month_hours','=',0)]}" class="oe_grey">
+                    <field name="ct_remaining_hours" class="oe_inline"/> Remaining hours
+                </div>     
+            </div>
+        </xpath>
+      </field> 
+    </record>
+    
+    <record id="tree_account_analytic_account" model="ir.ui.view">
+      <field name="name">contract_hours.tree_account_analytic_account</field>
+      <field name="model">account.analytic.account</field>
+      <field name="inherit_id" ref="account_analytic_analysis.view_account_analytic_account_tree_c2c_3"/>
+        <field name="arch" type="xml">
+            <field name="remaining_hours" position="replace">
+                <field name="remaining_hours" invisible="1"/>
+                <field name="ct_remaining_hours"/>
+            </field>
+        </field>
+    </record>
+    
+    <record id="search_account_analytic_account" model="ir.ui.view">
+      <field name="name">contract_hours.search_account_analytic_account</field>
+      <field name="model">account.analytic.account</field>
+      <field name="inherit_id" ref="account_analytic_analysis.view_account_analytic_account_overdue_search"/>
+      <field name="type">form</field>
+      <field name="arch" type="xml">
+         <filter name="has_partner" position="after">
+            <filter string="Maintenance Contracts" name="maintenance_contracts" domain="[('ct_month_hours','>',0)]"/>   
+         </filter>
+      </field>
+    </record>
+
+  </data>
+</openerp>

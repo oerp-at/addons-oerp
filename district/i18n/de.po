@@ -1,0 +1,97 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+#	* district
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 8.0\n"
+"Language: de_DE\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2017-01-07 13:11+0000\n"
+"PO-Revision-Date: 2017-01-07 13:11+0000\n"
+"Last-Translator: <>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: district
+#: view:district.district:district.search_district
+#: field:district.district,country_id:0
+#: view:res.partner:district.search_partner
+msgid "Country"
+msgstr "Land"
+
+#. module: district
+#: field:district.district,create_uid:0
+msgid "Created by"
+msgstr "Erstellt von"
+
+#. module: district
+#: field:district.district,create_date:0
+msgid "Created on"
+msgstr "Erstellt am"
+
+#. module: district
+#: field:district.district,display_name:0
+msgid "Display Name"
+msgstr "Anzeige Namen"
+
+#. module: district
+#: view:district.district:district.form_district
+#: view:district.district:district.search_district
+#: model:ir.actions.act_window,name:district.action_district
+#: model:ir.model,name:district.model_district_district
+#: model:ir.ui.menu,name:district.menu_district
+#: view:res.partner:district.search_partner
+#: field:res.partner,district_id:0
+msgid "District"
+msgstr "Landkreis"
+
+#. module: district
+#: view:district.district:district.search_district
+msgid "Group By..."
+msgstr "Gruppiere nach..."
+
+#. module: district
+#: field:district.district,id:0
+msgid "ID"
+msgstr ""
+
+#. module: district
+#: field:district.district,__last_update:0
+msgid "Last Modified on"
+msgstr ""
+
+#. module: district
+#: field:district.district,write_uid:0
+msgid "Last Updated by"
+msgstr ""
+
+#. module: district
+#: field:district.district,write_date:0
+msgid "Last Updated on"
+msgstr ""
+
+#. module: district
+#: field:district.district,name:0
+msgid "Name"
+msgstr ""
+
+#. module: district
+#: model:ir.model,name:district.model_res_partner
+msgid "Partner"
+msgstr ""
+
+#. module: district
+#: view:district.district:district.search_district
+#: field:district.district,state_id:0
+msgid "State"
+msgstr "Bundesland"
+
+#. module: district
+#: view:district.district:district.tree_district
+msgid "more"
+msgstr "mehr"
+

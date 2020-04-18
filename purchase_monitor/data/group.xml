@@ -1,0 +1,9 @@
+<openerp>
+  <data>
+    
+    <record id="group_purchase_monitor" model="mail.group">
+        <field name="name">Purchase Monitor</field>       
+    </record>
+    
+  </data>
+</openerp>

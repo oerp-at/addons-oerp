@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+ <data>
+    
+    <record id="form_sale_order" model="ir.ui.view">
+      <field name="name">sale_editor.form_sale_order</field>
+      <field name="model">sale.order</field>
+      <field name="inherit_id" ref="sale.view_order_form"/>
+      <field name="arch" type="xml">
+            <field name="user_id" position="before">
+                <field name="editor_id" context="{'default_groups_ref': ['base.group_user', 'base.group_partner_manager', 'account.group_account_invoice', 'base.group_sale_salesman_all_leads']}"/>
+            </field>
+      </field>
+    </record>
+    
+    <record id="search_sale_order" model="ir.ui.view">
+      <field name="name">sale_editor.search_sale_order</field>
+      <field name="model">sale.order</field>
+      <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+      <field name="type">form</field>
+      <field name="arch" type="xml">
+            <field name="user_id" position="before">
+                <field name="editor_id"/>
+            </field>
+            <filter string="Salesperson" position="after">
+                <filter string="Editor" domain="[]" context="{'group_by':'editor_id'}"/>
+            </filter>
+      </field>
+    </record>
+
+  </data>  
+</openerp>

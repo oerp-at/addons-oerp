@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+ <data>
+    <record id="form_partner" model="ir.ui.view">
+      <field name="name">district.form_partner</field>
+      <field name="model">res.partner</field>
+      <field name="inherit_id" ref="base.view_partner_form"/>
+      <field name="arch" type="xml">
+            <label for="street" position="before">
+                <field name="district_id" on_change="onchange_district(district_id)"/>
+            </label>
+      </field>
+    </record>
+    
+    <record id="tree_partner" model="ir.ui.view">
+      <field name="name">district.tree_partner</field>
+      <field name="model">res.partner</field>
+      <field name="inherit_id" ref="base.view_partner_tree"/>
+      <field name="type">form</field>
+      <field name="arch" type="xml">
+         <field name="email" position="after">
+            <field name="district_id"/>
+         </field>
+      </field>
+    </record>
+    
+    <record id="search_partner" model="ir.ui.view">
+      <field name="name">district.search_partner</field>
+      <field name="model">res.partner</field>
+      <field name="inherit_id" ref="base.view_res_partner_filter"/>
+      <field name="type">form</field>
+      <field name="arch" type="xml">
+         <field name="category_id" position="after">
+            <field name="district_id"/>
+         </field>
+         <filter string="Country" position="after">
+            <filter string="District" context="{'group_by':'district_id'}"/>
+         </filter>
+      </field>
+    </record>
+    
+  </data>
+</openerp>

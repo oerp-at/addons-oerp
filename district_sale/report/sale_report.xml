@@ -1,0 +1,33 @@
+<openerp>
+  <data>
+    
+    <!--
+    <record id="graph_sale_report" model="ir.ui.view">
+      <field name="name">district_sale.graph_sale_report</field>
+      <field name="model">sale.report</field>
+      <field name="inherit_id" ref="sale.view_order_product_graph"/>
+      <field name="arch" type="xml">
+        <field name="section_id" position="after">
+          <field name="district_id" type="row"/>
+        </field>
+      </field>
+    </record>
+      -->
+    
+    <record id="search_sale_report" model="ir.ui.view">
+      <field name="name">district_sale.search_sale_report</field>
+      <field name="model">sale.report</field>
+      <field name="inherit_id" ref="sale.view_order_product_search"/>
+      <field name="arch" type="xml">
+        <field name="partner_id" position="after">
+          <field name="district_id"/>
+        </field>
+        <filter name="Customer" position="after">
+          <filter string="District" name="district" context="{'group_by':'district_id'}"/>
+        </filter>
+      </field>
+    </record>
+
+    
+  </data>
+</openerp>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+ <data>
+ 
+    <record id="form_account_analytic_account" model="ir.ui.view">
+      <field name="name">overdue_amount.form_account_analytic_account</field>
+      <field name="model">account.analytic.account</field>
+      <field name="inherit_id" ref="analytic.view_account_analytic_account_form"/>
+      <field name="arch" type="xml">
+        <xpath expr='//div[@name="duration"]' position="after">
+            <label for="check_overdue_amount"/>
+            <div>
+                <field name="check_overdue_amount"/>
+                <div attrs="{'invisible': [('check_overdue_amount','=',False)]}" class="oe_grey">
+                    <field name="overdue_amount_max" class="oe_inline"/> Overdue Line
+                </div>
+                <div attrs="{'invisible': [('check_overdue_amount','=',False)]}" class="oe_grey">
+                    <field name="debit" class="oe_inline"/> Debit
+                </div>
+                <div attrs="{'invisible': [('check_overdue_amount','=',False)]}" class="oe_grey">
+                    <field name="credit" class="oe_inline"/> Credit
+                </div>
+                <div attrs="{'invisible': [('check_overdue_amount','=',False)]}" class="oe_grey">
+                    <field name="balance" class="oe_inline"/> Balance
+                </div>           
+            </div>
+        </xpath>
+      </field> 
+    </record>
+    
+  </data>
+</openerp>

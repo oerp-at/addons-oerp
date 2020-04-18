@@ -1,0 +1,17 @@
+<openerp>
+  <data>
+    
+    <record id="cron_expense_alert" model="ir.cron">
+        <field name="name">Expense Alert</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="doall" eval="False"/>
+        <field name="model">account.analytic.account</field>
+        <field name="function">_expense_alert</field>
+        <field name="args">()</field>
+        <field name="active" eval="True"/>
+    </record>
+    
+  </data>
+</openerp>

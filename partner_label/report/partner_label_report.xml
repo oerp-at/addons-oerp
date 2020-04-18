@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+  <data>
+    <report id="report_partner_label_pdf"
+      string="Mail Label"
+      name="partner_label"
+      auto="False"
+      report_type="aeroo"
+      model="res.partner"
+      in_format="oo-odt"
+      out_format="oo-pdf"
+      parser="partner_label/report/partner_label_report.py"
+      rml="partner_label/report/partner_label_report.odt"
+      process_sep="True"
+      stylesheet="none"/>
+  </data>
+</openerp>

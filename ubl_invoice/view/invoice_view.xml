@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+ <data>
+    
+    <record id="form_invoice" model="ir.ui.view">
+      <field name="name">ubl_invoice.form_invoice</field>
+      <field name="model">account.invoice</field>
+      <field name="inherit_id" ref="account.invoice_form"/>
+      <field name="arch" type="xml">
+        <data>
+            <field name="state" position="before">
+                <button name="%(action_ubl_transfer)d" type="action" string="UBL Transfer" states="open,paid" groups="account.group_account_invoice"/>
+            </field>
+            <field name="origin" position="before">
+                <field name="ubl_ref"/>
+                <field name="ubl_status"/>
+            </field>                    
+        </data>
+      </field>
+    </record>
+    
+    <record id="tree_invoice" model="ir.ui.view">
+      <field name="name">ubl_invoice.tree_invoice</field>
+      <field name="model">account.invoice</field>
+      <field name="inherit_id" ref="account.invoice_tree"/>
+        <field name="arch" type="xml">
+            <field name="state" position="after">
+                <field name="ubl_status"/>
+            </field>          
+        </field>
+    </record>
+
+    <record id="search_invoice" model="ir.ui.view">
+      <field name="name">ubl_invoice.search_invoice</field>
+      <field name="model">account.invoice</field>
+      <field name="inherit_id" ref="account.view_account_invoice_filter"/>
+      <field name="type">form</field>
+      <field name="arch" type="xml">
+         <field name="number" position="after">
+            <field name="ubl_ref"/>
+         </field>
+         <filter name="unpaid" position="after">
+            <filter name="ubl" string="UBL Invoices" domain="[('ubl_status','!=',False)]"/>
+            <filter name="ubl_unsent" string="UBL Prepare"  domain="[('ubl_status','=','prepare')]"/>
+            <filter name="ubl_except" string="UBL Excepted" domain="[('ubl_status','=','except')]" />            
+         </filter>
+         <filter string="Status" position="after">
+            <filter name="ubl_status" string="UBL Status" context="{'group_by':'ubl_status'}"/>
+         </filter>
+      </field>
+    </record>
+
+    
+  </data>
+</openerp>

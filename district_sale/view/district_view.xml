@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+ <data>
+    
+    <record id="form_district" model="ir.ui.view">
+      <field name="name">district_sale.form_district</field>
+      <field name="model">district.district</field>
+      <field name="inherit_id" ref="district.form_district"/>
+      <field name="arch" type="xml">
+        <field name="country_id" position="after">
+            <field name="section_id"/>
+        </field>
+      </field>
+    </record>
+    
+    <record id="tree_district" model="ir.ui.view">
+      <field name="name">district_sale.tree_district</field>
+      <field name="model">district.district</field>
+      <field name="inherit_id" ref="district.tree_district"/>
+      <field name="type">form</field>
+      <field name="arch" type="xml">
+        <field name="country_id" position="after">
+            <field name="section_id"/>
+        </field>
+      </field>
+    </record>
+    
+  </data>  
+</openerp>

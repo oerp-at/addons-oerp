@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+ <data>
+ 
+    <record id="form_sale_order" model="ir.ui.view">
+      <field name="name">sale_dynamic_bom.form_sale_order</field>
+      <field name="model">sale.order</field>
+      <field name="inherit_id" ref="sale.view_order_form"/>
+      <field name="arch" type="xml">
+        <xpath expr="//page[@string='Other Information']/group" position="inside">
+          <group name="dynbom">
+            <field name="dynbom_location_id"/>
+          </group>
+        </xpath>
+      </field>
+    </record>
+    
+    <record id="sale_production_action" model="ir.actions.act_window">
+      <field name="name">Production</field>
+      <field name="res_model">mrp.production</field>
+      <field name="view_type">form</field>
+      <field name="view_mode">tree,form,graph</field>
+      <field name="domain">[('move_prod_id.procurement_id.sale_line_id.order_id','=',active_id)]</field>
+      <field eval="[(4, ref('mrp.group_mrp_user'))]" name="groups_id"/>    
+    </record>
+    
+    <record id="form_sale_order_purchase" model="ir.ui.view">
+      <field name="name">sale_dynamic_bom.form_sale_order_purchase</field>
+      <field name="model">sale.order</field>
+      <field name="inherit_id" ref="at_purchase_sale.form_sale_order"/>
+      <field name="arch" type="xml">
+         <div name="sale_buttons" position="inside">
+             <button class="oe_inline oe_stat_button"
+                  icon="fa-gears"
+                  name="%(sale_dynamic_bom.sale_production_action)d"
+                  string="Productions" type="action" widget="statinfo" groups="mrp.group_mrp_user"
+                  attrs="{'invisible': [('dynbom_location_id','=',False)]}"/>
+         </div>
+      </field>
+    </record>
+    
+  </data>
+</openerp>

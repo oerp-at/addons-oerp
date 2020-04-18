@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+ <data>
+ 
+    <record id="form_purchase_order" model="ir.ui.view">
+      <field name="name">purchase_monitor.form_purchase_order</field>
+      <field name="model">purchase.order</field>
+      <field name="inherit_id" ref="purchase.purchase_order_form"/>
+      <field name="arch" type="xml">
+        
+        <field name="partner_ref" position="after">
+          <field name="recv_confirm"/>
+        </field>
+        
+      </field>
+    </record>
+    
+  </data>
+</openerp>

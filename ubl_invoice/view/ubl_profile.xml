@@ -1,0 +1,20 @@
+<openerp>
+  <data>
+    
+    <record id="form_ubl_profile" model="ir.ui.view">
+      <field name="name">ubl_invoice.form_ubl_profile</field>
+      <field name="model">ubl.profile</field>
+      <field name="inherit_id" ref="ubl_base.form_ubl_profile"/>
+      <field name="arch" type="xml">      
+        <notebook position="inside">
+          <page string="Payment Note">
+            <div>
+              <field name="payment_note"/>
+            </div>
+          </page>
+        </notebook>
+      </field>
+    </record>
+    
+  </data>
+</openerp>

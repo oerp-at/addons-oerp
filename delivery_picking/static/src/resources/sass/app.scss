@@ -1,0 +1,255 @@
+// The following two lines import the default Sencha Touch theme. If you are building
+// a new theme, remove them and the add your own CSS on top of the base CSS (which
+// is already included in your app.json file).
+@import 'sencha-touch/default';
+@import 'sencha-touch/default/all';
+
+// Custom code goes here..
+
+// ******************************************************************
+// CONST
+// ******************************************************************
+
+$fpos-input-dark: #525252;
+$fpos-input-grey: #777777;
+$fpos-input-lightgrey: #eeeeee;
+
+$fpos-white: #ffffff;
+$fpos-silver: #999999;
+$fpos-grey: #4d4d4d;
+$fpos-black: #000000;
+$fpos-red: #e06b5e;
+$fpos-maroon: #800000;
+$fpos-yellow: #ffe98a;
+$fpos-olive: #aa8800;
+$fpos-lime: #3c9d53;
+$fpos-green: #256235;
+$fpos-aqua: #2a7fff;
+$fpos-teal: #5fd3bc;
+$fpos-blue: #2a2aff;
+$fpos-navy: #003380;
+$fpos-fuchsia: #ff55dd;
+$fpos-purple: #a80087;
+$fpos-orange: #ff7f2a;
+$fpos-darkbrown: #784421;    // 120,68,33
+$fpos-brown: #aa4400;        // 170,68,0
+$fpos-lightbrown: #ffb380;   // 255,179,128
+$fpos-lightred: #e9afaf;     // 233,175,175
+$fpos-lightyellow: #ffeeaa;  // 255,238,170
+$fpos-lightgreen: #eeffaa;   // 238,255,170
+$fpos-lightblue: #aaccff;    // 170,204,255
+$fpos-lightestblue: #d5e5ff;   // 213,229,255
+$fpos-lightteal: #aaeeff;    // 170,238,255
+$fpos-lightestteal: #d5f6ff; // 213,246,255
+$fpos-darkestbrown: #552200; // 85,34,0
+$fpos-darkestred: #550000;   // 85,0,0
+$fpos-lightestyellow: #fdf7e0; // 253,247,224
+$fpos-lightestgreen: #f6ffd5;  // 246,255,213
+$fpos-lightestred: #f3e0e0; // 243,224,224
+$fpos-lightestgrey: #ededed; // 237,237,237
+$fpos-darkestgrey: #3f3f3f; // 63,63,63
+$fpos-schoko: #483737; // 72,55,55
+$fpos-lightgold: #ffd700; // 255,215,0
+$fpos-lightestgold: #fff09e; // 255,240,158 
+
+$form-field-label-bg-color : #dcdce6;
+
+$filter-background: #146aa6;
+$filter-forground: #ffffff;
+
+$data-background: #f9f9f9;
+$data-forground: #666666;
+$time-background: #ffffff;
+
+// ******************************************************************
+// BUTTONS
+// ******************************************************************
+
+@include sencha-button-ui('posInputButtonRed', $fpos-red, 'matt');
+@include sencha-button-ui('posInputButtonBlack', $fpos-input-dark, 'matt');
+@include sencha-button-ui('posInputButtonGray', $fpos-input-grey, 'matt');
+@include sencha-button-ui('posInputButtonGreen', $fpos-lime, 'matt');
+@include sencha-button-ui('posInputButtonGreenBevel', $fpos-lime, 'bevel');
+@include sencha-button-ui('posInputButtonOrange', $fpos-orange, 'matt');
+@include sencha-button-ui('posInputButtonWhite', $fpos-white, 'matt');
+
+// ******************************************************************
+// Ext.view.NumDisplay
+// ******************************************************************
+
+.NumDisplay {
+    font-family: "Lucida Console", Monaco, monospace;
+    text-align: right;
+    font-size: 1.3em;
+    font-weight: bold;
+    padding: 8px 6px 8px 6px;
+    color: #555555 !important;
+}
+
+.NumDisplayInfo {
+    font-size: 60%;
+    padding: 6px 6px 6px 6px;
+    color: grey !important;
+    text-align: left;
+}
+
+.NumDisplayError {
+    font-size: 60%;
+    padding: 6px 6px 6px 6px;
+    color: red !important;
+    text-align: left;
+}
+
+// ******************************************************************
+// NumberInput 
+// ******************************************************************
+
+@include sencha-button-ui('numInputButtonRed', $fpos-red,'matt');
+@include sencha-button-ui('numInputButtonBlack', $fpos-input-dark,'matt');
+@include sencha-button-ui('numInputButtonGreen', $fpos-lime,'matt');
+
+.NumInputButton {
+    margin: 2px;
+    color: $fpos-white !important; 
+    font-size: 1.3em;    
+}
+
+.NumInputContainer {
+    background-color: $fpos-input-dark !important;
+    padding: 8px;
+}
+
+
+// ******************************************************************
+// Menu
+// ******************************************************************
+
+.MainMenu {
+   background-color: $fpos-input-grey !important;
+   background-image: none;
+   width: 172px;
+}
+
+.MenuButton {
+   color: $fpos-white !important; 
+   width: 144px;
+   height: 53px;
+   font-size: 0.8em;
+}
+
+div.MenuButton > span.x-button-label {
+   white-space: normal;
+}
+
+
+// ******************************************************************
+// InputButton 
+// ******************************************************************
+
+.InputButton {
+   color: $fpos-white !important; 
+   min-width: 228px;
+   height: 56px;
+   font-size: 0.8em;
+   margin: 6px;
+}
+
+
+// ******************************************************************
+// Application
+// ******************************************************************
+
+.OpHotKey {
+    margin: 1px;
+    color: $fpos-white !important; 
+    font-size: 1.4em;    
+}
+
+.OpItemView {
+    background-color: $fpos-white !important;
+}
+
+.OpItemTable {
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    display: table;
+    width: 100%;
+    border-bottom: 1px solid $data-forground;
+}
+
+.OpItemTableQty {
+    padding: 12px;
+    display: table;
+    width: 100%;
+    background-color: $fpos-lightestgrey;
+    border-bottom: 1px solid $data-forground;
+}
+
+.OpItemTableAll {
+    padding: 12px;
+    display: table;
+    width: 100%;
+    background-color: $fpos-lightestgreen;
+    border-bottom: 1px solid $data-forground;
+}
+
+.OpItemName {
+    font-size: 1.4em; 
+    width: 100%;
+    vertical-align: middle;
+    display: table-cell; 
+}
+
+.OpItemCell {
+    display: table-cell;
+    vertical-align: middle;
+    padding: 8px;    
+}
+
+.OpItemAmountCell {    
+    @extend .OpItemCell;
+    min-width: 120px;            
+}
+
+.OpItemLabel {
+    font-size: 1.1em;
+    text-align: right;
+}
+
+.OpItemAmount {
+    font-weight: bold;
+    font-size: 1.4em;
+    text-align: right;
+}
+
+.OpItemActionCell {
+    display: table-cell;
+    padding: 6px;
+}
+
+.OpItemAction {
+    font-size: 1.6em;
+    font-weight: bold;
+    color: $fpos-white !important;
+    margin: auto;
+    width: 64px;
+    height: 64px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.OpItemActionAll {
+    @extend .OpItemAction;
+}
+
+.OpItemActionOne {
+    @extend .OpItemAction;
+}
+
+.StatusDisplay {    
+    height: 128px;
+    width: 100%;
+    background: url('/delivery_picking/static/src/resources/images/icon.png') no-repeat center;
+}
