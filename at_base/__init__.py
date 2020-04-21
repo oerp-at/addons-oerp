@@ -2,7 +2,6 @@ from . import res_partner
 from . import util
 from . import helper
 from . import wizard
-from . import user
 from . import extfields
 from . import extreport
 from . import userlog
