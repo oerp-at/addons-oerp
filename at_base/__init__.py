@@ -1,12 +1,12 @@
-import res_partner
-import util
-import helper
-import wizard
-import user
-import extfields
-import extreport
-import userlog
-import mapping
-import localclient
-import ir_attachment
-import controller
+from . import res_partner
+from . import util
+from . import helper
+from . import wizard
+from . import user
+from . import extfields
+from . import extreport
+from . import userlog
+from . import mapping
+from . import localclient
+from . import ir_attachment
+from . import controller

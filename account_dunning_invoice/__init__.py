@@ -1,1 +1,1 @@
-import account_reminder
+from . import account_reminder

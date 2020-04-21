@@ -1,1 +1,1 @@
-import sale_discount_wizard
+from . import sale_discount_wizard

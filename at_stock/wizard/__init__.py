@@ -1,1 +1,1 @@
-import check_avail_wizard
+from . import check_avail_wizard

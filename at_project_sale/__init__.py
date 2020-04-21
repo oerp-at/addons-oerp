@@ -1,8 +1,8 @@
-import analytic
-import sale_order
-import project
-import res_partner
-import wizard
-import product
-import report
-import procurement
+from . import analytic
+from . import sale_order
+from . import project
+from . import res_partner
+from . import wizard
+from . import product
+from . import report
+from . import procurement

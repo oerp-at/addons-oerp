@@ -1,1 +1,1 @@
-import change_task_wizard
+from . import change_task_wizard

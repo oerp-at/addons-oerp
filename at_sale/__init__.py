@@ -1,6 +1,6 @@
-import partner
-import sale
-import product
-import stock
-import account
-import crm_lead
+from . import partner
+from . import sale
+from . import product
+from . import stock
+from . import account
+from . import crm_lead

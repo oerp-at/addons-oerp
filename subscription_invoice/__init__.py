@@ -1,2 +1,2 @@
-import wizard
-import account_invoice
+from . import wizard
+from . import account_invoice

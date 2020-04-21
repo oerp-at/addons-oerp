@@ -1,1 +1,1 @@
-import subscription_invoice_wizard
+from . import subscription_invoice_wizard

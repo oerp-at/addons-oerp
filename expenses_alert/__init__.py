@@ -1,2 +1,2 @@
-import analytic
-import partner
+from . import analytic
+from . import partner

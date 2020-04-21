@@ -1,1 +1,1 @@
-import official_holiday_wizard
+from . import official_holiday_wizard

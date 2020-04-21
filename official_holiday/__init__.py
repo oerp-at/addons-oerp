@@ -1,2 +1,2 @@
-import official_holiday
-import wizard
+from . import official_holiday
+from . import wizard

@@ -1,5 +1,5 @@
-import account_dunning
-import wizard
-import account_reminder
-import account_invoice
-import res_partner
+from . import account_dunning
+from . import wizard
+from . import account_reminder
+from . import account_invoice
+from . import res_partner

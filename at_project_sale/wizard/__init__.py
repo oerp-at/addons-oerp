@@ -1,1 +1,1 @@
-import correct_time_wizard
+from . import correct_time_wizard

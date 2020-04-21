@@ -1,2 +1,2 @@
-import sale
-import invoice
+from . import sale
+from . import invoice

@@ -1,2 +1,2 @@
-import mrp
-import sale
+from . import mrp
+from . import sale

@@ -1,2 +1,2 @@
-import controller
-import stock
+from . import controller
+from . import stock

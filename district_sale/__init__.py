@@ -1,5 +1,5 @@
-import district
-import partner
-import invoice
-import sale
-import report
+from . import district
+from . import partner
+from . import invoice
+from . import sale
+from . import report

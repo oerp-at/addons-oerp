@@ -1,1 +1,1 @@
-import account_analytic_analysis
+from . import account_analytic_analysis

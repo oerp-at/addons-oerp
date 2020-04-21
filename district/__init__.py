@@ -1,2 +1,2 @@
-import district
-import partner
+from . import district
+from . import partner

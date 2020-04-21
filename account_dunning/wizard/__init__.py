@@ -1,1 +1,2 @@
-import dunning_wizard
+from . import dunning_wizard
+

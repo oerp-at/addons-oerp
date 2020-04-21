@@ -1,1 +1,1 @@
-import sale_order_edit_wizard
+from . import sale_order_edit_wizard

@@ -1,4 +1,4 @@
-import mrp
-import sale
-import product
-import stock
+from . import mrp
+from . import sale
+from . import product
+from . import stock

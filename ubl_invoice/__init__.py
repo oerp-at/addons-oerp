@@ -1,3 +1,3 @@
-import ubl
-import invoice
-import wizard
+from . import ubl
+from . import invoice
+from . import wizard

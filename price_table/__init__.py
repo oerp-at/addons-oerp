@@ -1,1 +1,1 @@
-import price_table
+from . import price_table

@@ -1,2 +1,2 @@
-import company
-import resource
+from . import company
+from . import resource

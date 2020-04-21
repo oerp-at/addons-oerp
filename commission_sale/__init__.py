@@ -1,7 +1,7 @@
-import pricelist_item
-import account
-import crm
-import commission
-import sale
-import commission_task
-import product
+from . import pricelist_item
+from . import account
+from . import crm
+from . import commission
+from . import sale
+from . import commission_task
+from . import product

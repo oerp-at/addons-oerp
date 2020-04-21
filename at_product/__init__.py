@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
-import product
-import report
-import wizard
+from . import product
+from . import report
+from . import wizard

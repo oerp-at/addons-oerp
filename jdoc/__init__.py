@@ -1,2 +1,2 @@
-import jdoc
-import controller
+from . import jdoc
+from . import controller

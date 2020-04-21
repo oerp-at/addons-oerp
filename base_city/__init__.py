@@ -1,2 +1,2 @@
-import city
-import res_partner
+from . import city
+from . import res_partner

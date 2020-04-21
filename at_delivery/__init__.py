@@ -1,3 +1,3 @@
-import delivery
-import stock
-import controller
+from . import delivery
+from . import stock
+from . import controller

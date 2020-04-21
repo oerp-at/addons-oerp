@@ -1,1 +1,1 @@
-import product_change_wizard
+from . import product_change_wizard

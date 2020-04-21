@@ -1,2 +1,2 @@
-import res_company
-import commission
+from . import res_company
+from . import commission

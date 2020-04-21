@@ -1,3 +1,3 @@
-import account_analytic
-import timesheet
-import wizard
+from . import account_analytic
+from . import timesheet
+from . import wizard

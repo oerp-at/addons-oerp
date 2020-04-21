@@ -1,1 +1,1 @@
-import sale_layout
+from . import sale_layout

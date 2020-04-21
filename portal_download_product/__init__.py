@@ -1,1 +1,1 @@
-import portal_download
+from . import portal_download

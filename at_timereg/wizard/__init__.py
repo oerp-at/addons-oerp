@@ -1,1 +1,1 @@
-import working_time_wizard
+from . import working_time_wizard

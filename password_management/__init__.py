@@ -1,1 +1,1 @@
-import password_management
+from . import password_management

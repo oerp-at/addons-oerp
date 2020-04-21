@@ -1,3 +1,3 @@
-import portal_download
-import controller
-import partner
+from . import portal_download
+from . import controller
+from . import partner

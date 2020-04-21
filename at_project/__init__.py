@@ -1,2 +1,2 @@
-import partner
-import project
+from . import partner
+from . import project

@@ -1,4 +1,4 @@
-import sale
-import procurement
-import purchase
-import report
+from . import sale
+from . import procurement
+from . import purchase
+from . import report

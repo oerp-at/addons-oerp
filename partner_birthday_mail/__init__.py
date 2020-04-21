@@ -1,1 +1,1 @@
-import partner_birthday_mail
+from . import partner_birthday_mail

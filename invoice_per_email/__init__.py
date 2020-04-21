@@ -1,2 +1,2 @@
-import invoice
-import partner
+from . import invoice
+from . import partner

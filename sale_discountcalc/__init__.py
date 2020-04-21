@@ -1,2 +1,2 @@
-import order
-import wizard
+from . import order
+from . import wizard

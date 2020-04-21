@@ -1,3 +1,3 @@
-import sale
-import user
-import project
+from . import sale
+from . import user
+from . import project
