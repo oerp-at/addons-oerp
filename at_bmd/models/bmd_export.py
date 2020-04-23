@@ -942,26 +942,30 @@ class BmdExport(models.Model):
 
                     inv_domain = [
                         ("period_id", "=", period_id),
-                        ("journal_id", "=", journal.id),
-                        ("state", "in", ("open", "paid")),
+                        ("journal_id", "=", journal.id)
                     ]
                     if self.number_from:
                         inv_domain.append(("number", ">=", self.number_from))
 
                     for invoice in invoice_obj.search(inv_domain):
-                        exportInvoice(invoice)
+                        if invoice.state in ("open", "paid"):
+                            exportInvoice(invoice)
+                        else:
+                            taskc.logw("Rechnung ist nicht validiert", ref="account.invoice,%s" % invoice.id)
 
-                elif journal.type in ("bank", "cash"):
+                else:
 
                     move_domain = [
                         ("period_id", "=", period_id),
-                        ("journal_id", "=", journal.id),
-                        ("state", "=", "posted"),
+                        ("journal_id", "=", journal.id)
                     ]
                     if self.number_from:
                         move_domain.append(("name", ">=", self.number_from))
                     for move in move_obj.search(move_domain):
-                        exportMove(move)
+                        if move.state == "posted":
+                            exportMove(move)
+                        else:
+                            taskc.logw("Die Buchung wurde noch nicht gebucht", ref="account.move,%s" % move.id)
 
     def _create_reports(self, taskc):
         cr = self._cr
