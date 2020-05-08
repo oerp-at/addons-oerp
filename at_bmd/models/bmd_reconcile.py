@@ -81,7 +81,7 @@ class BmdReconcil(models.Model):
 
     @api.onchange("profile_id")
     def _onchange_period_profile(self):
-        name = [self._currentDate()]
+        name = [self._current_date_str()]
         if self.profile_id:
             name.append(self.profile_id.name)
         name = " ".join(name)
@@ -248,7 +248,7 @@ class BmdReconcil(models.Model):
                     # balance =  parseFloat(row[fields["OP-Betrag"]])
 
             if date and open_date:
-                date = min(date, self._nextDay(open_date))
+                date = min(date, self._next_day_str(open_date))
 
             if not date:
                 raise Warning("Es wurde kein Datum gefunden!")

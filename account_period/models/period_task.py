@@ -45,7 +45,7 @@ class AccountPeriodTask(models.Model):
 
     @api.model
     def _default_period(self):
-        period_start = self._firstOfLastMonth()
+        period_start = self._first_of_last_month_str()
         period_obj = self.env["account.period"]
 
         period = period_obj.search([("date_start", "=", period_start)], limit=1)
