@@ -194,7 +194,7 @@ class BmdExport(models.Model):
 
     @api.model
     def _default_period(self):
-        period_start = self._firstOfLastMonth()
+        period_start = self._first_of_last_month_str()
         period_obj = self.env["account.period"]
 
         period = period_obj.search([("date_start", "=", period_start)], limit=1)
@@ -359,10 +359,10 @@ class BmdExport(models.Model):
                 exp.writeln(
                     (
                         ("konto", line.konto),
-                        ("buchdat", self._strToDate(line.buchdat)),
+                        ("buchdat", self._str_to_date(line.buchdat)),
                         ("gkto", line.gkto),
                         ("belegnr", line.belegnr),
-                        ("belegdat", self._strToDate(line.belegdat)),
+                        ("belegdat", self._str_to_date(line.belegdat)),
                         ("mwst", line.mwst),
                         ("bucod", line.bucod or ""),
                         ("betrag", line.betrag or 0.0),
@@ -689,8 +689,8 @@ class BmdExport(models.Model):
 
             if invoice.date_due and invoice.date_invoice:
                 bmd_line["zziel"] = (
-                    self._strToDate(invoice.date_due)
-                    - self._strToDate(invoice.date_invoice)
+                    self._str_to_date(invoice.date_due)
+                    - self._str_to_date(invoice.date_invoice)
                 ).days
 
             accounts = {}
@@ -993,7 +993,7 @@ class BmdExport(models.Model):
             if objects:
                 if not report_name:
                     report_name = objects._model._name
-                (report_data, report_ext, file_name) = self._renderReport(
+                (report_data, report_ext, file_name) = self._render_report(
                     report_name,
                     objects=objects,
                     add_pdf_attachments=add_pdf_attachments,
@@ -1162,7 +1162,7 @@ class BmdExport(models.Model):
                 valid_invoices = invoice_obj.browse()
                 if invoice_type in ("in_invoice", "in_refund"):
                     for invoice in invoices:
-                        if self._getReportAttachment("account.report_invoice", invoice):
+                        if self._get_report_attachment("account.report_invoice", invoice):
                             valid_invoices |= invoice
                         else:
                             taskc.logw(
