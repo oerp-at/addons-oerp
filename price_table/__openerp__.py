@@ -30,8 +30,7 @@ Price Table
 * Export to pricelist
 
     """,
-    "version" : "1.0",
-    "api" : [8],
+    "version" : "1.0",    
     "author" :  "oerp.at",
     "website" : "http://oerp.at",
     "category" : "Sales Management",
