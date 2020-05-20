@@ -6,7 +6,7 @@
       <field name="name">at_account.wizard_ofx_import</field>
       <field name="model">account.ofx.import.wizard</field>
       <field name="arch" type="xml">
-        <form string="ofx_import">
+        <form string="OFX Import">
           <group>
             <group>
               <field name="ofx_datas"/>

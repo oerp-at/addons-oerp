@@ -137,6 +137,14 @@ class account_invoice(osv.osv):
 
 
 class account_journal(osv.osv):
+    _inherit = "account.journal"
+    _columns = {
+        "active": fields.boolean("Active")
+    }
+    _defaults = {
+        "active": True
+    }  
+
     def name_get(self, cr, user, ids, context=None):
         """
         Returns a list of tupples containing id, name.
@@ -169,8 +177,6 @@ class account_journal(osv.osv):
 
             res += [(rs.id, name)]
         return res
-
-    _inherit = "account.journal"
 
 
 class account_tax(osv.osv):
