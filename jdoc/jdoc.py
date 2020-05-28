@@ -1454,15 +1454,13 @@ class jdoc_jdoc(osv.AbstractModel):
                 db = server[client_db]
 
             # UPDATE/DB SECURITY
-            permissions = db.get("_security") or {"_id": "_security"}
+            permissions = db.get("_security") or {}
+            permissions.update({"_id": "_security"})
             members = permissions.get("members")
             names = members and members.get("names")
-            if not names or not client_uuid in names:                
-                permissions["members"] = {
-                    "roles":["_admin"],
-                    "admins":{"roles":["_admin"]},
-                    "names": [client_uuid]                
-                }
+            if not names or not client_uuid in names:
+                permissions["admins"] = {}
+                permissions["members"] = {"names": [client_uuid]}
                 db.put(permissions)
                 db.commit()
 
