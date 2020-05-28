@@ -1402,6 +1402,7 @@ class jdoc_jdoc(osv.AbstractModel):
                     raise osv.except_osv(_("Error"), _("Cannot determine base url"))
 
                 couchdb_public_url = baseurl + couchdb_public_url
+                _logger.log("Access couchdb %s" % couchdb_public_url)
 
                 # check if scheme is fixed
                 #couchdb_public_scheme = openerp.tools.config.get("syncdb_public_scheme")
