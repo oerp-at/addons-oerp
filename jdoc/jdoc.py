@@ -18,12 +18,6 @@
 #
 ##############################################################################
 
-from openerp.osv import fields, osv
-from openerp.addons.at_base import util
-from openerp.addons.at_base import helper
-from openerp.exceptions import AccessError
-from openerp.tools.translate import _
-
 import simplejson
 import openerp
 import uuid
@@ -31,6 +25,13 @@ import couchdb
 import hashlib
 import socket
 import re
+import urlparse
+
+from openerp.osv import fields, osv
+from openerp.addons.at_base import util
+from openerp.addons.at_base import helper
+from openerp.exceptions import AccessError
+from openerp.tools.translate import _
 
 PATTERN_REV = re.compile("^([0-9]+)-(.*)$")
 
@@ -1391,10 +1392,23 @@ class jdoc_jdoc(osv.AbstractModel):
                     _("Error"),
                     _("Unable to get user password. Deinstall 'auth_crypt' Module"),
                 )
-
+            "".startswith
             couchdb_public_url = openerp.tools.config.get("syncdb_public_url")
             if not couchdb_public_url:
                 raise osv.except_osv(_("Error"), _("No public couchdb url defined"))
+            elif couchdb_public_url.startswith("/"):                                             
+                baseurl = self.pool["ir.config_parameter"].get_param(cr, SUPERUSER_ID, "web.base.url", context=context)
+                if not baseurl:
+                    raise osv.except_osv(_("Error"), _("Cannot determine base url"))
+
+                couchdb_public_url = baseurl + couchdb_public_url
+
+                # check if scheme is fixed
+                #couchdb_public_scheme = openerp.tools.config.get("syncdb_public_scheme")
+                #if couchdb_public_scheme:
+                #    u = urlparse.urlparse(couchdb_public_url)
+                #    couchdb_public_url = urlparse.urlunparse((couchdb_public_scheme,) + u[1:]).geturl()
+
 
             res = {"url": couchdb_public_url, "db": client_db, "user": client_uuid}
 

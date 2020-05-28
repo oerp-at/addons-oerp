@@ -25,11 +25,11 @@
                 <group name="task_specific" position="after">
                     <group>
                         <group>
-                            <field name="company_id" groups="base.group_multi_company"/>
-                            <field name="currency_id" invisible="1"/>
+                            <field name="period_id" domain="[('company_id','=',company_id)]"/>                            
                         </group>
                         <group>
-                            <field name="period_id" domain="[('company_id','=',company_id)]"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="currency_id" invisible="1"/>
                         </group>
                     </group>
                 </group>
@@ -50,8 +50,7 @@
             <field name="arch" type="xml">
                 <field name="name" position="after">
                     <field name="company_id" groups="base.group_multi_company"/>
-                    <field name="period_id"/>
-                    <field name="name"/>
+                    <field name="period_id"/>                    
                 </field>
             </field>
         </record>

@@ -29,7 +29,7 @@ class AccountPeriodTask(models.Model):
     _description = "Period Processing"
     _inherit = ["mail.thread", "util.time", "util.report"]
     _inherits = {"automation.task": "task_id"}
-
+    
     _order = "id desc"
     _sum_fields = (
         "amount_gross",

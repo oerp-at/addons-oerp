@@ -18,10 +18,6 @@
 #
 ##############################################################################
 
-from openerp import models, fields, api, _
-from openerp.addons.at_base import util
-from openerp import SUPERUSER_ID
-from openerp.exceptions import Warning
 import requests
 import urlparse
 import uuid
@@ -29,6 +25,13 @@ import json
 import time
 
 import logging
+
+
+from openerp import models, fields, api, _
+from openerp.addons.at_base import util
+from openerp import SUPERUSER_ID
+from openerp.exceptions import Warning
+
 
 _logger = logging.getLogger(__name__)
 
@@ -416,7 +419,7 @@ class automation_task(models.Model):
     total_stages = fields.Integer("Total Stages", compute="_total_stages")
     total_warnings = fields.Integer("Total Warnings", compute="_total_warnings")
 
-    task_id = fields.Many2one("automation.task", "Task", compute="_task_id")
+    task_id = fields.Many2one("automation.task", "Task", compute="_task_id", store=True)
 
     after_once_task_id = fields.Many2one(
         "automation.task",
