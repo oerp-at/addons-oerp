@@ -38,7 +38,7 @@
      <record id="rule_automation_task_automation_manager_rule" model="ir.rule">
       <field name="name">automation_task_stage/user</field>
       <field name="model_id" ref="model_automation_task"/>
-      <field name="domain_force">[('task_id.owner_id','=',user.id)]</field>
+      <field name="domain_force">[('owner_id','=',user.id)]</field>
       <field name="groups" eval="[(4,ref('group_automation_manager'))]"/>
       <field name="perm_read" eval="True"/>
       <field name="perm_write" eval="True"/>

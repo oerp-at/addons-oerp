@@ -419,7 +419,7 @@ class automation_task(models.Model):
     total_stages = fields.Integer("Total Stages", compute="_total_stages")
     total_warnings = fields.Integer("Total Warnings", compute="_total_warnings")
 
-    task_id = fields.Many2one("automation.task", "Task", compute="_task_id", store=True)
+    task_id = fields.Many2one("automation.task", "Task", compute="_task_id", store=False)
 
     after_once_task_id = fields.Many2one(
         "automation.task",
@@ -433,9 +433,10 @@ class automation_task(models.Model):
         "Start After", help="Start *this* task after the specified date/time"
     )
 
-    @api.one
+    @api.multi
     def _task_id(self):
-        self.task_id = self
+        for task in self:
+            self.task_id = task.id
 
     @api.multi
     def _progress(self):
