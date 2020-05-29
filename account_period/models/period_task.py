@@ -362,7 +362,7 @@ class AccountPeriodTask(models.Model):
             taskc.nextLoop()
 
             sign = 1.0
-            if invoice.type == "purchase":
+            if voucher.type == "purchase":
                 sign = -1.0
 
             amount_paid = 0.0
@@ -451,6 +451,7 @@ class AccountPeriodTask(models.Model):
         period_tax_obj = self.env["account.period.tax"]
 
         taskc.substage("Create Tax")
+        period_tax_obj.search([("task_id","=",self.id)]).unlink()
 
         def calcTax(tax_code, parent_id=None):
             amount_base = 0.0
@@ -480,7 +481,7 @@ class AccountPeriodTask(models.Model):
             # base for taxes refund
             cr.execute(
                 """SELECT 
-                COALESCE(SUM(amount_net),0.0), ARRAY_AGG(e.id)
+                COALESCE(SUM(amount_net*-1.0),0.0), ARRAY_AGG(e.id)
             FROM account_period_entry e
             INNER JOIN account_tax t ON t.id = e.tax_id
             INNER JOIN account_tax_code tc ON tc.id = t.ref_base_code_id
@@ -499,32 +500,32 @@ class AccountPeriodTask(models.Model):
             # amount for taxes to pay
             cr.execute(
                 """SELECT 
-                COALESCE(SUM(amount_net),0.0), ARRAY_AGG(e.id)
+                COALESCE(SUM(amount_tax),0.0), ARRAY_AGG(e.id)
             FROM account_period_entry e
             INNER JOIN account_tax t ON t.id = e.tax_id
             INNER JOIN account_tax_code tc ON tc.id = t.tax_code_id
             WHERE e.task_id = %s
               AND tc.id = %s
-              AND amount_net > 0
+              AND amount_tax > 0
             """,
                 (self.id, tax_code.id),
             )
 
             for (amount_tax_entries, new_entry_ids) in cr.fetchall():
-                amount_base += amount_tax_entries
+                amount_tax += amount_tax_entries
                 if new_entry_ids:
                     entry_ids |= set(new_entry_ids)
 
             # amount for taxes refund
             cr.execute(
                 """SELECT 
-                COALESCE(SUM(amount_net),0.0), ARRAY_AGG(e.id)
+                COALESCE(SUM(amount_tax*-1.0),0.0), ARRAY_AGG(e.id)
             FROM account_period_entry e
             INNER JOIN account_tax t ON t.id = e.tax_id
             INNER JOIN account_tax_code tc ON tc.id = t.ref_tax_code_id
             WHERE e.task_id = %s
               AND tc.id = %s
-              AND amount_net < 0
+              AND amount_tax < 0
             """,
                 (self.id, tax_code.id),
             )
@@ -547,6 +548,8 @@ class AccountPeriodTask(models.Model):
                 }
             )
 
+            if not parent_id:
+                pass
             # process child
             childs = tax_code.child_ids
             if childs:
@@ -566,6 +569,9 @@ class AccountPeriodTask(models.Model):
                 "calculated tax | base: %s | tax: %s" % (amount_base, amount_tax),
                 ref="account.tax.code,%s" % tax_code.id,
             )
+            
+            if not parent_id:
+                pass
             return (amount_base, amount_tax)
 
         tax_total = 0.0
@@ -703,7 +709,7 @@ class AccountPeriodEntry(models.Model):
     def action_reset(self):
         user = self._check_accountant()
         for line in self.sudo():
-            if line.user_id and line.user_id != user.id:
+            if line.user_id and line.user_id.id != user.id:
                 if not user.has_group("account.group_account_manager"):
                     raise Warning(_("You must be an accountant manager to do that."))
             line.user_id = None
