@@ -182,7 +182,7 @@ class AccountPeriodTask(models.Model):
         period_start = period.date_start
         period_end = period.date_stop
 
-        taskc.logd("create payment based")
+        taskc.logd("Create payment based")
 
         moves = OrderedDict()
 
@@ -485,7 +485,7 @@ class AccountPeriodTask(models.Model):
         taskc.done()
 
     def _create_tax(self, taskc):
-        taskc.logd("create tax")
+        taskc.logd("Create tax")
 
         cr = self._cr
         tax_code_obj = self.env["account.tax.code"]
@@ -565,7 +565,7 @@ class AccountPeriodTask(models.Model):
                 period_tax.write({"amount_base": amount_base, "amount_tax": amount_tax})
 
             taskc.log(
-                "calculated tax | base: %s | tax: %s" % (amount_base, amount_tax),
+                "Calculated tax | base: %s | tax: %s" % (amount_base, amount_tax),
                 ref="account.tax.code,%s" % tax_code.id,
             )
             
