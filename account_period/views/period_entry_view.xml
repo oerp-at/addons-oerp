@@ -36,19 +36,23 @@
                         <field name="amount_net" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                         <field name="amount_tax" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                         <field name="amount_gross" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                        <field name="sign"/>
                     </group>
                     <group>
                         <field name="payment_date"/>
                         <field name="payment_amount"/>
                         <field name="payment_rate"/>
                         <field name="payment_state"/>
+                        <field name="refund"/>                        
                     </group>
                     <group>                        
                         <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                         <field name="private_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
-                        <field name="tax_id"/>                    
+                        <field name="tax_id"/>                        
                     </group>
                     <group>
+                        <field name="tax_base_id"/>
+                        <field name="tax_code_id"/>
                         <field name="user_id" attrs="{'invisible':[('user_id','=',False)]}"/>
                     </group>
                 </group>
@@ -73,6 +77,7 @@
             <field name="amount_gross" sum="Gross Total"/>
             <field name="payment_amount" sum="Total Payment"/>
             <field name="payment_state"/>
+            <field name="refund"/>
             <field name="user_id"/>
             <field name="state" invisible="1"/>
             <button type="object" name="action_validate" icon="STOCK_APPLY" attrs="{'invisible':[('user_id','!=',False)]}"/>
@@ -94,7 +99,9 @@
             <field name="invoice_id"/>
             <field name="voucher_id"/>
             <field name="tax_id"/>
-            <field name="user_id"/>        
+            <field name="user_id"/>
+            <field name="tax_code_id"/>
+            <field name="tax_base_id"/>
             <separator/>
             <filter string="Open" domain="[('payment_state','=','open')]"/>
             <filter string="Partly Paid" domain="[('payment_state','=','part')]"/>
@@ -102,18 +109,26 @@
             <separator/>
             <filter string="Draft" domain="[('state','=','draft')]"/>
             <filter string="Valid" domain="[('state','=','valid')]"/>
-            <filter string="Wrong" domain="[('state','=','wrong')]"/>
+            <filter string="Wrong" domain="[('state','=','wrong')]"/>            
             <separator/>
             <filter string="Private" domain="[('private_amount','!=',0)]"/>
+            <separator/>
+            <filter string="Refund" domain="[('refund','=',True)]"/>
+            <filter string="No Refund" domain="[('refund','=',False)]"/>
+            <separator/>
+            <filter string="Negative" domain="[('sign','&lt;',0)]"/>
+            <filter string="Positive" domain="[('sign','&gt;',0)]"/>
             <separator/>
             <group expand="0" string="Group By...">
               <filter string="Status" context="{'group_by': 'state'}"/>
               <filter string="Payment" context="{'group_by': 'payment_state'}"/>
-              <filter strign="Audited By" context="{'group_by': 'user_id'}"/>
-              <filter strign="Tax" context="{'group_by': 'tax_id'}"/>
-              <filter strign="Account" context="{'group_by': 'account_id'}"/>
-              <filter strign="Invoice" context="{'group_by': 'invoice_id'}"/>
-              <filter strign="Receipt" context="{'group_by': 'voucher_id'}"/>
+              <filter string="Audited By" context="{'group_by': 'user_id'}"/>
+              <filter string="Tax" context="{'group_by': 'tax_id'}"/>
+              <filter string="Account" context="{'group_by': 'account_id'}"/>
+              <filter string="Invoice" context="{'group_by': 'invoice_id'}"/>
+              <filter string="Receipt" context="{'group_by': 'voucher_id'}"/>
+              <filter string="Tax Base" context="{'group_by': 'tax_base_id'}"/>
+              <filter string="Tax Code" context="{'group_by': 'tax_code_id'}"/>
             </group>
         </search>
       </field>

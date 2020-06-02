@@ -184,23 +184,31 @@ class AccountPeriodTask(models.Model):
 
         taskc.logd("create payment based")
 
-        def getTaxId(taxes):
-            taxes = taxes["taxes"]
-            if not taxes:
-                return None
-            return taxes[0]["id"]
-
         moves = OrderedDict()
 
-        def addMove(values):
+        def add_move(values):
             move_id = values["move_id"]
             journal_id = values["journal_id"]
             account_id = values["account_id"]
             invoice_id = values.get("invoice_id", None)
             voucher_id = values.get("voucher_id", None)
+            tax_base_id = values.get("tax_base_id", None)
+            tax_code_id = values.get("tax_code_id", None)
             tax_id = values.get("tax_id", None)
+            sign = values.get("sign", 1.0)
+            refund = values.get("refund", False)
 
-            key = (move_id, journal_id, account_id, invoice_id, voucher_id, tax_id)
+            key = (move_id,
+                   journal_id,
+                   account_id,
+                   invoice_id,
+                   voucher_id,
+                   tax_id,
+                   tax_base_id,
+                   tax_code_id,
+                   sign,
+                   refund)
+
             move_data = moves.get(key, None)
             if move_data is None:
                 move_data = dict(values)
@@ -262,9 +270,13 @@ class AccountPeriodTask(models.Model):
                 taskc.logw("Invoice is zero", ref="account.invoice,%s" % invoice.id)
                 continue
 
-            sign = 1.0
+            sign = 1.0            
             if invoice.type in ("out_refund", "in_invoice"):
                 sign = -1.0
+
+            refund = False
+            if invoice.type in ("in_refund", "out_refund"):
+                refund = True
 
             amount_paid = 0.0
             payment_date = None
@@ -286,11 +298,11 @@ class AccountPeriodTask(models.Model):
                     payment_rate = 0.0
 
                 for line in invoice.invoice_line:
-                    price = line.price_unit * (1 - (line.discount or 0.0) / 100.0)
+                    price = line.price_unit * (1 - (line.discount or 0.0) / 100.0)                    
                     taxes = line.invoice_line_tax_id.compute_all(
                         price, line.quantity, line.product_id, invoice.partner_id
                     )
-
+                    
                     # generated amounts
                     # and multiplicate with payment rate factor
                     # to get really paid part
@@ -298,7 +310,17 @@ class AccountPeriodTask(models.Model):
                     amount_gross = taxes["total_included"] * payment_rate
                     amount_net = taxes["total"] * payment_rate
 
-                    tax_id = getTaxId(taxes)
+                    tax_id = None
+                    tax_base_id = None
+                    tax_code_id = None
+                    tax = line.invoice_line_tax_id
+                    if tax:                       
+                        if invoice.type in ("in_refund", "in_invoice"):
+                            tax_base_id = tax.ref_base_code_id.id
+                            tax_code_id = tax.ref_tax_code_id.id
+                        else:
+                            tax_base_id = tax.base_code_id.id
+                            tax_code_id = tax.tax_code_id.id
 
                     account = line.account_id
                     if account.private_usage > 0:
@@ -306,7 +328,7 @@ class AccountPeriodTask(models.Model):
                     else:
                         private_amount = 0.0
 
-                    addMove(
+                    add_move(
                         {
                             "date": payment_date,
                             "move_id": invoice.move_id.id,
@@ -314,6 +336,8 @@ class AccountPeriodTask(models.Model):
                             "account_id": account.id,
                             "invoice_id": invoice.id,
                             "tax_id": tax_id,
+                            "tax_code_id": tax_code_id,
+                            "tax_base_id": tax_base_id,
                             "amount": amount * sign,
                             "amount_gross": amount_gross * sign,
                             "amount_net": amount_net * sign,
@@ -322,6 +346,8 @@ class AccountPeriodTask(models.Model):
                             "payment_amount": amount_gross,
                             "payment_state": payment_state,
                             "payment_date": payment_date,
+                            "sign": sign,
+                            "refund": refund
                         }
                     )
 
@@ -367,6 +393,7 @@ class AccountPeriodTask(models.Model):
 
             amount_paid = 0.0
             payment_date = None
+            refund = False
 
             move_line_ids = voucher_payment_line_ids.get(voucher.id)
             if not move_line_ids:
@@ -388,10 +415,22 @@ class AccountPeriodTask(models.Model):
                     payment_state = "open"
                     payment_rate = 0.0
 
+                tax = voucher.tax_id
+                tax_id = None
+                tax_base_id = None
+                tax_code_id = None
+                if tax:
+                    tax_id = tax.id
+                    if voucher.type == "purchase":
+                        tax_base_id = tax.ref_base_code_id.id
+                        tax_code_id = tax.ref_tax_code_id.id
+                    else:
+                        tax_base_id = tax.base_code_id.id
+                        tax_code_id = tax.tax_code_id.id
+
                 taxes = voucher.tax_id.compute_all(
                     amount, 1, product=None, partner=voucher.partner_id
-                )
-                tax_id = getTaxId(taxes)
+                )                
                 for line in voucher.line_ids:
                     # generated amounts
                     # and multiplicate with payment rate factor
@@ -406,7 +445,7 @@ class AccountPeriodTask(models.Model):
                     else:
                         private_amount = 0.0
 
-                    addMove(
+                    add_move(
                         {
                             "date": payment_date,
                             "move_id": voucher.move_id.id,
@@ -422,6 +461,8 @@ class AccountPeriodTask(models.Model):
                             "payment_amount": amount_gross,
                             "payment_state": payment_state,
                             "payment_date": payment_date,
+                            "sign": sign,
+                            "refund": refund
                         }
                     )
 
@@ -453,87 +494,47 @@ class AccountPeriodTask(models.Model):
         taskc.substage("Create Tax")
         period_tax_obj.search([("task_id","=",self.id)]).unlink()
 
+        # tax calculation
         def calcTax(tax_code, parent_id=None):
-            amount_base = 0.0
-            amount_tax = 0.0
+            entry_ids = set()            
+            
+            # calc tax base
 
-            entry_ids = set()
-
-            # base for taxes to pay
-            cr.execute(
-                """SELECT 
-                COALESCE(SUM(amount_net),0.0), ARRAY_AGG(e.id)
+            cr.execute("""SELECT                  
+                 COALESCE(SUM(e.amount_net*e.sign),0.0) AS amount_base
+                ,ARRAY_AGG(e.id) AS entry_ids
             FROM account_period_entry e
-            INNER JOIN account_tax t ON t.id = e.tax_id
-            INNER JOIN account_tax_code tc ON tc.id = t.base_code_id
             WHERE e.task_id = %s
-              AND tc.id = %s
-              AND amount_net > 0
+              AND e.tax_base_id = %s              
             """,
-                (self.id, tax_code.id),
+                (self.id, tax_code.id)
             )
 
-            for (amount_base_entries, new_entry_ids) in cr.fetchall():
-                amount_base += amount_base_entries
-                if new_entry_ids:
-                    entry_ids |= set(new_entry_ids)
+            amount_base = 0.0            
+            for (amount_base, base_entry_ids) in cr.fetchall():
+                if base_entry_ids:
+                    entry_ids |= set(base_entry_ids)
 
-            # base for taxes refund
-            cr.execute(
-                """SELECT 
-                COALESCE(SUM(amount_net*-1.0),0.0), ARRAY_AGG(e.id)
+
+            # calc tax
+
+            cr.execute("""SELECT                  
+                 COALESCE(SUM(e.amount_tax*e.sign),0.0) AS amount_tax
+                ,ARRAY_AGG(e.id) AS entry_ids
             FROM account_period_entry e
-            INNER JOIN account_tax t ON t.id = e.tax_id
-            INNER JOIN account_tax_code tc ON tc.id = t.ref_base_code_id
             WHERE e.task_id = %s
-              AND t.id = %s
-              AND amount_net < 0
+              AND e.tax_code_id = %s              
             """,
-                (self.id, tax_code.id),
+                (self.id, tax_code.id)
             )
 
-            for (amount_base_entries, new_entry_ids) in cr.fetchall():
-                amount_base += amount_base_entries
-                if new_entry_ids:
-                    entry_ids |= set(new_entry_ids)
+            amount_base = 0.0            
+            for (amount_tax, tax_entry_ids) in cr.fetchall():
+                if tax_entry_ids:
+                    entry_ids |= set(tax_entry_ids)
 
-            # amount for taxes to pay
-            cr.execute(
-                """SELECT 
-                COALESCE(SUM(amount_tax),0.0), ARRAY_AGG(e.id)
-            FROM account_period_entry e
-            INNER JOIN account_tax t ON t.id = e.tax_id
-            INNER JOIN account_tax_code tc ON tc.id = t.tax_code_id
-            WHERE e.task_id = %s
-              AND tc.id = %s
-              AND amount_tax > 0
-            """,
-                (self.id, tax_code.id),
-            )
 
-            for (amount_tax_entries, new_entry_ids) in cr.fetchall():
-                amount_tax += amount_tax_entries
-                if new_entry_ids:
-                    entry_ids |= set(new_entry_ids)
-
-            # amount for taxes refund
-            cr.execute(
-                """SELECT 
-                COALESCE(SUM(amount_tax*-1.0),0.0), ARRAY_AGG(e.id)
-            FROM account_period_entry e
-            INNER JOIN account_tax t ON t.id = e.tax_id
-            INNER JOIN account_tax_code tc ON tc.id = t.ref_tax_code_id
-            WHERE e.task_id = %s
-              AND tc.id = %s
-              AND amount_tax < 0
-            """,
-                (self.id, tax_code.id),
-            )
-
-            for (amount_tax_entries, new_entry_ids) in cr.fetchall():
-                amount_tax += amount_tax_entries
-                if new_entry_ids:
-                    entry_ids |= set(new_entry_ids)
+            # create tax
 
             period_tax = period_tax_obj.create(
                 {
@@ -548,18 +549,16 @@ class AccountPeriodTask(models.Model):
                 }
             )
 
-            if not parent_id:
-                pass
             # process child
             childs = tax_code.child_ids
-            if childs:
+            if childs:                
                 for child in childs:
                     child_amount_base, child_amount_tax = calcTax(
                         child, parent_id=period_tax.id
                     )
                     if child.sign:
-                        amount_base += child_amount_base * child.sign
-                        amount_tax += child_amount_tax * child.sign
+                        amount_base += (child_amount_base * child.sign)
+                        amount_tax += (child_amount_tax * child.sign)
 
                 # update amount after
                 # child processing
@@ -570,10 +569,9 @@ class AccountPeriodTask(models.Model):
                 ref="account.tax.code,%s" % tax_code.id,
             )
             
-            if not parent_id:
-                pass
             return (amount_base, amount_tax)
 
+        # calc for root
         tax_total = 0.0
         for tax_code in tax_code_obj.search(
             [("company_id", "=", self.company_id.id), ("parent_id", "=", False)]
@@ -611,7 +609,7 @@ class AccountPeriodEntry(models.Model):
     _description = "Period Entry"
 
     _rec_name = "move_id"
-    _order = "date"
+    _order = "date, move_id"
 
     task_id = fields.Many2one(
         "account.period.task", "Task", required=True, index=True, readonly=True
@@ -636,6 +634,11 @@ class AccountPeriodEntry(models.Model):
     )
 
     tax_id = fields.Many2one("account.tax", "Tax", index=True, readonly=True)
+    tax_code_id = fields.Many2one("account.tax.code", "Tax Code", index=True, readonly=True)
+    tax_base_id = fields.Many2one("account.tax.code", "Tax Base", index=True, readonly=True)
+
+    sign = fields.Float("Sign", default=1.0)
+    refund = fields.Boolean("Refund", default=False)
 
     amount = fields.Float("Amount", digits=dp.get_precision("Account"), readonly=True)
     amount_gross = fields.Float(

@@ -27,8 +27,7 @@
                     <field name="task_id"/>
                     <field name="parent_id"/>
                 </group>
-                <group>
-                    
+                <group>                    
                     <field name="currency_id" invisible="1"/>                
                     <field name="amount_base" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                     <field name="amount_tax" widget="monetary" options="{'currency_field': 'currency_id'}"/>

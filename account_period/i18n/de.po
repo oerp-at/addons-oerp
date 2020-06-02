@@ -7,8 +7,8 @@ msgstr ""
 "Project-Id-Version: Odoo Server 8.0\n"
 "Language: de_DE\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-04-14 19:02+0000\n"
-"PO-Revision-Date: 2020-04-14 19:02+0000\n"
+"POT-Creation-Date: 2020-06-02 06:28+0000\n"
+"PO-Revision-Date: 2020-06-02 06:28+0000\n"
 "Last-Translator: <>\n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -17,6 +17,7 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
 #: field:account.period.entry,account_id:0
 #: model:ir.model,name:account_period.model_account_account
 msgid "Account"
@@ -28,12 +29,16 @@ msgid "Amount"
 msgstr "Betrag"
 
 #. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
+msgid "Audited By"
+msgstr "Geprüft von"
+
+#. module: account_period
 #: field:account.period.entry,user_id:0
 msgid "Audited by"
 msgstr "Geprüft von"
 
 #. module: account_period
-#: view:account.period.tax:account_period.tree_account_period_tax
 #: field:account.period.tax,amount_base:0
 msgid "Base Amount"
 msgstr "Bemessungsgrundl."
@@ -114,8 +119,8 @@ msgstr "Entwurf"
 #: view:account.period.tax:account_period.form_account_period_tax
 #: field:account.period.tax,entry_count:0
 #: field:account.period.tax,entry_ids:0
-#: code:addons/account_period/models/period_task.py:101
-#: code:addons/account_period/models/period_task.py:677
+#: code:addons/account_period/models/period_task.py:115
+#: code:addons/account_period/models/period_task.py:730
 #, python-format
 msgid "Entries"
 msgstr "Einträge"
@@ -162,6 +167,7 @@ msgid "Invalid"
 msgstr "Ungültig"
 
 #. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
 #: field:account.period.entry,invoice_id:0
 msgid "Invoice"
 msgstr "Rechnung"
@@ -213,6 +219,11 @@ msgid "Move"
 msgstr "Buchung"
 
 #. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
+msgid "Negative"
+msgstr "Negativ"
+
+#. module: account_period
 #: field:account.period.entry,amount_net:0
 msgid "Net Amount"
 msgstr "Netto Betrag"
@@ -221,6 +232,11 @@ msgstr "Netto Betrag"
 #: view:account.period.entry:account_period.tree_account_period_entry
 msgid "Net Total"
 msgstr "Netto Gesamt"
+
+#. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
+msgid "No Refund"
+msgstr "Keine Gutschrift"
 
 #. module: account_period
 #: view:account.period.entry:account_period.search_account_period_entry
@@ -321,6 +337,11 @@ msgstr "Periodische Verarbeitung"
 
 #. module: account_period
 #: view:account.period.entry:account_period.search_account_period_entry
+msgid "Positive"
+msgstr "Positiv"
+
+#. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
 msgid "Private"
 msgstr "Privat"
 
@@ -340,19 +361,21 @@ msgid "Private Usage"
 msgstr "Privatnutzung"
 
 #. module: account_period
-#: model:ir.model,name:account_period.model_product_template
-msgid "Product Template"
-msgstr "Produktvorlage"
-
-#. module: account_period
 #: field:account.period.task,progress:0
 msgid "Progress"
 msgstr "Fortschritt"
 
 #. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
 #: field:account.period.entry,voucher_id:0
 msgid "Receipt"
 msgstr "Beleg"
+
+#. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
+#: field:account.period.entry,refund:0
+msgid "Refund"
+msgstr "Gutschrift"
 
 #. module: account_period
 #: view:account.period.entry:account_period.form_account_period_entry
@@ -383,6 +406,11 @@ msgstr "Geplante Ausführung"
 #: field:account.period.tax,sequence:0
 msgid "Sequence"
 msgstr "Sequenz"
+
+#. module: account_period
+#: field:account.period.entry,sign:0
+msgid "Sign"
+msgstr "Vorzeichen"
 
 #. module: account_period
 #: help:account.period.task,start_after:0
@@ -428,6 +456,7 @@ msgid "Task After (Once)"
 msgstr "Prozess nach Ausführung (Einmalig)"
 
 #. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
 #: field:account.period.entry,tax_id:0
 #: view:account.period.task:account_period.form_period_task
 msgid "Tax"
@@ -435,10 +464,21 @@ msgstr "Steuer"
 
 #. module: account_period
 #: field:account.period.entry,amount_tax:0
-#: view:account.period.tax:account_period.tree_account_period_tax
 #: field:account.period.tax,amount_tax:0
 msgid "Tax Amount"
 msgstr "Steuerbetrag"
+
+#. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
+#: field:account.period.entry,tax_base_id:0
+msgid "Tax Base"
+msgstr "Bemessungsgrundlage"
+
+#. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
+#: field:account.period.entry,tax_code_id:0
+msgid "Tax Code"
+msgstr "Steuercode"
 
 #. module: account_period
 #: view:account.period.entry:account_period.tree_account_period_entry
@@ -462,7 +502,7 @@ msgstr "Besteuerung"
 
 #. module: account_period
 #: field:account.period.task,tax_ids:0
-#: code:addons/account_period/models/period_task.py:113
+#: code:addons/account_period/models/period_task.py:127
 #, python-format
 msgid "Taxes"
 msgstr "Steuern"
@@ -520,13 +560,13 @@ msgid "Wrong"
 msgstr "Falsch"
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:637
+#: code:addons/account_period/models/period_task.py:674
 #, python-format
 msgid "You must be an accountant manager to do that."
 msgstr "Sie müssen ein Finanzmanager sein um das auszuführen."
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:612
+#: code:addons/account_period/models/period_task.py:649
 #, python-format
 msgid "You must be an accountant to do that."
 msgstr "Sie müssen ein Finanzbenutzer sein um das auszuführen."
