@@ -21,6 +21,7 @@
 from collections import OrderedDict
 
 from openerp import models, fields, api, _
+from openerp.exceptions import Warning
 import openerp.addons.decimal_precision as dp
 
 
@@ -35,8 +36,7 @@ class AccountPeriodTask(models.Model):
         "amount_gross",
         "amount_net",
         "amount_tax",
-        "payment_amount",
-        "private_amount",
+        "payment_amount"
     )
 
     @api.model
@@ -177,6 +177,20 @@ class AccountPeriodTask(models.Model):
         """ search for invoices and receipts, which are in 
             the passed journal, and paid in this period """
 
+        entry_obj = self.env["account.period.entry"]
+
+        # delete all invalid entries
+        valid_entry_count =  entry_obj.search(
+            [("task_id", "=", self.id), ("state", "=", "valid")], count=True
+        )
+        if valid_entry_count:
+            raise Warning(_("Validated entries already exist."))
+
+        # delete other entries
+        entry_obj.search(
+            [("task_id", "=", self.id), ("state", "!=", "valid")]
+        ).unlink()
+        
         journal_ids = tuple(journals.ids)
         period = self.period_id
         period_start = period.date_start
@@ -233,7 +247,6 @@ class AccountPeriodTask(models.Model):
         # search for invoice which has a payment
         # paid in this period
         # evaluate product an calculate
-        # ... private usage
         # ... reverse charge, IGE (service or product)
         # ... incoming vat
         #######################################################################
@@ -323,11 +336,6 @@ class AccountPeriodTask(models.Model):
                             tax_code_id = tax.tax_code_id.id
 
                     account = line.account_id
-                    if account.private_usage > 0:
-                        private_amount = amount * account.private_usage
-                    else:
-                        private_amount = 0.0
-
                     add_move(
                         {
                             "date": payment_date,
@@ -340,8 +348,7 @@ class AccountPeriodTask(models.Model):
                             "tax_base_id": tax_base_id,
                             "amount": amount * sign,
                             "amount_gross": amount_gross * sign,
-                            "amount_net": amount_net * sign,
-                            "private_amount": private_amount * sign,
+                            "amount_net": amount_net * sign,                         
                             "payment_rate": payment_rate,
                             "payment_amount": amount_gross,
                             "payment_state": payment_state,
@@ -440,11 +447,6 @@ class AccountPeriodTask(models.Model):
                     amount_net = taxes["total"] * payment_rate
 
                     account = line.account_id
-                    if account.private_usage > 0:
-                        private_amount = amount * account.private_usage
-                    else:
-                        private_amount = 0.0
-
                     add_move(
                         {
                             "date": payment_date,
@@ -455,8 +457,7 @@ class AccountPeriodTask(models.Model):
                             "tax_id": tax_id,
                             "amount": amount * sign,
                             "amount_gross": amount_gross * sign,
-                            "amount_net": amount_net * sign,
-                            "private_amount": private_amount * sign,
+                            "amount_net": amount_net * sign,                        
                             "payment_rate": payment_rate,
                             "payment_amount": amount_gross,
                             "payment_state": payment_state,
@@ -472,16 +473,12 @@ class AccountPeriodTask(models.Model):
         # create moves
         #######################################################################
 
-        entry_obj = self.env["account.period.entry"]
         taskc.substage("Create Entries")
-        taskc.initLoop(len(moves), status="create entries")
+        taskc.initLoop(len(moves), status="Create entries")
         for entry_values in moves.itervalues():
+            entry_obj.create(entry_values)
             taskc.nextLoop()
-            domain = [(f, "=", v) for (f, v) in entry_values.iteritems()]
-            entry = entry_obj.search(domain)
-            if not entry:
-                entry = entry_obj.create(entry_values)
-
+            
         taskc.done()
 
     def _create_tax(self, taskc):
@@ -528,7 +525,7 @@ class AccountPeriodTask(models.Model):
                 (self.id, tax_code.id)
             )
 
-            amount_base = 0.0            
+            amount_tax = 0.0            
             for (amount_tax, tax_entry_ids) in cr.fetchall():
                 if tax_entry_ids:
                     entry_ids |= set(tax_entry_ids)
@@ -592,15 +589,7 @@ class AccountPeriodTask(models.Model):
             taskc.loge("**Tax on invoice** currently not supported.")
             return
 
-        self._create_payment_based(taskc, journals)
-
-        # delete all invalid entries
-        invalid_entries = self.env["account.period.entry"].search(
-            [("task_id", "=", self.id), ("state", "=", "invalid")]
-        )
-        taskc.logd("Delete invalid entries %s" % len(invalid_entries))
-        invalid_entries.unlink()
-
+        self._create_payment_based(taskc, journals)       
         self._create_tax(taskc)
 
 
@@ -650,11 +639,7 @@ class AccountPeriodEntry(models.Model):
     amount_tax = fields.Float(
         "Tax Amount", digits=dp.get_precision("Account"), readonly=True
     )
-
-    private_amount = fields.Float(
-        "Private Amount", digits=dp.get_precision("Account"), readonly=True
-    )
-
+    
     payment_date = fields.Date("Payment Date", readonly=True)
     payment_amount = fields.Float(
         "Payment", digits=dp.get_precision("Account"), readonly=True
@@ -674,8 +659,7 @@ class AccountPeriodEntry(models.Model):
         [
             ("draft", "Draft"),
             ("valid", "Validated"),
-            ("wrong", "Wrong"),
-            ("invalid", "Invalid"),
+            ("wrong", "Wrong")
         ],
         string="Status",
         default="draft",

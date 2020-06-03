@@ -40,14 +40,13 @@
                     </group>
                     <group>
                         <field name="payment_date"/>
-                        <field name="payment_amount"/>
-                        <field name="payment_rate"/>
                         <field name="payment_state"/>
-                        <field name="refund"/>                        
+                        <field name="refund"/>
                     </group>
                     <group>                        
-                        <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
-                        <field name="private_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                        <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>                        
+                        <field name="payment_rate"/>
+                        <field name="payment_amount"/>
                         <field name="tax_id"/>                        
                     </group>
                     <group>
@@ -109,9 +108,7 @@
             <separator/>
             <filter string="Draft" domain="[('state','=','draft')]"/>
             <filter string="Valid" domain="[('state','=','valid')]"/>
-            <filter string="Wrong" domain="[('state','=','wrong')]"/>            
-            <separator/>
-            <filter string="Private" domain="[('private_amount','!=',0)]"/>
+            <filter string="Wrong" domain="[('state','=','wrong')]"/>                        
             <separator/>
             <filter string="Refund" domain="[('refund','=',True)]"/>
             <filter string="No Refund" domain="[('refund','=',False)]"/>
