@@ -319,9 +319,9 @@ class AccountPeriodTask(models.Model):
                     # generated amounts
                     # and multiplicate with payment rate factor
                     # to get really paid part
-                    amount = price * line.quantity * payment_rate
-                    amount_gross = taxes["total_included"] * payment_rate
-                    amount_net = taxes["total"] * payment_rate
+                    amount = price * line.quantity * payment_rate * sign
+                    amount_gross = taxes["total_included"] * payment_rate * sign
+                    amount_net = taxes["total"] * payment_rate * sign                    
 
                     tax_id = None
                     tax_base_id = None
@@ -346,9 +346,9 @@ class AccountPeriodTask(models.Model):
                             "tax_id": tax_id,
                             "tax_code_id": tax_code_id,
                             "tax_base_id": tax_base_id,
-                            "amount": amount * sign,
-                            "amount_gross": amount_gross * sign,
-                            "amount_net": amount_net * sign,                         
+                            "amount": amount,
+                            "amount_gross": amount_gross,
+                            "amount_net": amount_net,
                             "payment_rate": payment_rate,
                             "payment_amount": amount_gross,
                             "payment_state": payment_state,
@@ -397,10 +397,14 @@ class AccountPeriodTask(models.Model):
             sign = 1.0
             if voucher.type == "purchase":
                 sign = -1.0
-
+            
+            amount = voucher.amount       
             amount_paid = 0.0
             payment_date = None
+
             refund = False
+            if (sign < 0.0 and amount > 0.0) or (sign > 0.0 and amount < 0.0):
+                refund = True
 
             move_line_ids = voucher_payment_line_ids.get(voucher.id)
             if not move_line_ids:
@@ -442,10 +446,10 @@ class AccountPeriodTask(models.Model):
                     # generated amounts
                     # and multiplicate with payment rate factor
                     # to get really paid part
-                    amount = line.amount * payment_rate
-                    amount_gross = taxes["total_included"] * payment_rate
-                    amount_net = taxes["total"] * payment_rate
-
+                    amount = line.amount * payment_rate * sign
+                    amount_gross = taxes["total_included"] * payment_rate * sign
+                    amount_net = taxes["total"] * payment_rate * sign
+                    
                     account = line.account_id
                     add_move(
                         {
@@ -455,9 +459,9 @@ class AccountPeriodTask(models.Model):
                             "account_id": account.id,
                             "invoice_id": None,
                             "tax_id": tax_id,
-                            "amount": amount * sign,
-                            "amount_gross": amount_gross * sign,
-                            "amount_net": amount_net * sign,                        
+                            "amount": amount,
+                            "amount_gross": amount_gross,
+                            "amount_net": amount_net,                        
                             "payment_rate": payment_rate,
                             "payment_amount": amount_gross,
                             "payment_state": payment_state,
@@ -478,7 +482,7 @@ class AccountPeriodTask(models.Model):
         for entry_values in moves.itervalues():
             entry_obj.create(entry_values)
             taskc.nextLoop()
-            
+
         taskc.done()
 
     def _create_tax(self, taskc):
@@ -492,13 +496,13 @@ class AccountPeriodTask(models.Model):
         period_tax_obj.search([("task_id","=",self.id)]).unlink()
 
         # tax calculation
-        def calcTax(tax_code, parent_id=None):
+        def calc_tax(tax_code, parent_id=None):
             entry_ids = set()            
             
             # calc tax base
 
-            cr.execute("""SELECT                  
-                 COALESCE(SUM(e.amount_net*e.sign),0.0) AS amount_base
+            cr.execute("""SELECT                               
+                 COALESCE(SUM(e.amount_net*e.sign*e.refund_sign),0.0) AS amount_base
                 ,ARRAY_AGG(e.id) AS entry_ids
             FROM account_period_entry e
             WHERE e.task_id = %s
@@ -516,7 +520,7 @@ class AccountPeriodTask(models.Model):
             # calc tax
 
             cr.execute("""SELECT                  
-                 COALESCE(SUM(e.amount_tax*e.sign),0.0) AS amount_tax
+                 COALESCE(SUM(e.amount_tax*e.sign*e.refund_sign),0.0) AS amount_tax
                 ,ARRAY_AGG(e.id) AS entry_ids
             FROM account_period_entry e
             WHERE e.task_id = %s
@@ -550,7 +554,7 @@ class AccountPeriodTask(models.Model):
             childs = tax_code.child_ids
             if childs:                
                 for child in childs:
-                    child_amount_base, child_amount_tax = calcTax(
+                    child_amount_base, child_amount_tax = calc_tax(
                         child, parent_id=period_tax.id
                     )
                     if child.sign:
@@ -573,7 +577,7 @@ class AccountPeriodTask(models.Model):
         for tax_code in tax_code_obj.search(
             [("company_id", "=", self.company_id.id), ("parent_id", "=", False)]
         ):
-            (amount_base, amount_tax) = calcTax(tax_code)
+            (amount_base, amount_tax) = calc_tax(tax_code)
             tax_total += amount_tax
 
         self.tax_total = tax_total
@@ -629,6 +633,8 @@ class AccountPeriodEntry(models.Model):
     sign = fields.Float("Sign", default=1.0)
     refund = fields.Boolean("Refund", default=False)
 
+    refund_sign = fields.Float("Refund Sign", compute="_compute_refund_sign", store=True)
+
     amount = fields.Float("Amount", digits=dp.get_precision("Account"), readonly=True)
     amount_gross = fields.Float(
         "Gross Amount", digits=dp.get_precision("Account"), readonly=True
@@ -669,6 +675,12 @@ class AccountPeriodEntry(models.Model):
     currency_id = fields.Many2one(
         "res.currency", "Currency", relation="company_id.currency_id", readonly=True
     )
+
+    @api.depends("refund")
+    @api.multi
+    def _compute_refund_sign(self):
+        for obj in self:            
+            obj.refund_sign = -1.0 if obj.refund else 1.0
 
     def _check_accountant(self):
         user = self.env.user

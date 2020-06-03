@@ -108,7 +108,7 @@
             <separator/>
             <filter string="Draft" domain="[('state','=','draft')]"/>
             <filter string="Valid" domain="[('state','=','valid')]"/>
-            <filter string="Wrong" domain="[('state','=','wrong')]"/>                        
+            <filter string="Wrong" domain="[('state','=','wrong')]"/>            
             <separator/>
             <filter string="Refund" domain="[('refund','=',True)]"/>
             <filter string="No Refund" domain="[('refund','=',False)]"/>
