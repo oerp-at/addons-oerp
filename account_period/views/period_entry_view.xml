@@ -28,6 +28,7 @@
                     <group>
                         <field name="journal_id"/>
                         <field name="account_id"/>
+                        <field name="move_id"/>
                         <field name="invoice_id" attrs="{'invisible':[('invoice_id','=',False)]}"/>
                         <field name="voucher_id" attrs="{'invisible':[('voucher_id','=',False)]}"/>
                     </group>            
@@ -42,6 +43,7 @@
                         <field name="payment_date"/>
                         <field name="payment_state"/>
                         <field name="refund"/>
+                        <field name="auto"/>
                     </group>
                     <group>                        
                         <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>                        
@@ -52,7 +54,7 @@
                     <group>
                         <field name="tax_base_id"/>
                         <field name="tax_code_id"/>
-                        <field name="user_id" attrs="{'invisible':[('user_id','=',False)]}"/>
+                        <field name="user_id" attrs="{'invisible':[('user_id','=',False)]}"/>                        
                     </group>
                 </group>
             </sheet>
@@ -115,6 +117,9 @@
             <separator/>
             <filter string="Negative" domain="[('sign','&lt;',0)]"/>
             <filter string="Positive" domain="[('sign','&gt;',0)]"/>
+            <separator/>
+            <filter string="Auto" domain="[('auto','=',True)]"/>
+            <filter string="Non Auto" domain="[('auto','=',False)]"/>
             <separator/>
             <group expand="0" string="Group By...">
               <filter string="Status" context="{'group_by': 'state'}"/>

@@ -7,8 +7,8 @@ msgstr ""
 "Project-Id-Version: Odoo Server 8.0\n"
 "Language: de_DE\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-06-03 08:22+0000\n"
-"PO-Revision-Date: 2020-06-03 08:22+0000\n"
+"POT-Creation-Date: 2020-06-12 07:53+0000\n"
+"PO-Revision-Date: 2020-06-12 07:53+0000\n"
 "Last-Translator: <>\n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -37,6 +37,16 @@ msgstr "Geprüft von"
 #: field:account.period.entry,user_id:0
 msgid "Audited by"
 msgstr "Geprüft von"
+
+#. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
+msgid "Auto"
+msgstr "Autom."
+
+#. module: account_period
+#: field:account.period.entry,auto:0
+msgid "Auto Generated"
+msgstr "Autom. Erzeugt"
 
 #. module: account_period
 #: field:account.period.tax,amount_base:0
@@ -86,6 +96,15 @@ msgid "Date of the last message posted on the record."
 msgstr "Datum der letzten Nachricht."
 
 #. module: account_period
+#: help:account.account,private_usage:0
+msgid "Define private usage between 0.0 - 1.0.\n"
+"0.0 means no private usage.\n"
+"1.0 means 100% private usage"
+msgstr "Definiert die Privatnutzung zwischen 0.0 -1.0\n"
+"0.0 heißt keine Privatnutzung.\n"
+"1.0 heißt 100% Privatnutzung."
+
+#. module: account_period
 #: field:account.period.entry,display_name:0
 #: field:account.period.task,display_name:0
 #: field:account.period.tax,display_name:0
@@ -110,8 +129,8 @@ msgstr "Entwurf"
 #: view:account.period.tax:account_period.form_account_period_tax
 #: field:account.period.tax,entry_count:0
 #: field:account.period.tax,entry_ids:0
-#: code:addons/account_period/models/period_task.py:115
-#: code:addons/account_period/models/period_task.py:769
+#: code:addons/account_period/models/period_task.py:183
+#: code:addons/account_period/models/period_task.py:1066
 #, python-format
 msgid "Entries"
 msgstr "Einträge"
@@ -162,6 +181,11 @@ msgstr "Rechnung"
 #: field:account.period.task,message_is_follower:0
 msgid "Is a Follower"
 msgstr "Ist Beobachter"
+
+#. module: account_period
+#: help:res.company,account_period_journal_id:0
+msgid "Journal for period automatic or manual bookings"
+msgstr "Journal für manuelle oder automatische periodische Buchungen"
 
 #. module: account_period
 #: field:account.period.task,message_last_post:0
@@ -223,6 +247,17 @@ msgstr "Netto Gesamt"
 #: view:account.period.entry:account_period.search_account_period_entry
 msgid "No Refund"
 msgstr "Keine Gutschrift"
+
+#. module: account_period
+#: code:addons/account_period/models/period_task.py:672
+#, python-format
+msgid "No period booking journal was defined for company"
+msgstr "Es wurde kein Buchungsjournal für periodische Buchungen für dieses Unternehmen definiert"
+
+#. module: account_period
+#: view:account.period.entry:account_period.search_account_period_entry
+msgid "Non Auto"
+msgstr "Nicht Autom."
 
 #. module: account_period
 #: view:account.period.entry:account_period.search_account_period_entry
@@ -297,6 +332,11 @@ msgid "Period Entry"
 msgstr "Periodeneintrag "
 
 #. module: account_period
+#: field:res.company,account_period_journal_id:0
+msgid "Period Journal"
+msgstr "Journal für Periodenabschluss"
+
+#. module: account_period
 #: model:ir.actions.act_window,name:account_period.action_period_task
 #: model:ir.model,name:account_period.model_account_period_task
 #: model:ir.ui.menu,name:account_period.menu_period_task
@@ -327,6 +367,24 @@ msgid "Positive"
 msgstr "Positiv"
 
 #. module: account_period
+#: field:account.account,private_account_id:0
+msgid "Private Account"
+msgstr "Privat Konto"
+
+#. module: account_period
+#: field:account.account,private_usage:0
+msgid "Private Usage"
+msgstr "Privatnutzung"
+
+#. module: account_period
+#: code:addons/account_period/models/period_task.py:708
+#: code:addons/account_period/models/period_task.py:716
+#: code:addons/account_period/models/period_task.py:722
+#, python-format
+msgid "Private: %s"
+msgstr "Privat: %s"
+
+#. module: account_period
 #: field:account.period.task,progress:0
 msgid "Progress"
 msgstr "Fortschritt"
@@ -336,6 +394,14 @@ msgstr "Fortschritt"
 #: field:account.period.entry,voucher_id:0
 msgid "Receipt"
 msgstr "Beleg"
+
+#. module: account_period
+#: code:addons/account_period/models/period_task.py:733
+#: code:addons/account_period/models/period_task.py:741
+#: code:addons/account_period/models/period_task.py:747
+#, python-format
+msgid "Ref. Private: %s"
+msgstr "Gut. Privat: %s"
 
 #. module: account_period
 #: view:account.period.entry:account_period.search_account_period_entry
@@ -473,7 +539,7 @@ msgstr "Besteuerung"
 
 #. module: account_period
 #: field:account.period.task,tax_ids:0
-#: code:addons/account_period/models/period_task.py:127
+#: code:addons/account_period/models/period_task.py:195
 #, python-format
 msgid "Taxes"
 msgstr "Steuern"
@@ -524,7 +590,7 @@ msgid "Validated"
 msgstr "Validiert"
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:187
+#: code:addons/account_period/models/period_task.py:270
 #, python-format
 msgid "Validated entries already exist."
 msgstr "Es existieren validierte Einträge."
@@ -537,13 +603,13 @@ msgid "Wrong"
 msgstr "Falsch"
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:713
+#: code:addons/account_period/models/period_task.py:1010
 #, python-format
 msgid "You must be an accountant manager to do that."
 msgstr "Sie müssen ein Finanzmanager sein um das auszuführen."
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:688
+#: code:addons/account_period/models/period_task.py:985
 #, python-format
 msgid "You must be an accountant to do that."
 msgstr "Sie müssen ein Finanzbenutzer sein um das auszuführen."

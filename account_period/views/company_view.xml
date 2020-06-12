@@ -9,6 +9,7 @@
       <field name="arch" type="xml">
         <group name="account_grp" position="inside">
             <field name="taxation"/>
+            <field name="account_period_journal_id" domain="[('company_id','=',active_id)]"/>
         </group>
       </field>
     </record>

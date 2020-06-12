@@ -29,3 +29,6 @@ class Company(models.Model):
         string="Taxation",
         default="payment",
     )
+
+    account_period_journal_id = fields.Many2one("account.journal",
+                                        "Period Journal", help="Journal for period automatic or manual bookings")

@@ -25,3 +25,16 @@ class AccountJournal(models.Model):
     _inherit = "account.journal"
 
     periodic = fields.Boolean("Periodic Processing")
+
+
+class AccountAccount(models.Model):
+    _inherit = "account.account"
+
+    private_account_id = fields.Many2one("account.account", "Private Account")
+
+    private_usage = fields.Float(
+        "Private Usage",
+        help="Define private usage between 0.0 - 1.0.\n"
+        "0.0 means no private usage.\n"
+        "1.0 means 100% private usage",
+    )
