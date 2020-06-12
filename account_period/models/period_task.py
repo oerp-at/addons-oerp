@@ -435,7 +435,7 @@ class AccountPeriodTask(models.Model):
                                 "account_id": invoice_tax.account_id,
                                 "invoice_id": invoice.id,                                
                                 "tax_code_id": invoice_tax.tax_code_id,
-                                "tax_base_id": invoice_tax.tax_base_code_id,
+                                "tax_base_id": invoice_tax.base_code_id,
                                 "amount_tax": amount,
                                 "payment_rate": payment_rate,
                                 "payment_amount": payment_amount,
@@ -577,7 +577,7 @@ class AccountPeriodTask(models.Model):
                 WHERE m.date >= %(period_start)s 
                   AND m.date <= %(period_end)s
                   AND m.journal_id IN %(journal_ids)s
-                  AND t.type IN ('expense','income')
+                  AND t.code IN ('expense','income')
             """,{
                     "period_start": period_start,
                     "period_end": period_end,
@@ -758,8 +758,8 @@ class AccountPeriodTask(models.Model):
 
             if tax:
                 values.update({
-                    "tax_code_id": tax.tax_code_id,
-                    "tax_base_id": tax.tax_base_code_id,
+                    "tax_code_id": tax.tax_code_id.id,
+                    "tax_base_id": tax.base_code_id.id,
                     "amount_tax": private_tax
                 })
 
