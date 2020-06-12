@@ -131,6 +131,7 @@
               <filter string="Receipt" context="{'group_by': 'voucher_id'}"/>
               <filter string="Tax Base" context="{'group_by': 'tax_base_id'}"/>
               <filter string="Tax Code" context="{'group_by': 'tax_code_id'}"/>
+              <filter string="Journal" context="{'journal_id': 'journal_id'}"/>
             </group>
         </search>
       </field>
