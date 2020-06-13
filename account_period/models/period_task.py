@@ -264,12 +264,15 @@ class AccountPeriodTask(models.Model):
 
         auto_move_ids = [r[0] for r in cr.fetchall()]
 
-        # delete all invalid entries
+        # check for validated entries
         valid_entry_count =  entry_obj.search(
             [("task_id", "=", self.id), ("state", "=", "valid")], count=True
         )
         if valid_entry_count:
             raise Warning(_("Validated entries already exist."))
+
+        # delete tax
+        self.env["account.period.tax"].search([("task_id", "=", self.id)]).unlink()
 
         # delete other entries
         entry_obj.search(
@@ -1044,6 +1047,7 @@ class AccountPeriodTax(models.Model):
         "entry_id",
         string="Entries",
         readonly=True,
+        ondelete="cascade"
     )
 
     entry_count = fields.Integer(
