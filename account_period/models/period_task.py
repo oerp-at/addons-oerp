@@ -881,6 +881,7 @@ class AccountPeriodTask(models.Model):
         self._create_tax(taskc)
 
         cr = self._cr
+        cr.execute("UPDATE account_period_entry SET uid")
 
 
 class AccountPeriodEntry(models.Model):
@@ -1024,7 +1025,7 @@ class AccountPeriodTax(models.Model):
 
     sequence = fields.Integer("Sequence", default=10, readonly=True)
     parent_id = fields.Many2one(
-        "account.period.tax", "Parent", index=True, readonly=True
+        "account.period.tax", "Parent", index=True, readonly=True, ondelete="cascade"
     )
 
     amount_base = fields.Float("Base Amount", readonly=True)
