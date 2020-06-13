@@ -892,7 +892,7 @@ class AccountPeriodEntry(models.Model):
     _order = "date, move_id"
 
     task_id = fields.Many2one(
-        "account.period.task", "Task", required=True, index=True, readonly=True
+        "account.period.task", "Task", required=True, index=True, readonly=True, ondelete="cascade"
     )
     move_id = fields.Many2one(
         "account.move", "Move", index=True, required=True, readonly=True, 
@@ -1017,7 +1017,7 @@ class AccountPeriodTax(models.Model):
     _order = "sequence"
 
     task_id = fields.Many2one(
-        "account.period.task", "Task", required=True, readonly=True
+        "account.period.task", "Task", required=True, readonly=True, ondelete="cascade"
     )
 
     name = fields.Char("Name", required=True, readonly=True)
