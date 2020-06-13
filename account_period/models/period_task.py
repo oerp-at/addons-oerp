@@ -880,6 +880,8 @@ class AccountPeriodTask(models.Model):
         self._create_private(taskc)
         self._create_tax(taskc)
 
+        cr = self._cr
+
 
 class AccountPeriodEntry(models.Model):
     _name = "account.period.entry"
@@ -892,22 +894,27 @@ class AccountPeriodEntry(models.Model):
         "account.period.task", "Task", required=True, index=True, readonly=True
     )
     move_id = fields.Many2one(
-        "account.move", "Move", index=True, required=True, readonly=True
+        "account.move", "Move", index=True, required=True, readonly=True, 
+        ondelete="restrict"
     )
 
     date = fields.Date("Date", required=True, index=True, readonly=True)
 
     journal_id = fields.Many2one(
-        "account.journal", "Journal", index=True, required=True, readonly=True
+        "account.journal", "Journal", index=True, required=True, readonly=True,
+        ondelete="restrict"
     )
     account_id = fields.Many2one(
-        "account.account", "Account", index=True, required=True, readonly=True
+        "account.account", "Account", index=True, required=True, readonly=True,
+        ondelete="restrict"
     )
     invoice_id = fields.Many2one(
-        "account.invoice", "Invoice", index=True, readonly=True
+        "account.invoice", "Invoice", index=True, readonly=True,
+        ondelete="restrict"
     )
     voucher_id = fields.Many2one(
-        "account.voucher", "Receipt", index=True, readonly=True
+        "account.voucher", "Receipt", index=True, readonly=True,
+        ondelete="restrict"
     )
 
     tax_id = fields.Many2one("account.tax", "Tax", index=True, readonly=True)
