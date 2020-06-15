@@ -25,7 +25,7 @@
                 <group name="task_specific" position="after">
                     <group>
                         <group>
-                            <field name="period_id" domain="[('company_id','=',company_id)]"/>                            
+                            <field name="period_id" domain="[('company_id','=',company_id),('state','=','draft')]"/>                            
                         </group>
                         <group>
                             <field name="company_id" groups="base.group_multi_company"/>
