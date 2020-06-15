@@ -137,6 +137,7 @@ class AccountPeriodTask(models.Model):
         ondelete="restrict",
         default=_default_period,
         readonly=True,
+        domain=[('state','=','draft')],
         states={"draft": [("readonly", False)]},
     )
 
