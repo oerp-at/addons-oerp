@@ -883,9 +883,6 @@ class AccountPeriodTask(models.Model):
         self._create_private(taskc)
         self._create_tax(taskc)
 
-        cr = self._cr
-        cr.execute("UPDATE account_period_entry SET uid")
-
 
 class AccountPeriodEntry(models.Model):
     _name = "account.period.entry"
