@@ -680,7 +680,8 @@ class AccountPeriodTask(models.Model):
             INNER JOIN account_account a ON a.id = e.account_id
             WHERE a.private_usage > 0
               AND a.private_account_id IS NOT NULL
-        """)        
+              AND e.task_id = %s
+        """, (self.id, ))        
         entry_ids = [r[0] for r in cr.fetchall()]
         for entry in self.env["account.period.entry"].search([("id", "in", entry_ids)]):
             account = entry.account_id
