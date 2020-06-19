@@ -23,12 +23,14 @@
                 <group>
                     <group>
                         <field name="task_id"/>
-                        <field name="date"/>                    
+                        <field name="date"/> 
+                        <field name="name"/>                 
                     </group>
                     <group>
                         <field name="journal_id"/>
                         <field name="account_id"/>
                         <field name="move_id"/>
+                        <field name="st_line_id" attrs="{'invisible':[('st_line_id','=',False)]}"/>                        
                         <field name="invoice_id" attrs="{'invisible':[('invoice_id','=',False)]}"/>
                         <field name="voucher_id" attrs="{'invisible':[('voucher_id','=',False)]}"/>
                     </group>            
@@ -68,8 +70,9 @@
       <field name="arch" type="xml">
         <tree string="Period Entries" colors="blue:state == 'draft';red:state == 'wrong';grey:state == 'invalid'">
             <field name="task_id"/>
-            <field name="date"/>
+            <field name="date"/>            
             <field name="move_id"/>
+            <field name="name"/>
             <field name="journal_id"/>
             <field name="account_id"/>
             <field name="tax_id"/>
@@ -103,6 +106,7 @@
             <field name="user_id"/>
             <field name="tax_code_id"/>
             <field name="tax_base_id"/>
+            <field name="st_line_id"/>
             <separator/>
             <filter string="Open" domain="[('payment_state','=','open')]"/>
             <filter string="Partly Paid" domain="[('payment_state','=','part')]"/>
