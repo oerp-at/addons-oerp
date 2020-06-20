@@ -10,6 +10,9 @@
                 <button type="object" name="action_validate" class="oe_highlight" string="Validate" attrs="{'invisible':[('user_id','!=',False)]}"/>
                 <button type="object" name="action_wrong" string="Wrong" attrs="{'invisible':[('user_id','!=',False)]}"/>
                 <button type="object" name="action_reset" string="Reset" attrs="{'invisible':[('user_id','=',False)]}"/>
+                <button type="object" name="action_print" string="Print"/>
+                <button type="object" name="action_open" string="Open"/>
+                <button type="object" name="action_open_move" string="Open Move"/>
                 <field name="state" widget="statusbar" statusbar_visible="draft,valid" statusbar_colors='{"draft":"blue"}'/>
             </header>
             <sheet>
@@ -87,6 +90,9 @@
             <button type="object" name="action_validate" icon="STOCK_APPLY" attrs="{'invisible':[('user_id','!=',False)]}"/>
             <button type="object" name="action_wrong" icon="STOCK_CANCEL" attrs="{'invisible':[('user_id','!=',False)]}"/>
             <button type="object" name="action_reset" icon="STOCK_REDO" attrs="{'invisible':[('user_id','=',False)]}"/>
+            <button type="object" name="action_print" icon="STOCK_PRINT"/>
+            <button type="object" name="action_open" icon="STOCK_FIND"/>
+            <button type="object" name="action_open_move" icon="STOCK_FILE"/>
         </tree>
       </field>
     </record>

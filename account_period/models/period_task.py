@@ -1077,13 +1077,62 @@ class AccountPeriodEntry(models.Model):
             line.state = "draft"
         return True
 
+    @api.multi
+    def action_print(self):
+        if self.invoice_id:
+            return self.env["report"].get_action(self.invoice_id, 'account.report_invoice')
+        elif self.st_line_id:            
+            return self.env["report"].get_action(self.st_line_id.statement_id.id, 'account.bank.statement.detail')
+        return {}
+
+    @api.multi
+    def action_open(self):
+        if self.invoice_id:
+            return {
+                "display_name": _("Invoice"),
+                "view_type": "form",
+                "view_mode": "form",
+                "res_model": "account.invoice",
+                "res_id": self.invoice_id.id,
+                "type": "ir.actions.act_window",
+            }
+        elif self.voucher_id:
+            return {
+                "display_name": _("Receipt"),
+                "view_type": "form",
+                "view_mode": "form",
+                "res_model": "account.voucher",
+                "res_id": self.voucher_id.id,
+                "type": "ir.actions.act_window",
+            }
+        elif self.st_line_id:
+            return {
+                "display_name": _("Line"),
+                "view_type": "form",
+                "view_mode": "form",
+                "res_model": "account.bank.statement.line",
+                "res_id": self.st_line_id.id,
+                "type": "ir.actions.act_window",
+            }
+        return self.action_open_move()
+
+    @api.multi
+    def action_open_move(self):        
+        return {
+            "display_name": _("Move"),
+            "view_type": "form",
+            "view_mode": "form",
+            "res_model": "account.move",
+            "res_id": self.move_id.id,
+            "type": "ir.actions.act_window",
+        }
+
     def _get_key(self):            
         return (
             self.date,
             self.journal_id.id,
-            self.move_id.id,                
-            self.account_id.id,                
-            self.st_line_id.id or 0,
+            self.move_id.id,             
+            self.account_id.id,            
             self.invoice_id.id or 0,
             self.voucher_id.id or 0,
             self.tax_id.id or 0,                
