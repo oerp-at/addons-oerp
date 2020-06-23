@@ -725,8 +725,8 @@ class AccountPeriodTask(models.Model):
         # all done
         taskc.done()
 
-    def _create_private(self, taskc):
-        taskc.logd("Create Private")
+    def _create_private(self, taskc):        
+        taskc.substage("Create Private")
 
         cr = self._cr
         move_obj = self.env["account.move"]
@@ -738,6 +738,7 @@ class AccountPeriodTask(models.Model):
 
         if not journal:
             raise Warning(_("No period booking journal was defined for company"))
+
 
         # search accounts with private option
         cr.execute("""SELECT
@@ -836,15 +837,15 @@ class AccountPeriodTask(models.Model):
             entry_creator.add_move(values)
 
         entry_creator.flush()
+        taskc.done()
 
     def _create_tax(self, taskc):
-        taskc.logd("Create tax")
+        taskc.substage("Create Tax")
 
         cr = self._cr
         tax_code_obj = self.env["account.tax.code"]
         period_tax_obj = self.env["account.period.tax"]
-
-        taskc.substage("Create Tax")
+        
         period_tax_obj.search([("task_id","=",self.id)]).unlink()
 
         # tax calculation
@@ -937,7 +938,7 @@ class AccountPeriodTask(models.Model):
 
     def _create_balance(self, taskc):
         """ Create account balance """
-        self.ensure_one()
+        taskc.substage("Create Balance")
         
         balance_obj = self.env["account.period.balance"]
         period = self.period_id
@@ -971,6 +972,13 @@ class AccountPeriodTask(models.Model):
 
         taskc.done()
                 
+    def _check_unprocessed(self, taskc):
+        for invoice in self.env["account.invoice"].search([("period_id","=",self.period_id.id),
+                                            ("type","in",("in_invoice","in_refund")),
+                                            ("state","not in",("paid","cancel"))]):
+            taskc.logw("Invoice not reconciled", 
+                    ref="account.invoice,%s" % invoice.id,
+                    code="NOT_RECONCILED")
 
     def _run(self, taskc):
         journals = self.env["account.journal"].search([("periodic", "=", True)])
@@ -983,6 +991,7 @@ class AccountPeriodTask(models.Model):
             return
 
         # save entry user
+        taskc.log("Backup validated")
 
         entry_obj = self.env["account.period.entry"]        
         valid_entries =  entry_obj.search(
@@ -998,9 +1007,10 @@ class AccountPeriodTask(models.Model):
         self._create_private(taskc)
         self._create_tax(taskc)
         self._create_balance(taskc)
+        self._check_unprocessed(taskc)
 
-
-        # restore entry user        
+        # restore entry user         
+        taskc.log("Restore validated")    
 
         entry_obj = self.env["account.period.entry"]       
         for entry in  entry_obj.search(
