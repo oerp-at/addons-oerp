@@ -43,12 +43,14 @@ Implements monthly period task, for setting up a monthly workflow
     ],
     "data": [
         "security/security.xml",
+        "wizard/account_period_validate_wizard.xml",
         "views/company_view.xml",
         "views/period_task_view.xml",
         "views/journal_view.xml",        
         "views/period_entry_view.xml",
         "views/period_tax_view.xml",
-        "views/account_view.xml"
+        "views/period_balance_view.xml",
+        "views/account_view.xml"        
     ],
     "auto_install": False,
     "installable": True,

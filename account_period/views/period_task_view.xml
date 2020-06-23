@@ -17,6 +17,12 @@
                     </button>
                     <button type="object" 
                       class="oe_stat_button"
+                      icon="fa-indent"
+                      name="balance_action">                                            
+                      <div><strong><field name="balance_count"/></strong><br/>Balances</div>
+                    </button>
+                    <button type="object" 
+                      class="oe_stat_button"
                       icon="fa-euro"
                       name="tax_action">                                            
                       <div><strong><field name="tax_total" widget="monetary" options="{'currency_field': 'currency_id'}"/></strong><br/>Tax</div>

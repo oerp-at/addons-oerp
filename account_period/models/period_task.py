@@ -166,6 +166,12 @@ class AccountPeriodTask(models.Model):
 
     tax_ids = fields.One2many("account.period.tax", "task_id", "Taxes", readonly=True)
 
+    balance_ids = fields.One2many("account.period.balance", "task_id", "Account Balance", readonly=True)
+
+    balance_count = fields.Integer(
+        "Accounts", compute="_compute_balance_count", store=False, readonly=True
+    )
+
     tax_total = fields.Float(
         "Total Tax", digits=dp.get_precision("Account"), readonly=True
     )
@@ -178,6 +184,20 @@ class AccountPeriodTask(models.Model):
     def _compute_entry_count(self):
         for task in self:
             self.entry_count = len(task.entry_ids)
+
+    @api.multi
+    def _compute_balance_count(self):
+        task_ids = self.ids
+        if task_ids:
+            self._cr.execute("""SELECT task_id, COUNT(id)
+                FROM account_period_balance
+                WHERE task_id IN %s
+                  AND move_lines > 0
+                GROUP BY 1
+            """, (tuple(self.ids),))
+            count_dict = dict(self._cr.fetchall())
+            for obj in self:
+                obj.balance_count = count_dict.get(obj.id, 0)
 
     @api.multi
     def entry_action(self):
@@ -201,6 +221,19 @@ class AccountPeriodTask(models.Model):
                 "res_model": "account.period.tax",
                 "domain": [("task_id", "=", task.id)],
                 "type": "ir.actions.act_window",
+            }
+
+    @api.multi
+    def balance_action(self):
+        for task in self:
+            return {
+                "display_name": _("Balance"),
+                "view_type": "form",
+                "view_mode": "tree,form",
+                "res_model": "account.period.balance",
+                "domain": [("task_id", "=", task.id)],                
+                "type": "ir.actions.act_window",
+                "context": {'search_default_used_accounts': True}
             }
 
     @api.model
@@ -261,8 +294,12 @@ class AccountPeriodTask(models.Model):
           AND e.auto
         GROUP BY 1
         """, (self.id,))
-
         auto_move_ids = [r[0] for r in cr.fetchall()]
+
+        # delete tax
+        self.tax_ids.unlink()
+        # delete balance      
+        self.balance_ids.unlink()
 
         # check for validated entries
         entry_obj = self.env["account.period.entry"]
@@ -272,9 +309,6 @@ class AccountPeriodTask(models.Model):
             )
             if valid_entry_count:
                 raise Warning(_("Validated entries already exist."))
-
-        # delete tax
-        self.env["account.period.tax"].search([("task_id", "=", self.id)]).unlink()
 
         # delete other entries
         entry_obj.search(
@@ -901,6 +935,43 @@ class AccountPeriodTask(models.Model):
         self.tax_total = tax_total
         taskc.done()
 
+    def _create_balance(self, taskc):
+        """ Create account balance """
+        self.ensure_one()
+        
+        balance_obj = self.env["account.period.balance"]
+        period = self.period_id
+        sequence = 1
+        
+        accounts = self.env["account.account"].search([("company_id", "=", self.company_id.id)])
+        taskc.substage("Create Balance")
+        taskc.initLoop(len(accounts))
+
+        for account in accounts:
+            self._cr.execute("""SELECT COUNT(l), COALESCE(SUM(l.debit),0.0), COALESCE(SUM(l.credit),0.0)
+                FROM account_move_line l
+                WHERE l.account_id = %s
+                  AND l.period_id = %s
+            """, (account.id, period.id))
+
+            for (move_lines, debit, credit) in self._cr.fetchall():
+                balance_obj.create({
+                    "task_id": self.id,
+                    "account_id": account.id,
+                    "parent_account_id": account.parent_id.id,
+                    "sequence": sequence,
+                    "debit": debit,
+                    "credit": credit,
+                    "balance": debit-credit,
+                    "move_lines": move_lines
+                })
+
+            sequence += 1
+            taskc.nextLoop()
+
+        taskc.done()
+                
+
     def _run(self, taskc):
         journals = self.env["account.journal"].search([("periodic", "=", True)])
         if not journals:
@@ -920,12 +991,13 @@ class AccountPeriodTask(models.Model):
         validated_by = dict([(e._get_key(), e.user_id.id) for e in valid_entries])
 
 
-        # recreate
+        # (re)create
 
         self._clean_entries(check_valid=False)
         self._create_payment_based(taskc, journals)       
         self._create_private(taskc)
         self._create_tax(taskc)
+        self._create_balance(taskc)
 
 
         # restore entry user        
@@ -954,29 +1026,29 @@ class AccountPeriodEntry(models.Model):
 
     move_id = fields.Many2one(
         "account.move", "Move", index=True, required=True, readonly=True, 
-        ondelete="restrict"
+        ondelete="cascade"
     )
     st_line_id = fields.Many2one("account.bank.statement.line",
         "Statement Line",
-        ondelete="restrict",
+        ondelete="cascade",
         index=True,
         readonly=True
     )
     journal_id = fields.Many2one(
         "account.journal", "Journal", index=True, required=True, readonly=True,
-        ondelete="restrict"
+        ondelete="cascade"
     )
     account_id = fields.Many2one(
         "account.account", "Account", index=True, required=True, readonly=True,
-        ondelete="restrict"
+        ondelete="cascade"
     )
     invoice_id = fields.Many2one(
         "account.invoice", "Invoice", index=True, readonly=True,
-        ondelete="restrict"
+        ondelete="cascade"
     )
     voucher_id = fields.Many2one(
         "account.voucher", "Receipt", index=True, readonly=True,
-        ondelete="restrict"
+        ondelete="cascade"
     )
 
     tax_id = fields.Many2one("account.tax", "Tax", index=True, readonly=True)
@@ -1210,3 +1282,43 @@ class AccountPeriodTax(models.Model):
                     "type": "ir.actions.act_window",
                 }
         return True
+
+
+class AccoundPeriodBalance(models.Model):
+    _name = "account.period.balance"
+    _description = "Account Balance"
+    _order = "sequence"
+    _rec_name = "account_id"
+
+
+    task_id = fields.Many2one(
+        "account.period.task", "Task", required=True, readonly=True, ondelete="cascade"
+    )
+
+    account_id = fields.Many2one("account.account", "Account",
+                required=True, index=True, ondelete="restrict", readonly=True)
+
+    parent_account_id = fields.Many2one("account.account", "Parent Account",
+                index=True, ondelete="cascade", readonly=True)
+
+    sequence = fields.Integer("Sequence", readonly=True, default=10)
+    
+    debit = fields.Float("Credit", readonly=True, digits=dp.get_precision("Account"))
+    credit = fields.Float("Credit", readonly=True, digits=dp.get_precision("Account"))
+    balance = fields.Float("Balance", readonly=True, digits=dp.get_precision("Account"))
+
+    move_lines = fields.Integer("Move Lines")
+
+    @api.multi
+    def action_move_lines(self):
+        for obj in self:
+            return {
+                "display_name": _("Move Lines"),
+                "view_type": "form",
+                "view_mode": "tree,form",
+                "res_model": "account.move.line",
+                "domain": [("account_id", "=", obj.account_id.id),("period_id","=",obj.task_id.period_id.id)],
+                "type": "ir.actions.act_window",
+            }
+        return True
+    

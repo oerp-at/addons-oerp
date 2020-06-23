@@ -1,0 +1,91 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openerp>
+    <data>
+        
+        <!-- account.period.balance form view -->
+        <record id="account_period_balance_view_form" model="ir.ui.view">
+            <field name="name">account.period.balance.view.form</field>
+            <field name="model">account.period.balance</field>
+            <field name="arch" type="xml">
+                <form string="Period Balance"> 
+                    <sheet>
+                        <div class="oetitle oe_left">
+                            <div class="oe_edit_only">
+                                <label for="account_id"/>
+                            </div>
+                            <h1>
+                                <field name="account_id"/>
+                            </h1>
+                        </div>
+                        <div class="oe_right oe_button_box" name="buttons"> 
+                            <button type="object" 
+                                class="oe_stat_button"
+                                icon="fa-list"
+                                name="action_move_lines">                                            
+                                <div><strong><field name="move_lines"/></strong><br/>Move Lines</div>
+                            </button>                       
+                        </div>
+                        <group>
+                            <group>
+                                <field name="task_id"/>                                
+                                <field name="parent_account_id"/>
+                                <field name="sequence"/>
+                            </group>
+                            <group>
+                                <field name="debit"/>
+                                <field name="credit"/>
+                                <field name="balance"/>
+        					</group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- account.period.balance tree view -->
+        <record id="account_period_balance_view_tree" model="ir.ui.view">
+            <field name="name">account.period.balance.view.tree</field>
+            <field name="model">account.period.balance</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="task_id"/>
+                    <field name="account_id"/>                    
+                    <field name="debit" sum="Debit"/>
+                    <field name="credit" sum="Credit"/>
+                    <field name="balance" sum="Balance"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- account.period.balance search view -->
+        <record id="account_period_balance_search" model="ir.ui.view">
+            <field name="name">account.period.balance.view.search</field>
+            <field name="model">account.period.balance</field>
+            <field name="arch" type="xml">
+                <search string="Period Balances">                    
+                    <field name="account_id"/>
+                    <field name="task_id"/>
+                    <field name="parent_account_id"/>
+                    <separator/>
+                    <filter name="used_accounts" string="Used Accounts" domain="[('move_lines','&gt;',0)]"/>
+                    <filter name="unused_accounts" string="Unused Accounts" domain="[('move_lines','=',0)]"/>
+                    <separator/>
+                    <group expand="0" string="Group By...">
+                        <filter string="Parent Account" context="{'group_by': 'parent_account_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- account.period.balance action window -->
+        <record id="account_period_balance_action" model="ir.actions.act_window">
+            <field name="name">Period Balance</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">account.period.balance</field>
+            <field name="view_mode">tree,form</field>
+            <field name="view_type">form</field>            
+        </record>
+        
+        
+    </data>
+</openerp>

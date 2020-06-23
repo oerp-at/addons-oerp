@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='utf-8'?>
+<openerp>
+    <data>
+        
+        <record id="account_period_validate_wizard_view_form" model="ir.ui.view">
+            <field name="name">account.period.validate.wizard.view.form</field>
+            <field name="model">account.period.validate.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Entry Validation">
+                    <group>
+                        <p>Validate multiple entries</p>                
+                    </group>
+                    <footer>
+                        <button name="action_validate" string="Validate" type="object" class="oe_highlight" />
+                        <button name="action_reset" string="Reset" type="object"/>
+                        or
+                        <button special="cancel" string="Close" class="oe_link"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+    
+        <act_window
+            id="account_period_validate_wizard_act"
+            name="Validation"            
+            res_model="account.period.validate.wizard"
+            src_model="account.period.entry"
+            multi="True"       
+            target="new"
+            view_mode="form"
+            view_type="form"/>       
+        
+    </data>
+</openerp>
+
