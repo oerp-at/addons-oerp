@@ -38,3 +38,10 @@ class AccountAccount(models.Model):
         "0.0 means no private usage.\n"
         "1.0 means 100% private usage",
     )
+
+
+class AccountTax(models.Model):
+    _inherit = "account.tax"
+
+    national_tax_id = fields.Many2one("account.tax", "National Tax", oncascade="delete")
+    

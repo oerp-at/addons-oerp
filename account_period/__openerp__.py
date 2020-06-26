@@ -50,7 +50,8 @@ Implements monthly period task, for setting up a monthly workflow
         "views/period_entry_view.xml",
         "views/period_tax_view.xml",
         "views/period_balance_view.xml",
-        "views/account_view.xml"        
+        "views/account_view.xml",
+        "views/account_tax_view.xml" 
     ],
     "auto_install": False,
     "installable": True,
