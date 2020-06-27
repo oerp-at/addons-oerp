@@ -10,7 +10,8 @@
             <field name="arch" type="xml">
                 <!-- Add you xpath here -->
                 <field name="price_include" position="after">
-                    <field name="national_tax_id" attrs="{'invisible':[('type','!=','none')]}"/>
+                    <field name="import_tax"/>
+                    <field name="national_tax_id" attrs="{'invisible':[('type','!=','none')]}"/>                    
                 </field>
             </field>
         </record>

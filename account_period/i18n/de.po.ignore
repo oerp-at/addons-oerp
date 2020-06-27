@@ -45,3 +45,8 @@ msgstr ""
 #: field:account.period.entry,state:0
 msgid "Status"
 msgstr ""
+
+#. module: account_period
+#: selection:account.tax,import_tax:0
+msgid "EU"
+msgstr ""

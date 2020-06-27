@@ -113,8 +113,7 @@
             <field name="user_id"/>
             <field name="tax_code_id"/>
             <field name="tax_base_id"/>
-            <field name="st_line_id"/>
-            <field name="invoice_tax_id"/>
+            <field name="st_line_id"/>            
             <separator/>
             <filter string="Open" domain="[('payment_state','=','open')]"/>
             <filter string="Partly Paid" domain="[('payment_state','=','part')]"/>
@@ -137,8 +136,7 @@
               <filter string="Status" context="{'group_by': 'state'}"/>
               <filter string="Payment" context="{'group_by': 'payment_state'}"/>
               <filter string="Audited By" context="{'group_by': 'user_id'}"/>
-              <filter string="Tax" context="{'group_by': 'tax_id'}"/>
-              <filter string="Invoice Tax" context="{'group_by': 'invoice_tax_id'}"/>
+              <filter string="Tax" context="{'group_by': 'tax_id'}"/>              
               <filter string="Account" context="{'group_by': 'account_id'}"/>
               <filter string="Invoice" context="{'group_by': 'invoice_id'}"/>
               <filter string="Receipt" context="{'group_by': 'voucher_id'}"/>

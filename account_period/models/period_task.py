@@ -358,14 +358,6 @@ class AccountPeriodTask(models.Model):
 
         taskc.logd("Create payment based")
 
-        def compute_tax(taxes, price_unit, quantity, product=None, partner=None, force_excluded=False):
-            for tax in taxes:
-                national_tax = tax.national_tax_id
-                if national_tax:
-                    return national_tax.compute_all(price_unit, quantity, product=product, partner=partner, force_excluded=force_excluded)
-            return taxes.compute_all(price_unit, quantity, product=product, partner=partner, force_excluded=force_excluded)
-
-
         if receipt_journal_ids:
 
             #######################################################################
@@ -450,15 +442,10 @@ class AccountPeriodTask(models.Model):
                         price = line.price_unit * (1 - (line.discount or 0.0) / 100.0)
                         tax = line.invoice_line_tax_id
                         
-                        # calc tax
-                        if tax.national_tax_id:
-                            taxes = tax.national_tax_id.compute_all(
-                                price, line.quantity, line.product_id, invoice.partner_id
-                            )
-                        else:              
-                            taxes = tax.compute_all(
-                                price, line.quantity, line.product_id, invoice.partner_id
-                            )
+                       
+                        taxes = tax.compute_all(
+                            price, line.quantity, line.product_id, invoice.partner_id
+                        )
 
                         # generated amounts
                         # and multiplicate with payment rate factor
@@ -466,10 +453,13 @@ class AccountPeriodTask(models.Model):
                         amount = price * line.quantity * payment_rate * sign
                         amount_gross = taxes["total_included"] * payment_rate * sign
                         amount_net = taxes["total"] * payment_rate * sign
+                        amount_tax = amount_gross - amount_net
 
                         tax_id = None
                         tax_base_id = None
                         tax_code_id = None
+                        national_values = None
+                        
                         if tax:
                             tax_id = tax.id
                             if invoice.type in ("in_refund", "in_invoice"):
@@ -478,6 +468,37 @@ class AccountPeriodTask(models.Model):
                             else:
                                 tax_base_id = tax.base_code_id.id
                                 tax_code_id = tax.tax_code_id.id
+
+                            # book national tax
+                            national_tax = tax.national_tax_id
+                            if national_tax:
+                                # calc tax                        
+                                national_taxes = national_tax.compute_all(
+                                    price, line.quantity, line.product_id, invoice.partner_id
+                                )
+                                national_gross = taxes["total_included"] * payment_rate * sign * -1.0
+                                national_net = taxes["total"] * payment_rate * sign * -1.0
+                                national_tax = national_gross - national_net
+                                amount_tax = national_tax * -1.0
+
+                                if invoice.type in ("in_refund", "in_invoice"):
+                                    national_tax_base_id = tax.base_code_id.id
+                                    national_tax_code_id = tax.tax_code_id.id
+                                else:
+                                    national_tax_base_id = tax.ref_base_code_id.id
+                                    national_tax_code_id = tax.ref_tax_code_id.id
+
+                                national_values = {
+                                    "amount": 0.0,
+                                    "amount_gross": 0.0,
+                                    "amount_net": 0.0,                 
+                                    "payment_amount": 0.0,
+                                    "amount_tax": national_tax,
+                                    "amount_base": national_net,
+                                    "sign": sign*-1.0,                                
+                                    "tax_code_id": national_tax_code_id,
+                                    "tax_base_id": national_tax_base_id
+                                }
 
                         account = line.account_id
                         values = entry_creator.add_move(
@@ -492,7 +513,8 @@ class AccountPeriodTask(models.Model):
                                 "tax_base_id": tax_base_id,
                                 "amount": amount,
                                 "amount_gross": amount_gross,
-                                "amount_net": amount_net,                                
+                                "amount_net": amount_net,
+                                "amount_tax": amount_tax,
                                 "payment_rate": payment_rate,
                                 "payment_amount": amount_paid,
                                 "payment_state": payment_state,
@@ -503,26 +525,9 @@ class AccountPeriodTask(models.Model):
                             }
                         )
 
-                        # book national tax
-                        if tax.national_tax_id:
-                            if invoice.type in ("in_refund", "in_invoice"):
-                                national_tax_base_id = tax.base_code_id.id
-                                national_tax_code_id = tax.tax_code_id.id
-                            else:
-                                national_tax_base_id = tax.ref_base_code_id.id
-                                national_tax_code_id = tax.ref_tax_code_id.id
-                                                        
-                            values.update({
-                                "amount": 0.0,
-                                "amount_gross": 0.0,
-                                "amount_net": 0.0,                 
-                                "payment_amount": values["amount_tax"]*-1.0,
-                                "amount_tax": values["amount_tax"]*-1.0,
-                                "amount_base": values["amount_net"]*-1.0,
-                                "sign": sign*-1.0,
-                                "tax_code_id": national_tax_code_id,
-                                "tax_base_id": national_tax_base_id
-                            })
+                        # add national tax reverse booking
+                        if national_values:
+                            values.update(national_values)
                             entry_creator.add_move(values)
 
 
@@ -1122,8 +1127,7 @@ class AccountPeriodEntry(models.Model):
     tax_id = fields.Many2one("account.tax", "Tax", index=True, readonly=True)
     tax_code_id = fields.Many2one("account.tax.code", "Tax Code", index=True, readonly=True)
     tax_base_id = fields.Many2one("account.tax.code", "Tax Base", index=True, readonly=True)
-    invoice_tax_id = fields.Many2one("account.tax", "Invoice Tax", index=True, readonl=True)
-
+    
     sign = fields.Float("Sign", default=1.0)
     refund = fields.Boolean("Refund", default=False)
 

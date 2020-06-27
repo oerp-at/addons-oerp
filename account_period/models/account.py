@@ -44,4 +44,7 @@ class AccountTax(models.Model):
     _inherit = "account.tax"
 
     national_tax_id = fields.Many2one("account.tax", "National Tax", oncascade="delete")
+    import_tax = fields.Selection([("eu","EU"),
+                                   ("third","Third Country")],
+                                   string="Import Tax")
     
