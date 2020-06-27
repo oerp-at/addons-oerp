@@ -851,7 +851,7 @@ class AccountPeriodTask(models.Model):
             private_line = {
                 field_to: private_amount,
                 "name": _("Private: %s") % entry.move_id.name,
-                "account_id": account.id,
+                "account_id": private_account.id,
             }
             lines = [private_line]
 
