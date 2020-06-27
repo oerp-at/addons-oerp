@@ -476,8 +476,8 @@ class AccountPeriodTask(models.Model):
                                 national_taxes = national_tax.compute_all(
                                     price, line.quantity, line.product_id, invoice.partner_id
                                 )
-                                national_gross = taxes["total_included"] * payment_rate * sign * -1.0
-                                national_net = taxes["total"] * payment_rate * sign * -1.0
+                                national_gross = national_taxes["total_included"] * payment_rate * sign * -1.0
+                                national_net = national_taxes["total"] * payment_rate * sign * -1.0
                                 national_tax = national_gross - national_net
                                 amount_tax = national_tax * -1.0
 
@@ -532,9 +532,14 @@ class AccountPeriodTask(models.Model):
 
 
                 # add manual tax entries
-
-                for invoice_tax in invoice.tax_line:
+                manual_tax = False
+                for invoice_tax in invoice.tax_line:                    
                     if invoice_tax.manual:
+                        
+                        if not manual_tax:
+                            manual_tax = True
+                            taskc.logw("Book manual tax", ref="account.invoice,%s" % invoice.id, code="BOOK_MANUAL_TAX")
+
                         amount = invoice_tax.amount * sign
                         amount_base = invoice_tax.base_amount * sign,
                         payment_amount = amount
@@ -667,6 +672,8 @@ class AccountPeriodTask(models.Model):
                                 "account_id": account.id,
                                 "invoice_id": None,
                                 "tax_id": tax_id,
+                                "tax_code_id": tax_code_id,
+                                "tax_base_id": tax_base_id,
                                 "amount": amount,
                                 "amount_gross": amount_gross,
                                 "amount_net": amount_net,
@@ -727,6 +734,8 @@ class AccountPeriodTask(models.Model):
 
                 tax = line.account_tax_id
                 tax_id = None
+                tax_base_id = None
+                tax_code_id = None
                 if tax:
                     if tax.national_tax_id:
                         taskc.loge("Foreign tax for local move", ref="account.move,%s" % move.id)
@@ -750,7 +759,7 @@ class AccountPeriodTask(models.Model):
                 amount_net = taxes["total"] * payment_rate * sign
                 amount_paid = amount_gross
 
-                # calc private amount
+                # add line
                 account = line.account_id
                 entry_creator.add_move(
                     {
@@ -760,6 +769,8 @@ class AccountPeriodTask(models.Model):
                         "account_id": account.id,
                         "invoice_id": None,
                         "tax_id": tax_id,
+                        "tax_code_id": tax_code_id,
+                        "tax_base_id": tax_base_id,
                         "amount": amount,
                         "amount_gross": amount_gross,
                         "amount_net": amount_net,
@@ -881,22 +892,16 @@ class AccountPeriodTask(models.Model):
                 "date": period.date_stop,
                 "move_id": move.id,
                 "payment_rate": payment_rate,
-                "amount": private_amount * sign,
-                "amount_gross": private_amount * sign,
-                "amount_net": private_amount_net * sign,
+                "tax_id": tax.id,
+                "tax_code_id": entry.tax_code_id.id,
+                "tax_base_id": entry.tax_base_id.id,
+                "amount_tax": private_tax,
+                "amount_base": private_amount_net,
                 "payment_state": payment_state,
                 "payment_date": payment_date,
                 "sign": sign,
                 "refund": refund
             }
-
-            if tax:
-                values.update({
-                    "tax_code_id": tax.tax_code_id.id,
-                    "tax_base_id": tax.base_code_id.id,
-                    "amount_tax": private_tax
-                })
-
             entry_creator.add_move(values)
 
         entry_creator.flush()
