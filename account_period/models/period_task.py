@@ -1380,7 +1380,7 @@ class AccoundPeriodBalance(models.Model):
 
     sequence = fields.Integer("Sequence", readonly=True, default=10)
 
-    debit = fields.Float("Credit", readonly=True, digits=dp.get_precision("Account"))
+    debit = fields.Float("Debit", readonly=True, digits=dp.get_precision("Account"))
     credit = fields.Float("Credit", readonly=True, digits=dp.get_precision("Account"))
     balance = fields.Float("Balance", readonly=True, digits=dp.get_precision("Account"))
 
