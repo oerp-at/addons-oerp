@@ -927,12 +927,12 @@ class AccountPeriodTask(models.Model):
             # calc tax base
 
             cr.execute("""SELECT                               
-                 COALESCE(SUM(e.amount_base*e.sign*e.refund_sign),0.0) AS amount_base
+                 COALESCE(SUM(e.amount_base*%s),0.0) AS amount_base
                 ,ARRAY_AGG(e.id) AS entry_ids
             FROM account_period_entry e
-            WHERE e.task_id = %s
-              AND e.tax_base_id = %s              
-            """,
+            WHERE e.task_id = %%s
+              AND e.tax_base_id = %%s              
+            """ % tax_code.tax_sign,
                 (self.id, tax_code.id)
             )
 
@@ -945,12 +945,12 @@ class AccountPeriodTask(models.Model):
             # calc tax
 
             cr.execute("""SELECT                  
-                 COALESCE(SUM(e.amount_tax*e.sign*e.refund_sign),0.0) AS amount_tax
+                 COALESCE(SUM(e.amount_tax*%s),0.0) AS amount_tax
                 ,ARRAY_AGG(e.id) AS entry_ids
             FROM account_period_entry e
-            WHERE e.task_id = %s
-              AND e.tax_code_id = %s              
-            """,
+            WHERE e.task_id = %%s
+              AND e.tax_code_id = %%s              
+            """ % tax_code.tax_sign,
                 (self.id, tax_code.id)
             )
 
@@ -1139,9 +1139,7 @@ class AccountPeriodEntry(models.Model):
     
     sign = fields.Float("Sign", default=1.0)
     refund = fields.Boolean("Refund", default=False)
-
-    refund_sign = fields.Float("Refund Sign", compute="_compute_refund_sign", store=True)
-
+    
     amount = fields.Float("Amount", digits=dp.get_precision("Account"), readonly=True)
     amount_gross = fields.Float(
         "Gross Amount", digits=dp.get_precision("Account"), readonly=True
@@ -1194,13 +1192,7 @@ class AccountPeriodEntry(models.Model):
     def _compute_name(self):
         for obj in self:
             obj.name = obj.st_line_id.name or obj.move_id.ref or obj.move_id.name
-
-    @api.depends("refund")
-    @api.multi
-    def _compute_refund_sign(self):
-        for obj in self:
-            obj.refund_sign = -1.0 if obj.refund else 1.0
-
+    
     def _check_accountant(self):
         user = self.env.user
         if not user.has_group("account.group_account_user"):

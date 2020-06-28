@@ -46,5 +46,11 @@ class AccountTax(models.Model):
     national_tax_id = fields.Many2one("account.tax", "National Tax", oncascade="delete")
     import_tax = fields.Selection([("eu","EU"),
                                    ("third","Third Country")],
-                                   string="Import Tax")
+                                   string="Import Tax")    
     
+class AccountTaxCode(models.Model):
+    _inherit = "account.tax.code"
+
+    tax_sign = fields.Float("Coefficent for Tax", 
+        help="Coefficent for Tax: 1.0 is a tax levy addition, -1.0 is a tax levy reduction.",
+        default=1.0)
