@@ -454,6 +454,10 @@ class AccountPeriodTask(models.Model):
                         amount_gross = taxes["total_included"] * payment_rate * sign
                         amount_net = taxes["total"] * payment_rate * sign
                         amount_tax = amount_gross - amount_net
+                        
+                        # ignore comment lines
+                        if not tax and not amount and not amount_net and not amount_tax:
+                            continue
 
                         tax_id = None
                         tax_base_id = None
