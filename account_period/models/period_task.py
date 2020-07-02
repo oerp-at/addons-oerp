@@ -1013,7 +1013,10 @@ class AccountPeriodTask(models.Model):
         taskc.substage("Create Balance")
 
         balance_obj = self.env["account.period.balance"]
+        
         period = self.period_id
+        periods = period.search([("fiscalyear_id","=",period.fiscalyear_id.id),
+                                      ("date_stop","<=",period.date_stop)])
         sequence = 1
 
         accounts = self.env["account.account"].search([("company_id", "=", self.company_id.id)])
@@ -1024,8 +1027,8 @@ class AccountPeriodTask(models.Model):
             self._cr.execute("""SELECT COUNT(l), COALESCE(SUM(l.debit),0.0), COALESCE(SUM(l.credit),0.0)
                 FROM account_move_line l
                 WHERE l.account_id = %s
-                  AND l.period_id = %s
-            """, (account.id, period.id))
+                  AND l.period_id IN %s
+            """, (account.id, tuple(periods.ids,)))
 
             for (move_lines, debit, credit) in self._cr.fetchall():
                 balance_obj.create({
@@ -1387,14 +1390,18 @@ class AccoundPeriodBalance(models.Model):
     move_lines = fields.Integer("Move Lines")
 
     @api.multi
-    def action_move_lines(self):
+    def action_move_lines(self):        
         for obj in self:
+            period = obj.task_id.period_id
+            periods =  period.search([("fiscalyear_id","=",period.fiscalyear_id.id),
+                                      ("date_stop","<=",period.date_stop)])
             return {
                 "display_name": _("Move Lines"),
                 "view_type": "form",
                 "view_mode": "tree,form",
                 "res_model": "account.move.line",
-                "domain": [("account_id", "=", obj.account_id.id),("period_id","=",obj.task_id.period_id.id)],
+                "domain": [("account_id", "=", obj.account_id.id),
+                           ("period_id","in",periods.ids)],
                 "type": "ir.actions.act_window",
             }
         return True
