@@ -64,13 +64,13 @@
                 <field name="state_change"/>
                 <field name="cron_id"/> 
                 <field name="start_after" attrs="{'invisible':[('start_after','=',False)]}"/>
-                <field name="after_once_task_id" attrs="{'invisible':[('after_once_task_id','=',False)]}"/>                
+                <field name="start_after_task_id" attrs="{'invisible':[('start_after_task_id','=',False)]}"/>                
               </group>
             </group>
             <notebook>
               <page string="Error">
                 <field name="error"/>
-              </page>
+              </page>            
             </notebook>
           </sheet>
         </form>
