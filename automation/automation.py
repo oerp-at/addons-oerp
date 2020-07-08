@@ -611,7 +611,9 @@ class automation_task(models.Model):
             )
 
     def _task_enqueue(self):
-        """ queue task """        
+        """ queue task """ 
+        self.ensure_one()
+               
         # add cron entry
         cron = self.cron_id
         if not cron:
@@ -625,6 +627,11 @@ class automation_task(models.Model):
             "DELETE FROM automation_task_stage WHERE task_id=%s",
             (self.id, ),
         )
+
+        # create secret
+        secret_obj = self.env["automation.task.secret"]
+        if not secret_obj.search([("task_id", "=", self.id)]):
+            secret_obj.create({"task_id": self.id})
 
         # set queued
         self.write({
