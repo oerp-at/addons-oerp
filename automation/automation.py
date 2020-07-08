@@ -431,7 +431,7 @@ class automation_task(models.Model):
     )    
 
     start_after = fields.Datetime(
-        "Start After", help="Start *this* task after the specified date/time, was set tonull after queued."
+        "Start After", help="Start *this* task after the specified date/time, was set to null after queued."
     )
 
     parent_id = fields.Many2one(

@@ -7,8 +7,8 @@ msgstr ""
 "Project-Id-Version: Odoo Server 8.0\n"
 "Language: de_DE\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-07-10 08:36+0000\n"
-"PO-Revision-Date: 2019-07-10 08:36+0000\n"
+"POT-Creation-Date: 2020-07-08 18:33+0000\n"
+"PO-Revision-Date: 2020-07-08 18:33+0000\n"
 "Last-Translator: <>\n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -40,6 +40,11 @@ msgid "Automation Task"
 msgstr "Autom. Prozess"
 
 #. module: automation
+#: model:res.groups,name:automation.group_automation_user
+msgid "Automation User"
+msgstr "Autom. Benutzer"
+
+#. module: automation
 #: view:automation.task:automation.form_automation_task
 msgid "Cancel"
 msgstr "Abbrechen"
@@ -50,10 +55,15 @@ msgid "Canceled"
 msgstr "Abgebrochen"
 
 #. module: automation
-#: code:addons/automation/automation.py:151
+#: code:addons/automation/automation.py:161
 #, python-format
 msgid "Cannot determine base url"
 msgstr "Die Basis URL kann nicht bestimmt werden"
+
+#. module: automation
+#: field:automation.task,child_task_ids:0
+msgid "Child Tasks"
+msgstr "Unterprozesse"
 
 #. module: automation
 #: view:automation.task.log:automation.search_task_log
@@ -98,8 +108,8 @@ msgid "Display Name"
 msgstr "Anzeige Name"
 
 #. module: automation
-#: code:addons/automation/automation.py:339
-#: code:addons/automation/automation.py:346
+#: code:addons/automation/automation.py:353
+#: code:addons/automation/automation.py:359
 #: view:automation.task:automation.search_automation_task
 #: selection:automation.task,state:0
 #, python-format
@@ -201,13 +211,13 @@ msgid "Name"
 msgstr ""
 
 #. module: automation
-#: code:addons/automation/automation.py:145
+#: code:addons/automation/automation.py:153
 #, python-format
 msgid "No scecret for task %s [%s] was generated"
 msgstr "Es wurde kein Schlüssel für Prozess %s [%s] erstellt"
 
 #. module: automation
-#: code:addons/automation/automation.py:467
+#: code:addons/automation/automation.py:608
 #, python-format
 msgid "Not allowed to start task. You be the owner or an automation manager"
 msgstr "Nur Eigentümer, Autom. Manager und Administratoren dürfen den Prozess starten"
@@ -224,10 +234,20 @@ msgid "Owner"
 msgstr "Eigentümer"
 
 #. module: automation
+#: field:automation.task,parent_id:0
+msgid "Parent"
+msgstr "Übergeordnet"
+
+#. module: automation
 #: view:automation.task.stage:automation.search_task_stage
 #: field:automation.task.stage,parent_id:0
 msgid "Parent Stage"
 msgstr "Übergeordneter Abschn."
+
+#. module: automation
+#: field:automation.task,post_task_ids:0
+msgid "Post Tasks"
+msgstr "Folgeprozess"
 
 #. module: automation
 #: view:automation.task.log:automation.search_task_log
@@ -317,12 +337,27 @@ msgid "Start"
 msgstr ""
 
 #. module: automation
-#: help:automation.task,after_once_task_id:0
-msgid "Start this task after that task has finished successfully only once"
-msgstr "Start diesen Prozess einmal nach einer erfolgreichen Ausführung des aktuellen Prozesses"
+#: help:automation.task,start_after:0
+msgid "Start *this* task after the specified date/time, was set to null after queued."
+msgstr "Starte *diesen* Prozess nach einer angegebenen Zeit. Wird auf null gesetzt nach der Reihung."
 
 #. module: automation
-#: code:addons/automation/automation.py:169
+#: help:automation.task,start_after_task_id:0
+msgid "Start *this* task after the specified task, was set to null after queued."
+msgstr "Starte *diesen* Prozess nach dem angegebenen Prozess. Wird auf null gesetzt nach der Reihung."
+
+#. module: automation
+#: field:automation.task,start_after:0
+msgid "Start After"
+msgstr "Starte nach"
+
+#. module: automation
+#: field:automation.task,start_after_task_id:0
+msgid "Start after task"
+msgstr "Starte nach Prozess"
+
+#. module: automation
+#: code:addons/automation/automation.py:183
 #, python-format
 msgid "Started"
 msgstr "Gestartet"
@@ -361,11 +396,6 @@ msgid "Task"
 msgstr "Prozess"
 
 #. module: automation
-#: field:automation.task,after_once_task_id:0
-msgid "Task After (Once)"
-msgstr "Prozess nach Ausführung (Einmalig)"
-
-#. module: automation
 #: model:ir.model,name:automation.model_automation_task_log
 msgid "Task Log"
 msgstr "Prozess Protokoll"
@@ -379,6 +409,21 @@ msgstr "Aufgabenstufe"
 #: view:automation.task:automation.tree_automation_task
 msgid "Tasks"
 msgstr "Prozesse"
+
+#. module: automation
+#: help:automation.task,child_task_ids:0
+msgid "Tasks which already started after this task."
+msgstr "Prozess die nach diesem Prozess bereits gestartet wurden."
+
+#. module: automation
+#: help:automation.task,post_task_ids:0
+msgid "Tasks which are started after this task."
+msgstr "Prozesse die nach diesem Prozess gestartet werden sollen."
+
+#. module: automation
+#: help:automation.task,parent_id:0
+msgid "The parent task, after *this* task was started"
+msgstr "Der übergeordnete Prozess, nachdem *dieser* Prozess gestartet wurde"
 
 #. module: automation
 #: field:automation.task.stage,total:0
