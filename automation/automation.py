@@ -785,7 +785,7 @@ class automation_task(models.Model):
                 self.refresh()
 
                 # queue task after                 
-                for post_task in self.post_task_ids:
+                for post_task in task.post_task_ids:
                     post_task.action_queue()
 
             except Exception as e:
