@@ -831,9 +831,13 @@ class AccountPeriodTask(models.Model):
             private_usage = account.private_usage
             private_account = account.private_account_id
 
-            private_amount = entry.amount_gross * entry.sign * private_usage
-            private_tax = entry.amount_tax * entry.sign * private_usage
-            private_amount_net = private_amount - private_tax
+            amount_gross = entry.amount_gross * entry.sign 
+            amount_net = entry.amount_net * entry.sign
+            amount_tax = entry.amount_tax * entry.sign
+
+            private_amount = amount_gross * private_usage
+            private_amount_net = amount_net * private_usage
+            private_tax = private_amount - private_amount_net
 
             payment_rate = entry.payment_rate
             payment_state = entry.payment_state
@@ -863,7 +867,7 @@ class AccountPeriodTask(models.Model):
             calced_private_amount = 0.0
             for line in entry.move_id.line_id:
                 field_amount = getattr(line, field_to)
-                if field_amount > 0:
+                if field_amount > 0 and field_amount in (amount_tax, amount_gross, amount_net):
                     line_amount = round(field_amount * private_usage,2)
                     calced_private_amount += line_amount
                     lines.append({
@@ -1231,42 +1235,45 @@ class AccountPeriodEntry(models.Model):
 
     @api.multi
     def action_print(self):
-        if self.invoice_id:
-            return self.env["report"].get_action(self.invoice_id, 'account.report_invoice')
-        elif self.st_line_id:
-            return self.env["report"].get_action(self.st_line_id.statement_id.id, 'account.bank.statement.detail')
-        return {}
+        for line in self:
+            if line.invoice_id:
+                return self.env["report"].get_action(self.invoice_id, 'account.report_invoice')
+            elif line.st_line_id:
+                return self.env["report"].get_action(self.st_line_id.statement_id.id, 'account.bank.statement.detail')
+        return True
 
     @api.multi
     def action_open(self):
-        if self.invoice_id:
-            return {
-                "display_name": _("Invoice"),
-                "view_type": "form",
-                "view_mode": "form",
-                "res_model": "account.invoice",
-                "res_id": self.invoice_id.id,
-                "type": "ir.actions.act_window",
-            }
-        elif self.voucher_id:
-            return {
-                "display_name": _("Receipt"),
-                "view_type": "form",
-                "view_mode": "form",
-                "res_model": "account.voucher",
-                "res_id": self.voucher_id.id,
-                "type": "ir.actions.act_window",
-            }
-        elif self.st_line_id:
-            return {
-                "display_name": _("Line"),
-                "view_type": "form",
-                "view_mode": "form",
-                "res_model": "account.bank.statement.line",
-                "res_id": self.st_line_id.id,
-                "type": "ir.actions.act_window",
-            }
-        return self.action_open_move()
+        for line in self:
+            if line.invoice_id:
+                return {
+                    "display_name": _("Invoice"),
+                    "view_type": "form",
+                    "view_mode": "form",
+                    "res_model": "account.invoice",
+                    "res_id": self.invoice_id.id,
+                    "type": "ir.actions.act_window",
+                }
+            elif line.voucher_id:
+                return {
+                    "display_name": _("Receipt"),
+                    "view_type": "form",
+                    "view_mode": "form",
+                    "res_model": "account.voucher",
+                    "res_id": self.voucher_id.id,
+                    "type": "ir.actions.act_window",
+                }
+            elif line.st_line_id:
+                return {
+                    "display_name": _("Line"),
+                    "view_type": "form",
+                    "view_mode": "form",
+                    "res_model": "account.bank.statement.line",
+                    "res_id": self.st_line_id.id,
+                    "type": "ir.actions.act_window",
+                }
+            return line.action_open_move()
+        return True
 
     @api.multi
     def action_open_move(self):
