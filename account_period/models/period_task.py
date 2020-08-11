@@ -768,7 +768,7 @@ class AccountPeriodTask(models.Model):
                 FROM account_move_line l
                 INNER JOIN account_move m ON m.id = l.move_id 
                 INNER JOIN account_account a ON a.id = l.account_id                     
-                LEFT  JOIN account_tax_code dt ON ct.id = a.debit_tax_code_id
+                LEFT  JOIN account_tax_code dt ON dt.id = a.debit_tax_code_id
                 LEFT  JOIN account_tax_code ct ON ct.id = a.credit_tax_code_id
                 WHERE m.date >= %(period_start)s 
                   AND m.date <= %(period_end)s
@@ -835,9 +835,9 @@ class AccountPeriodTask(models.Model):
                         sign = -1.0
                     else:
                         sign = 1.0
-
-                    amount = 0.0
-                    amount_base = line.credit * sign,
+                    
+                    amount_base = 0.0
+                    amount_tax = line.credit * sign
                     date = line.move_id.date
 
                     payment_amount = 0.0
@@ -854,7 +854,7 @@ class AccountPeriodTask(models.Model):
                             "invoice_id": None,
                             "tax_code_id": account.debit_tax_code_id.id,
                             "tax_base_id": None,
-                            "amount_tax": amount,
+                            "amount_tax": amount_tax,
                             "amount_base": amount_base,
                             "payment_rate": payment_rate,
                             "payment_amount": payment_amount,
