@@ -891,7 +891,7 @@ class BmdExport(models.Model):
                         ref="account.move,%s" % move.id,
                     )
                     raise Warning(
-                        "Buchung %s kann nicht exportiert werden (mehr als eine Haben oder Soll Buchung)"
+                        "Buchung %s kann nicht exportiert werden (mehr als eine Haben oder Soll Buchung)" % move.name
                     )
 
                 line = main["line"]

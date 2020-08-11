@@ -7,8 +7,8 @@ msgstr ""
 "Project-Id-Version: Odoo Server 8.0\n"
 "Language: de_DE\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-06-28 13:09+0000\n"
-"PO-Revision-Date: 2020-06-28 13:09+0000\n"
+"POT-Creation-Date: 2020-08-11 07:02+0000\n"
+"PO-Revision-Date: 2020-08-11 07:02+0000\n"
 "Last-Translator: <>\n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -79,6 +79,11 @@ msgid "Base Amount"
 msgstr "Bemessungsgrundl."
 
 #. module: account_period
+#: field:account.period.task,child_task_ids:0
+msgid "Child Tasks"
+msgstr "Untergeordnete Prozesse"
+
+#. module: account_period
 #: view:account.period.validate.wizard:account_period.account_period_validate_wizard_view_form
 msgid "Close"
 msgstr "Schließen"
@@ -129,6 +134,11 @@ msgid "Credit"
 msgstr "Haben"
 
 #. module: account_period
+#: field:account.account,credit_tax_code_id:0
+msgid "Credit Tax Code"
+msgstr "Soll Steuercode"
+
+#. module: account_period
 #: field:account.period.entry,currency_id:0
 #: field:account.period.task,currency_id:0
 #: field:account.period.tax,currency_id:0
@@ -150,6 +160,11 @@ msgstr "Datum der letzten Nachricht."
 #: field:account.period.balance,debit:0
 msgid "Debit"
 msgstr "Soll"
+
+#. module: account_period
+#: field:account.account,debit_tax_code_id:0
+msgid "Debit Tax Codd"
+msgstr "Haben Steuercode"
 
 #. module: account_period
 #: help:account.account,private_usage:0
@@ -188,7 +203,7 @@ msgstr "Entwurf"
 #: field:account.period.tax,entry_count:0
 #: field:account.period.tax,entry_ids:0
 #: code:addons/account_period/models/period_task.py:212
-#: code:addons/account_period/models/period_task.py:1354
+#: code:addons/account_period/models/period_task.py:1331
 #, python-format
 msgid "Entries"
 msgstr "Einträge"
@@ -209,13 +224,13 @@ msgid "Followers"
 msgstr "Beobachter"
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:746
+#: code:addons/account_period/models/period_task.py:713
 #, python-format
 msgid "Foreign taxes not allowed for local moves"
 msgstr "Importsteuern sind nicht erlaubt in lokalen Buchungen"
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:649
+#: code:addons/account_period/models/period_task.py:616
 #, python-format
 msgid "Foreign taxes not allowed for local receipts"
 msgstr "Importsteuern sind nicht erlaubt in lokalen Belegen"
@@ -255,7 +270,7 @@ msgstr "Import Steuer"
 #. module: account_period
 #: view:account.period.entry:account_period.search_account_period_entry
 #: field:account.period.entry,invoice_id:0
-#: code:addons/account_period/models/period_task.py:1241
+#: code:addons/account_period/models/period_task.py:1217
 #, python-format
 msgid "Invoice"
 msgstr "Rechnung"
@@ -303,7 +318,7 @@ msgid "Last Updated on"
 msgstr "Zuletzt aktualisiert am"
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:1259
+#: code:addons/account_period/models/period_task.py:1235
 #, python-format
 msgid "Line"
 msgstr "Zeile"
@@ -320,7 +335,7 @@ msgstr "Nachrichten und Protokoll"
 
 #. module: account_period
 #: field:account.period.entry,move_id:0
-#: code:addons/account_period/models/period_task.py:1271
+#: code:addons/account_period/models/period_task.py:1248
 #, python-format
 msgid "Move"
 msgstr "Buchung"
@@ -328,7 +343,7 @@ msgstr "Buchung"
 #. module: account_period
 #: view:account.period.balance:account_period.account_period_balance_view_form
 #: field:account.period.balance,move_lines:0
-#: code:addons/account_period/models/period_task.py:1393
+#: code:addons/account_period/models/period_task.py:1373
 #, python-format
 msgid "Move Lines"
 msgstr "Buchungen"
@@ -359,7 +374,7 @@ msgid "No Refund"
 msgstr "Keine Gutschrift"
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:815
+#: code:addons/account_period/models/period_task.py:782
 #, python-format
 msgid "No period booking journal was defined for company"
 msgstr "Es wurde kein Buchungsjournal für periodische Buchungen für dieses Unternehmen definiert"
@@ -392,6 +407,7 @@ msgid "Paid"
 msgstr "Bezahlt"
 
 #. module: account_period
+#: field:account.period.task,parent_id:0
 #: view:account.period.tax:account_period.search_account_period_tax
 #: field:account.period.tax,parent_id:0
 msgid "Parent"
@@ -500,6 +516,11 @@ msgid "Positive"
 msgstr "Positiv"
 
 #. module: account_period
+#: field:account.period.task,post_task_ids:0
+msgid "Post Tasks"
+msgstr "Folgeprozesse"
+
+#. module: account_period
 #: view:account.period.entry:account_period.form_account_period_entry
 msgid "Print"
 msgstr "Drucken"
@@ -515,9 +536,9 @@ msgid "Private Usage"
 msgstr "Privatnutzung"
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:857
-#: code:addons/account_period/models/period_task.py:871
-#: code:addons/account_period/models/period_task.py:884
+#: code:addons/account_period/models/period_task.py:828
+#: code:addons/account_period/models/period_task.py:842
+#: code:addons/account_period/models/period_task.py:855
 #, python-format
 msgid "Private: %s"
 msgstr "Privat: %s"
@@ -530,7 +551,7 @@ msgstr "Fortschritt"
 #. module: account_period
 #: view:account.period.entry:account_period.search_account_period_entry
 #: field:account.period.entry,voucher_id:0
-#: code:addons/account_period/models/period_task.py:1250
+#: code:addons/account_period/models/period_task.py:1226
 #, python-format
 msgid "Receipt"
 msgstr "Beleg"
@@ -580,8 +601,13 @@ msgstr "Vorzeichen"
 
 #. module: account_period
 #: help:account.period.task,start_after:0
-msgid "Start *this* task after the specified date/time"
-msgstr "Starte **diese** Aufgabe nach einer vorgegebenen Zeit"
+msgid "Start *this* task after the specified date/time, was set to null after queued."
+msgstr "Starte *diesen* Prozess nach dem angegebenen Zeitpunkt. Wird danach auf Null gesetzt."
+
+#. module: account_period
+#: help:account.period.task,start_after_task_id:0
+msgid "Start *this* task after the specified task, was set to null after queued."
+msgstr "Starte *diesen* Prozess nach dem angegebenen Prozess. Wird nach dem starten auf Null gesetzt."
 
 #. module: account_period
 #: field:account.period.task,start_after:0
@@ -589,9 +615,9 @@ msgid "Start After"
 msgstr "Starte nach"
 
 #. module: account_period
-#: help:account.period.task,after_once_task_id:0
-msgid "Start this task after that task has finished successfully only once"
-msgstr "\"Start diesen Prozess einmal nach einer erfolgreichen Ausführung des aktuellen Prozesses"
+#: field:account.period.task,start_after_task_id:0
+msgid "Start after task"
+msgstr "Starte nach Prozess"
 
 #. module: account_period
 #: field:account.period.task,state:0
@@ -623,9 +649,14 @@ msgid "Task"
 msgstr "Aufgabe"
 
 #. module: account_period
-#: field:account.period.task,after_once_task_id:0
-msgid "Task After (Once)"
-msgstr "Prozess nach Ausführung (Einmalig)"
+#: help:account.period.task,child_task_ids:0
+msgid "Tasks which already started after this task."
+msgstr "Prozesse die nach diesem Prozess gestartet wurden."
+
+#. module: account_period
+#: help:account.period.task,post_task_ids:0
+msgid "Tasks which are started after this task."
+msgstr "Prozesse die nach diesem Prozess gestartet wurden."
 
 #. module: account_period
 #: view:account.period.entry:account_period.search_account_period_entry
@@ -686,6 +717,11 @@ msgstr "Besteuerung"
 #, python-format
 msgid "Taxes"
 msgstr "Steuern"
+
+#. module: account_period
+#: help:account.period.task,parent_id:0
+msgid "The parent task, after *this* task was started"
+msgstr "Der übergeordnete Prozess, nachdem *dieser* Prozess gestartet wude."
 
 #. module: account_period
 #: selection:account.tax,import_tax:0
@@ -777,13 +813,13 @@ msgid "Wrong"
 msgstr "Falsch"
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:1224
+#: code:addons/account_period/models/period_task.py:1198
 #, python-format
 msgid "You must be an accountant manager to do that."
 msgstr "Sie müssen ein Finanzmanager sein um das auszuführen."
 
 #. module: account_period
-#: code:addons/account_period/models/period_task.py:1199
+#: code:addons/account_period/models/period_task.py:1173
 #, python-format
 msgid "You must be an accountant to do that."
 msgstr "Sie müssen ein Finanzbenutzer sein um das auszuführen."

@@ -39,6 +39,9 @@ class AccountAccount(models.Model):
         "1.0 means 100% private usage",
     )
 
+    credit_tax_code_id = fields.Many2one("account.tax.code", "Credit Tax Code")
+    debit_tax_code_id = fields.Many2one("account.tax.code", "Debit Tax Codd")
+
 
 class AccountTax(models.Model):
     _inherit = "account.tax"
@@ -47,7 +50,8 @@ class AccountTax(models.Model):
     import_tax = fields.Selection([("eu","EU"),
                                    ("third","Third Country")],
                                    string="Import Tax")    
-    
+
+
 class AccountTaxCode(models.Model):
     _inherit = "account.tax.code"
 

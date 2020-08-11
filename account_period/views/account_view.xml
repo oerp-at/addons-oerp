@@ -6,10 +6,16 @@
       <field name="model">account.account</field>
       <field name="inherit_id" ref="account.view_account_form"/>
       <field name="arch" type="xml">
-        <xpath expr="/form/group" position="inside">
+        <xpath expr="/form/group" position="after">
             <group>
-                <field name="private_account_id"/>
-                <field name="private_usage"/>
+              <group>
+                  <field name="private_account_id"/>
+                  <field name="private_usage"/>
+              </group>
+              <group>
+                  <field name="debit_tax_code_id"/>
+                  <field name="credit_tax_code_id"/>
+              </group>  
             </group>
         </xpath>
       </field>

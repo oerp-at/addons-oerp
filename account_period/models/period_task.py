@@ -350,6 +350,7 @@ class AccountPeriodTask(models.Model):
 
         receipt_journal_ids = tuple([j.id for j in journals if j.type in ("sale", "sale_refund", "purchase", "purchase_refund")])
         direct_journal_ids = tuple([j.id for j in journals if j.type in ("cash", "bank")])
+        general_journal_ids = tuple([j.id for j in journals if j.type in ("general",)])
 
         period = self.period_id
         period_start = period.date_start
@@ -533,40 +534,7 @@ class AccountPeriodTask(models.Model):
                         if national_values:
                             values.update(national_values)
                             entry_creator.add_move(values)
-
-
-                # add manual tax entries
-                manual_tax = False
-                for invoice_tax in invoice.tax_line:                    
-                    if invoice_tax.manual:
-                        
-                        if not manual_tax:
-                            manual_tax = True
-                            taskc.logw("Book manual tax", ref="account.invoice,%s" % invoice.id, code="BOOK_MANUAL_TAX")
-
-                        amount = invoice_tax.amount * sign
-                        amount_base = invoice_tax.base_amount * sign,
-                        payment_amount = amount
-                        entry_creator.add_move(
-                            {
-                                "date": invoice_tax.date_invoice,
-                                "move_id": invoice.move_id.id,
-                                "journal_id": invoice.journal_id.id,
-                                "account_id": invoice_tax.account_id,
-                                "invoice_id": invoice.id,
-                                "tax_code_id": invoice_tax.tax_code_id,
-                                "tax_base_id": invoice_tax.base_code_id,
-                                "amount_tax": amount,
-                                "amount_base": amount_base,
-                                "payment_rate": payment_rate,
-                                "payment_amount": payment_amount,
-                                "payment_state": payment_state,
-                                "payment_date": payment_date,
-                                "sign": sign,
-                                "refund": refund
-                            }
-                        )
-
+               
             taskc.done()
 
             #######################################################################
@@ -699,7 +667,7 @@ class AccountPeriodTask(models.Model):
 
         if direct_journal_ids:
 
-            taskc.substage("Direct Tax")
+            taskc.substage("Expense/Income")
 
             cr.execute("""SELECT l.id, l.credit, l.debit, l.account_tax_id
                 FROM account_move_line l
@@ -787,6 +755,115 @@ class AccountPeriodTask(models.Model):
                         "st_line_id": st_line and st_line.id or None
                     }
                 )
+
+            taskc.done()
+
+            #######################################################################
+            # search tax move line (expense)
+            #######################################################################
+
+            taskc.substage("Tax")
+            
+            cr.execute("""SELECT l.id, l.credit, l.debit, l.account_tax_id
+                FROM account_move_line l
+                INNER JOIN account_move m ON m.id = l.move_id 
+                INNER JOIN account_account a ON a.id = l.account_id                     
+                LEFT  JOIN account_tax_code dt ON ct.id = a.debit_tax_code_id
+                LEFT  JOIN account_tax_code ct ON ct.id = a.credit_tax_code_id
+                WHERE m.date >= %(period_start)s 
+                  AND m.date <= %(period_end)s
+                  AND m.journal_id IN %(journal_ids)s
+                  AND (    (l.debit  > 0 AND NOT dt.id IS NULL)
+                        OR (l.credit > 0 AND NOT ct.id IS NULL) )
+
+                        
+            """,{
+                    "period_start": period_start,
+                    "period_end": period_end,
+                    "journal_ids": general_journal_ids,
+            })
+
+
+            lines = self.env["account.move.line"].browse([r[0] for r in cr.fetchall()])
+            taskc.initLoop(len(lines))
+            for line in lines:
+                taskc.nextLoop()
+
+                move = line.move_id
+                date = move.date
+                journal = move.journal_id
+                account = line.account_id
+
+                if line.credit and account.credit_tax_code_id:
+                    if "asset" in account.user_type.code:
+                        sign = 1.0
+                    else:
+                        sign = -1.0
+
+                    sign = 1.0
+                    amount = 0.0
+                    amount_base = line.credit * sign,
+                    date = line.move_id.date
+
+                    payment_amount = 0.0
+                    payment_rate = 1.0
+                    payment_state = "paid"
+                    refund = False
+
+                    entry_creator.add_move(
+                        {
+                            "date": date,
+                            "move_id": move.id,
+                            "journal_id": journal.id,
+                            "account_id": account.id,
+                            "invoice_id": None,
+                            "tax_code_id": account.credit_tax_code_id.id,
+                            "tax_base_id": account.credit_tax_code_id.id,
+                            "amount_tax": amount,
+                            "amount_base": amount_base,
+                            "payment_rate": payment_rate,
+                            "payment_amount": payment_amount,
+                            "payment_state": payment_state,
+                            "payment_date": date,
+                            "sign": sign,
+                            "refund": refund
+                        }
+                    )
+
+                if line.debit and account.debit_tax_code_id:
+                    if "liability" in account.user_type.code:
+                        sign = -1.0
+                    else:
+                        sign = 1.0
+
+                    amount = 0.0
+                    amount_base = line.credit * sign,
+                    date = line.move_id.date
+
+                    payment_amount = 0.0
+                    payment_rate = 1.0
+                    payment_state = "paid"
+                    refund = False
+
+                    entry_creator.add_move(
+                        {
+                            "date": date,
+                            "move_id": move.id,
+                            "journal_id": journal.id,
+                            "account_id": account.id,
+                            "invoice_id": None,
+                            "tax_code_id": account.debit_tax_code_id.id,
+                            "tax_base_id": None,
+                            "amount_tax": amount,
+                            "amount_base": amount_base,
+                            "payment_rate": payment_rate,
+                            "payment_amount": payment_amount,
+                            "payment_state": payment_state,
+                            "payment_date": date,
+                            "sign": sign,
+                            "refund": refund
+                        }
+                    )
 
             taskc.done()
 
