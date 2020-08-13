@@ -837,7 +837,7 @@ class AccountPeriodTask(models.Model):
                         sign = 1.0
                     
                     amount_base = 0.0
-                    amount_tax = line.credit * sign
+                    amount_tax = line.debit * sign
                     date = line.move_id.date
 
                     payment_amount = 0.0
