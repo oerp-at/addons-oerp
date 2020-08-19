@@ -36,6 +36,7 @@
                         <group>
                             <field name="period_id" domain="[('company_id','=',company_id)]"/>
                             <field name="number_from"/>
+                            <field name="prepared"/>
                         </group>
                     </group>
                 </group>
@@ -80,6 +81,7 @@
                     <field name="period_id"/>
                     <field name="profile_id"/>
                     <field name="name"/>
+                    <field name="prepared"/>
                 </field>
             </field>
         </record>

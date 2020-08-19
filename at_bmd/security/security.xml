@@ -26,7 +26,7 @@
 
 								
 		<record id="access_bmd_export_line_account_user" model="ir.model.access">
-			<field name="name">bmd_export/account_user</field>
+			<field name="name">bmd_export_line/account_user</field>
 			<field name="model_id" ref="model_bmd_export_line"/>
 			<field name="group_id" ref="account.group_account_user"/>
 			<field name="perm_read" eval="True"/>			

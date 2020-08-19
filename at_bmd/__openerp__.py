@@ -29,7 +29,7 @@ BMD Export
 * Export for accounting software BMD
 
 """,
-    "version": "8.0.1.0.6",
+    "version": "8.0.1.0.7",
     "author": "funkring.net",
     "website": "https://github.com/o-erp",
     "category": "Accounting",

@@ -1392,7 +1392,7 @@ class jdoc_jdoc(osv.AbstractModel):
                     _("Error"),
                     _("Unable to get user password. Deinstall 'auth_crypt' Module"),
                 )
-            "".startswith
+            
             couchdb_public_url = openerp.tools.config.get("syncdb_public_url")
             if not couchdb_public_url:
                 raise osv.except_osv(_("Error"), _("No public couchdb url defined"))

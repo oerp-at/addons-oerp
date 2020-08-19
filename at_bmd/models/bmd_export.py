@@ -117,7 +117,7 @@ class FixLenExport(Exporter):
                             "Wrong position at %s: %d != %d" % (name, len(line), start)
                         )
 
-                    self.line += ustr(value or "").rjust(width, "0")[:width]
+                    line += ustr(value or "").rjust(width, "0")[:width]
 
                     if len(line) != end:
                         raise ExporterException(
@@ -138,7 +138,7 @@ class FixLenExport(Exporter):
                         )
 
             elif len(data_field) == 7:
-                (name, value, width, pre, post, start, end) = value
+                (name, value, width, pre, post, start, end) = data_field
                 el = str(float(value or 0.0)).split(".")
                 line += el[0].rjust(pre, "0")
                 line += el[1].ljust(post, "0")
@@ -169,7 +169,7 @@ class BmdExportFile(models.Model):
     _rec_name = "export_name"
 
     export_name = fields.Char("Export Name", required=True, index=True)
-    bmd_export_id = fields.Many2one("bmd.export", "Export", required=True, index=True)
+    bmd_export_id = fields.Many2one("bmd.export", "Export", required=True, index=True, ondelete="cascade")
     attachment_id = fields.Many2one(
         "ir.attachment", "Attachment", required=True, index=True, ondelete="cascade"
     )
@@ -257,6 +257,10 @@ class BmdExport(models.Model):
         "Ab Nummer", readonly=True, states={"draft": [("readonly", False)]}
     )
 
+    manual_export = fields.Boolean("Erstelle Datei(en) manuell", related="profile_id.manual_export", readonly=True)
+    
+    prepared = fields.Boolean("Vorbereitet", readonly=True)
+
     @api.model
     @api.returns("self", lambda self: self.id)
     def create(self, vals):
@@ -296,25 +300,33 @@ class BmdExport(models.Model):
         return res
 
     def _run_options(self):
+        if self.manual_export:
+            if not self.prepared:
+                return {"stages": 1, "singleton": True}
+            else:
+                return {"stages": 2, "singleton": True}
         return {"stages": 3, "singleton": True}
 
     def _run(self, taskc):
-        taskc.stage("Vorbereitung")
-        self._create_lines(taskc)
-        taskc.done()
-
-        if self.profile_id.version == "ntcs":
-            taskc.stage("NTCS Export")
-            self._export_ntcs(taskc)
+        if not self.manual_export or not self.prepared:
+            taskc.stage("Vorbereitung")
+            self._create_lines(taskc)
+            self.prepared = True
             taskc.done()
-        else:
-            taskc.stage("BMD55 Export")
-            self._export_bmd5(taskc)
-            taskc.done()
+            
+        if not self.manual_export or self.prepared:
+            if self.profile_id.version == "ntcs":
+                taskc.stage("NTCS Export")
+                self._export_ntcs(taskc)
+                taskc.done()
+            else:
+                taskc.stage("BMD55 Export")
+                self._export_bmd5(taskc)
+                taskc.done()
 
-        taskc.stage("Berichte")
-        self._create_reports(taskc)
-        taskc.done()
+            taskc.stage("Berichte")
+            self._create_reports(taskc)
+            taskc.done()
 
     @api.multi
     def _compute_export_lines(self):
@@ -1209,7 +1221,7 @@ class BmdExportLine(models.Model):
     _name_rec = "belegnr"
 
     bmd_export_id = fields.Many2one(
-        "bmd.export", "BMD Export", index=True, required=True
+        "bmd.export", "BMD Export", index=True, required=True, ondelete="cascade"
     )
     move_line_id = fields.Many2one("account.move.line", "Buchungszeile", readonly=True)
     invoice_id = fields.Many2one("account.invoice", "Rechnung", readonly=True)
@@ -1333,6 +1345,7 @@ class BmdExportProfile(models.Model):
     send_open_invoice_list = fields.Boolean("Sende Liste mit offenen Rechnungen")
     send_invoice_list = fields.Boolean("Sende Rechnung/Gutschriftenliste")
     send_invoices = fields.Boolean("Sende Rechnungen/Gutschriften")
+    manual_export = fields.Boolean("Erstelle Datei(en) manuell")
 
     journal_ids = fields.Many2many(
         "account.journal",
