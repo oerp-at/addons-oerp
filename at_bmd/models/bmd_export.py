@@ -257,7 +257,7 @@ class BmdExport(models.Model):
         "Ab Nummer", readonly=True, states={"draft": [("readonly", False)]}
     )
 
-    manual_export = fields.Boolean("Erstelle Datei(en) manuell", related="profile_id.manual_export", readonly=True)
+    manual_export = fields.Boolean("Erstelle Datei(en) manuell", relation="profile_id.manual_export", readonly=True)
     
     prepared = fields.Boolean("Vorbereitet", readonly=True)
 
