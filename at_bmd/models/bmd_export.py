@@ -105,9 +105,9 @@ class FixLenExport(Exporter):
         self.buf = StringIO()
         self.lf = "\r\n"
 
-    def writeln(self, data):        
+    def writeln(self, data):
+        line = ""
         for data_field in data:
-            line = ""
             if len(data_field) == 5:
                 (name, value, width, start, end) = data_field
 
@@ -151,8 +151,8 @@ class FixLenExport(Exporter):
                         "Wrong position at %s: %d != %d" % (name, len(line), end)
                     )
 
-            self.buf.write(line)
-            self.buf.write(self.lf)
+        self.buf.write(line)
+        self.buf.write(self.lf)
 
     def close(self):
         self.buf.close()
