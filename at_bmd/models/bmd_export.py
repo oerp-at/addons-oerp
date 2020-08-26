@@ -578,9 +578,9 @@ class BmdExport(models.Model):
                         )
                     )
 
-                return self._export_file(
-                    taskc, "stamerf", file_name, data=exp.getvalue()
-                )
+            return self._export_file(
+                taskc, "stamerf", file_name, data=exp.getvalue()
+            )
 
         finally:
             exp.close()
