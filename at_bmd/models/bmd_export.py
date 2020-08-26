@@ -408,11 +408,17 @@ class BmdExport(models.Model):
             profile = self.profile_id
             company_country = company.country_id
 
-            partners = self.mapped("line_ids.partner_id") | self.mapped(
-                "line_ids.partner_id.commercial_partner_id"
-            )
+            self._cr.execute("""SELECT 
+                COALESCE(cp.id, p.id) AS partner_id
+            FROM bmd_export_line l
+            INNER JOIN res_partner p ON p.id = l.partner_id 
+            LEFT JOIN res_partner cp ON cp.id = p.commercial_partner_id
+            WHERE l.bmd_export_id = %s
+            GROUP BY 1
+            """, (self.id, ))
 
-            for partner in partners:
+            partner_ids = [r[0] for r in self._cr.fetchall()]
+            for partner in self.env["res.partner"].search([("id", "in", partner_ids)]):
 
                 partner_account_codes = []
                 payable_account = partner.property_account_payable
