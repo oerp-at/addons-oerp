@@ -310,8 +310,7 @@ class BmdExport(models.Model):
     def _run(self, taskc):
         if not self.manual_export or not self.prepared:
             taskc.stage("Vorbereitung")
-            self._create_lines(taskc)
-            self.prepared = True
+            self._create_lines(taskc)            
             taskc.done()
             
         if not self.manual_export or self.prepared:
@@ -327,6 +326,8 @@ class BmdExport(models.Model):
             taskc.stage("Berichte")
             self._create_reports(taskc)
             taskc.done()
+
+        self.prepared = True
 
     @api.multi
     def _compute_export_lines(self):
