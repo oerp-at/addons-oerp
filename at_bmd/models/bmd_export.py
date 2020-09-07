@@ -257,7 +257,7 @@ class BmdExport(models.Model):
         "Ab Nummer", readonly=True, states={"draft": [("readonly", False)]}
     )
 
-    manual_export = fields.Boolean("Erstelle Datei(en) manuell", relation="profile_id.manual_export", readonly=True)
+    manual_export = fields.Boolean("Erstelle Datei(en) manuell", related="profile_id.manual_export", readonly=True)
     
     prepared = fields.Boolean("Vorbereitet", readonly=True)
 
@@ -308,12 +308,12 @@ class BmdExport(models.Model):
         return {"stages": 3, "singleton": True}
 
     def _run(self, taskc):
-        if not self.manual_export or not self.prepared:
+        if not self.profile_id.manual_export or not self.prepared:
             taskc.stage("Vorbereitung")
             self._create_lines(taskc)            
             taskc.done()
             
-        if not self.manual_export or self.prepared:
+        if not self.profile_id.manual_export or self.prepared:
             if self.profile_id.version == "ntcs":
                 taskc.stage("NTCS Export")
                 self._export_ntcs(taskc)
