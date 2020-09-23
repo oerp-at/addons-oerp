@@ -25,7 +25,7 @@
     "author": "funkring.net",
     "website": "http://www.funkring.net",
     "category": "Localization/Account Charts",
-    "depends": ["account_chart", "base_vat"],
+    "depends": ["account_chart", "base_vat", "at_tax"],
     "data": [
         "data/account_tax_code_base.xml",
         "data/account_tax_code.xml",

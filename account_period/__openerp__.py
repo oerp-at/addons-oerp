@@ -30,7 +30,7 @@ Implements monthly period task, for setting up a monthly workflow
 
 """,
     "version": "8.0.1.0.0",
-    "author": "funkring.net",
+    "author": "mreisenhofer",
     "website": "https://github.com/o-erp",
     "category": "Accounting",
     "depends": [
@@ -40,6 +40,7 @@ Implements monthly period task, for setting up a monthly workflow
         "util_test",
         "automation",
         "at_account",
+        "at_tax"
     ],
     "data": [
         "security/security.xml",
