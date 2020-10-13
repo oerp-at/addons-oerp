@@ -842,19 +842,34 @@ class BmdExport(models.Model):
                     group.append(group_lines)
 
             for group_lines in group:
-                debit = []
-                credit = []
+                debit = {}
+                credit = {}
                 reconcile_ids = []
                 partner = None
 
                 for line in group_lines:
                     if not partner:
                         partner = line.partner_id
-                    #
+                   
+                    def add_amount(d, amount):
+                        account = line.account_id
+                        v = d.get(account.id, None)
+                        if v is None:
+                            v["account"] = account
+                            v["name"] = line.name
+                            v["amount"] = amount
+                            d[account.id] = v
+                        else:
+                            v["amount"] += amount
+
+                        if line.name == "/":
+                            v["name"] = "/"
+
+
                     if line.credit:
-                        credit.append({"line": line, "amount": line.credit})
+                        add_amount(credit, line.credit)                        
                     else:
-                        debit.append({"line": line, "amount": line.debit})
+                        add_amount(debit, line.debit)                        
 
                     reconcile_id = (
                         line.reconcile_id or line.reconcile_partial_id or None
@@ -887,7 +902,7 @@ class BmdExport(models.Model):
                 sign = 1.0
 
                 if len(debit) == 1 and not (
-                    len(credit) == 1 and credit[0]["line"].name == "/"
+                    len(credit) == 1 and credit["name"] == "/"
                 ):
                     bucod = "1"
                     main = debit[0]
@@ -907,12 +922,12 @@ class BmdExport(models.Model):
                         "Buchung %s kann nicht exportiert werden (mehr als eine Haben oder Soll Buchung)" % move.name
                     )
 
-                line = main["line"]
+                main_account = main["account"]
                 bmd_line_pattern = {
                     "satzart": "0",
                     "partner_id": partner and partner.id or None,
-                    "konto": line.account_id.code,
-                    "account_id": line.account_id.id,
+                    "konto": main_account.code,
+                    "account_id": main_account.id,
                     "buchdat": move.date,
                     "belegdat": move.date,
                     "belegnr": self._sanitize_belegnr(move.name),
@@ -928,16 +943,16 @@ class BmdExport(models.Model):
                     "journal_id": journal.id,
                 }
 
-                for line_data in lines:
-                    line = line_data["line"]
+                for line_data in lines.values():                    
                     bmd_line = bmd_line_pattern.copy()
+                    account = line_data["account"]
                     bmd_line.update(
                         {
                             "bmd_export_id": self.id,
                             "betrag": line_data["amount"] * sign,
-                            "text": line.name,
-                            "gkto": line.account_id.code,
-                            "account_contra_id": line.account_id.id,
+                            "text": line_data["name"],
+                            "gkto": account.code,
+                            "account_contra_id": account.id,
                             "move_line_id": line.id,
                         }
                     )
