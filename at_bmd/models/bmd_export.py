@@ -851,13 +851,15 @@ class BmdExport(models.Model):
                     if not partner:
                         partner = line.partner_id
                    
-                    def add_amount(d, amount):
+                    def add_amount(d, amount):                        
                         account = line.account_id
                         v = d.get(account.id, None)
                         if v is None:
-                            v["account"] = account
-                            v["name"] = line.name
-                            v["amount"] = amount
+                            v =   {
+                                "account": account,
+                                "name": line.name,
+                                "amount": amount
+                            }                            
                             d[account.id] = v
                         else:
                             v["amount"] += amount
@@ -901,8 +903,11 @@ class BmdExport(models.Model):
                 lines = None
                 sign = 1.0
 
+                debit = [d for d in debit.values() if d["amount"]]
+                credit = [c for c in credit.values() if c["amount"]]
+
                 if len(debit) == 1 and not (
-                    len(credit) == 1 and credit["name"] == "/"
+                    len(credit) == 1 and credit[0]["name"] == "/"
                 ):
                     bucod = "1"
                     main = debit[0]
@@ -914,13 +919,10 @@ class BmdExport(models.Model):
                     lines = debit
                 else:
                     taskc.logw(
-                        "Buchung %s kann nicht exportiert werden (mehr als eine Haben oder Soll Buchung)"
-                        % move.name,
+                        "Buchung %s kann nicht exportiert werden (mehr als eine Haben oder Soll Buchung)" % move.name,
                         ref="account.move,%s" % move.id,
                     )
-                    raise Warning(
-                        "Buchung %s kann nicht exportiert werden (mehr als eine Haben oder Soll Buchung)" % move.name
-                    )
+                    return           
 
                 main_account = main["account"]
                 bmd_line_pattern = {
@@ -943,7 +945,7 @@ class BmdExport(models.Model):
                     "journal_id": journal.id,
                 }
 
-                for line_data in lines.values():                    
+                for line_data in lines:                    
                     bmd_line = bmd_line_pattern.copy()
                     account = line_data["account"]
                     bmd_line.update(
@@ -1165,7 +1167,7 @@ class BmdExport(models.Model):
         if profile.send_invoices:
             invoice_reports.append(
                 (
-                    "account.invoice",
+                    "account.report_invoice",
                     [
                         ("Ausgangsrechnungen", "out_invoice"),
                         ("Eingangsrechnungen", "in_invoice"),
