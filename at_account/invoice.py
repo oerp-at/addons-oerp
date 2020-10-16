@@ -602,19 +602,20 @@ class account_invoice(osv.osv):
         for inv in self.browse(cr, uid, ids, context):
             ref = None
             bank = None
-            if inv.type in ["out_invoice", "in_refund"]:
+            if inv.type in ["out_invoice", "in_refund"]:                
                 company = inv.company_id.name
                 ref = inv.number
                 banks = inv.company_id.bank_ids
-                if banks:
-                    bank = banks[0]
+                # only use bank with footer
+                for company_bank in banks:
+                    if company_bank.footer:
+                        bank = company_bank            
             else:
                 company = inv.partner_id.name
                 ref = inv.number
-                banks = inv.partner_id.bank_ids
-                if banks:
-                    bank = banks[0]
-
+                for bank in inv.partner_id.bank_ids:
+                    pass
+                
             # check if ref exist
             if not ref or not bank:
                 continue
