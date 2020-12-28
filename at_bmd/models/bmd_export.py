@@ -45,11 +45,12 @@ class Exporter(object):
 
 
 class CsvExport(Exporter):
-    def __init__(self):
+    def __init__(self, dateformat="%Y%m%d"):
         self.buf = StringIO()
         self.lf = "\r\n"
         self._writeln_fct = self._writeln_header
         self.fields = []
+        self.dateformat = dateformat
 
     def _writeln_header(self, data, mapping=False):
         self._writeln_fct = self._writeln
@@ -78,7 +79,7 @@ class CsvExport(Exporter):
         for field in self.fields:
             value = data.get(field, "")
             if isinstance(value, date):
-                self.buf.write(datetime.strftime(value, "%Y%m%d"))
+                self.buf.write(datetime.strftime(value, self.dateformat))
             elif isinstance(value, float):
                 self.buf.write(("%.2f" % value).replace(".", ","))
             elif isinstance(value, basestring):
@@ -593,7 +594,7 @@ class BmdExport(models.Model):
     def _export_ntcs(self, taskc=None):
         self._export_buerf(taskc, file_name="buchungen.csv")
 
-        partner_exp = CsvExport()
+        partner_exp = CsvExport(dateformat="%d.%m.%Y")
         partner_exp.writeln_header(
             [
                 ("KontoNummer", "1-kontonummer"),
