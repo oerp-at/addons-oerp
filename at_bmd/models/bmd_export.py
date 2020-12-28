@@ -45,12 +45,12 @@ class Exporter(object):
 
 
 class CsvExport(Exporter):
-    def __init__(self, dateformat="%Y%m%d"):
+    def __init__(self, dateformat=None):
         self.buf = StringIO()
         self.lf = "\r\n"
         self._writeln_fct = self._writeln_header
         self.fields = []
-        self.dateformat = dateformat
+        self.dateformat = dateformat or "%Y%m%d"
 
     def _writeln_header(self, data, mapping=False):
         self._writeln_fct = self._writeln
@@ -366,8 +366,8 @@ class BmdExport(models.Model):
             export_file = export_obj.create(values)
         return export_file
 
-    def _export_buerf(self, taskc, file_name="buerf", exp=None):
-        exp = CsvExport()
+    def _export_buerf(self, taskc, file_name="buerf", exp=None, dateformat=None):
+        exp = CsvExport(dateformat=dateformat)
         try:
             for line in self.line_ids:
                 exp.writeln(
@@ -592,7 +592,7 @@ class BmdExport(models.Model):
         self._export_stamerf(taskc)
 
     def _export_ntcs(self, taskc=None):
-        self._export_buerf(taskc, file_name="buchungen.csv")
+        self._export_buerf(taskc, file_name="buchungen.csv", dateformat="%d.%m.%Y")
 
         partner_exp = CsvExport(dateformat="%d.%m.%Y")
         partner_exp.writeln_header(
