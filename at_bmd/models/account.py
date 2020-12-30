@@ -25,3 +25,4 @@ class account_tax(models.Model):
     _inherit = "account.tax"
 
     bmd_steucod = fields.Char("BMD steucod")
+    ref_bmd_steucod = fields.Char("Gutschrift BMD steucod")

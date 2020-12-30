@@ -632,12 +632,17 @@ class BmdExport(models.Model):
         class BmdAccountData:
             """ Helper class """
 
-            def __init__(self, account_code, tax, steucod, amount=0.0, amount_tax=0.0):
+            def __init__(self, account_code, tax, steucod, amount=0.0, amount_tax=0.0, steucod_tax=None):
                 self.code = account_code
                 self.tax = tax
                 self.tax_value = int(tax.amount * 100) if tax else 0
                 self.steucod = steucod
-                self.steucod_tax = tax.bmd_steucod if tax else None
+
+                if steucod_tax:
+                    self.steucod_tax = steucod_tax
+                else:
+                    self.steucod_tax = tax.bmd_steucod if tax else None
+
                 self.amount = amount
                 self.amount_tax = amount_tax
 
@@ -713,9 +718,14 @@ class BmdExport(models.Model):
                 taxes = line.invoice_line_tax_id
                 product = line.product_id
                 steucod = ""
+                steucod_tax = ""
 
                 # Eingangs- bzw. Lieferanten Rechnungen
                 if invoice.type in ["in_invoice", "in_refund"]:
+                    if taxes:
+                        steucod_tax = taxes[0].ref_bmd_steucod or ""
+                    
+
                     # Für Produkt Eingang/Import werden die lokalen Steuern des Produkt/Mapping verwendet
                     if foreigner:
                         if product:
@@ -744,6 +754,9 @@ class BmdExport(models.Model):
 
                 # Ausgangs- bzw. Rechnungen an Kunden
                 elif invoice.type in ["out_invoice", "out_refund"]:
+                    if taxes:
+                        steucod_tax = taxes[0].bmd_steucod or ""
+
                     if european_union:
                         steucod = "07"  # Innergemeinschaftliche Lieferung
 
@@ -751,10 +764,10 @@ class BmdExport(models.Model):
                 if taxes:
                     tax = taxes[0]
 
-                account_key = (account.code, tax and tax.id or 0, steucod)
+                account_key = (account.code, tax and tax.id or 0, steucod, steucod_tax)
                 account_data = accounts.get(account_key)
                 if not account_data:
-                    account_data = BmdAccountData(account.code, tax, steucod)
+                    account_data = BmdAccountData(account.code, tax, steucod, steucod_tax=steucod_tax)
                     accounts[account_key] = account_data
 
                 line_total = taxes.compute_all(

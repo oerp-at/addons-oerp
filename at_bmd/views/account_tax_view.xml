@@ -7,9 +7,12 @@
       <field name="model">account.tax</field>
       <field name="inherit_id" ref="account.view_tax_form"/>
       <field name="arch" type="xml">
-        <group string="Misc" position="inside">
-            <field name="bmd_steucod"/>
-        </group>
+        <field name="tax_sign" position="after">
+          <field name="bmd_steucod"/>
+        </field>
+        <field name="ref_tax_sign" position="after">
+          <field name="ref_bmd_steucod"/>
+        </field>
       </field>
     </record>
     
