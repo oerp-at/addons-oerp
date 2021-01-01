@@ -35,6 +35,7 @@ oerp.at Accounting and Finance Extensions
     "website": "http://www.funkring.net",
     "depends": ["account", "account_voucher", "at_base", "at_product"],
     "data": [
+        "data/fiscalyear_cron.xml",
         "report/account_invoice_report.xml",
         "report/account_voucher_list_report.xml",
         "report/account_invoice_list_report.xml",

@@ -23,6 +23,9 @@
 from openerp.osv import fields, osv
 from openerp import SUPERUSER_ID
 from datetime import datetime
+import logging
+
+_logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 class res_company(osv.osv):
@@ -66,6 +69,8 @@ class res_company(osv.osv):
 
         # create fiscal year
         for company in self.browse(cr, uid, ids, context=context):
+            _logger.info("%s: Update fiscal year %s", company.name, year)
+
             # fiscal year
             fiscalyear_ids = fiscalyear_obj.search(
                 cr,
@@ -96,7 +101,8 @@ class res_company(osv.osv):
             fiscalyear_ids = [fiscalyear_id]
 
             # create periods
-            fiscalyear_obj.create_period(cr, uid, fiscalyear_ids, context=context)
+            _logger.info("%s: Create periods for %s", company.name, year)
+            fiscalyear_obj.create_period(cr, uid, fiscalyear_ids, context=context)            
 
             # check if fiscal sequence should created
             if not company.fiscal_auto_seq:
@@ -132,6 +138,8 @@ class res_company(osv.osv):
 
                 # create fiscal year sequence
                 name = " ".join((sequence.name, year))
+                _logger.info("%s: Create sequence %s", company.name, name)
+
                 prefix = evalStr(sequence.prefix)
                 suffix = evalStr(sequence.suffix)
                 new_sequence_id = sequence_obj.create(
@@ -167,7 +175,13 @@ class res_company(osv.osv):
             cr, uid, [("fiscal_auto_year", "=", True)], context=context
         )
         if company_ids:
-            year = datetime.now().year
-            years = [str(year), str(year + 1)]
+            cur_dt = datetime.now()
+            year = cur_dt.year
+            years = [str(year)]
+
+            # only create next year if function was called in november
+            if cur_dt.month >= 11:
+                years.append(str(year+1))
+            
             for year in years:
-                self.create_fiscalyear(cr, uid, company_ids, context=context)
+                self.create_fiscalyear(cr, uid, company_ids, year, context=context)

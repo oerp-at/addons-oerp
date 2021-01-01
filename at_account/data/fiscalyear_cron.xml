@@ -1,0 +1,17 @@
+<openerp>
+  <data noupdate="1">
+    
+    <record id="cron_cleanup" model="ir.cron">
+        <field name="name">Create Fiscal Year</field>
+        <field name="interval_number">12</field>
+        <field name="interval_type">months</field>
+        <field name="numbercall">-1</field>      
+        <field name="model">res.company</field>
+        <field name="function">auto_fiscal_year</field>
+        <field name="nextcall">2020-12-01 04:00:00</field>
+        <field name="args">()</field>
+        <field name="active" eval="True"/>
+    </record>
+    
+  </data>
+</openerp>
