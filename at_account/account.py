@@ -196,6 +196,7 @@ class account_tax(osv.osv):
         force_excluded=False,
         force_included=False,
         netto_to_price=False,
+        precision=None
     ):
         """
         :param force_excluded: boolean used to say that we don't want to consider the value of field price_include of
@@ -219,13 +220,17 @@ class account_tax(osv.osv):
         # precision when we round the tax amount for each line (we use
         # the 'Account' decimal precision + 5), and that way it's like
         # rounding after the sum of the tax amounts of each line
-        precision = self.pool.get("decimal.precision").precision_get(cr, uid, "Account")
-        tax_compute_precision = precision
-        if (
-            taxes
-            and taxes[0].company_id.tax_calculation_rounding_method == "round_globally"
-        ):
-            tax_compute_precision += 5
+        if precision is None:
+            precision = self.pool.get("decimal.precision").precision_get(cr, uid, "Account")
+            tax_compute_precision = precision
+            if (
+                taxes
+                and taxes[0].company_id.tax_calculation_rounding_method == "round_globally"
+            ):
+                tax_compute_precision += 5
+        else:
+            tax_compute_precision = precision
+            
         totalin = totalex = round(price_unit * quantity, precision)
         tin = []
         tex = []
