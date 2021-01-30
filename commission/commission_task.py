@@ -26,7 +26,8 @@ class commission_task(models.Model):
     _name = "commission.task"
     _description = "Commission Task"
     _inherits = {"automation.task": "task_id"}
-
+    _order = "id desc"
+    
     @api.model
     def default_get(self, fields_list):
         res = super(commission_task, self).default_get(fields_list)
