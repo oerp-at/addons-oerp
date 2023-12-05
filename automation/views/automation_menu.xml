@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <menuitem
+        id="menu_automation_root"
+        name="Automation"
+        web_icon="automation,static/description/icon.png"
+        groups="group_automation_user"
+    />    
+</odoo>

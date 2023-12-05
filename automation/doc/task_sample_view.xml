@@ -1,0 +1,50 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <data>
+        
+        <!-- automation.task.sample inherit form view -->
+        <record id="automation_task_sample_form" model="ir.ui.view">
+            <field name="name">automation.task.sample.form</field>
+            <field name="model">automation.task.sample</field>
+            <field name="inherit_id" ref="automation.form_automation_task"/>
+            <field name="mode">primary</field>
+            <field name="arch" type="xml">
+                <field name="owner_id" position="after">                    
+                </field>
+            </field>
+        </record>
+
+        <!-- automation.task.sample inherit tree view -->
+        <record id="automation_task_sample_tree" model="ir.ui.view">
+            <field name="name">automation.task.sample.tree</field>
+            <field name="model">automation.task.sample</field>
+            <field name="inherit_id" ref="automation.form_automation_task"/>
+            <field name="mode">primary</field>
+            <field name="arch" type="xml">
+                <field name="owner_id" position="after">                    
+                </field>
+            </field>         
+        </record>
+
+        <!-- automation.task.sample inherit search view -->
+        <record id="automation_task_sample_search" model="ir.ui.view">
+            <field name="name">automation.task.sample</field>
+            <field name="model">automation.task.sample</field>
+            <field name="inherit_id" ref="automation.search_automation_task"/>
+            <field name="mode">primary</field>
+            <field name="arch" type="xml">
+                <field name="owner_id" position="after">                    
+                </field>
+            </field>        
+        </record>
+
+        <!-- automation.task.sample action window -->
+        <record id="automation_task_sample_action" model="ir.actions.act_window">
+            <field name="name">Automation Task Sample</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">automation.task.sample</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+    </data>
+</odoo>

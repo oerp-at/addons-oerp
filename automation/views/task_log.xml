@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+  <data>
+  
+    <record id="form_task_log" model="ir.ui.view">
+      <field name="name">automation.form_task_log</field>
+      <field name="model">automation.task.log</field>
+      <field name="arch" type="xml">
+        <form string="Log" create="false" delete="false">
+          <group>
+            <group>
+              <field name="task_id"/>
+              <field name="stage_id"/>
+              <field name="pri"/>
+              <field name="code"/>
+            </group>
+            <group>
+              <field name="safe_ref"/>             
+              <field name="message" colspan="4" nolabel="1"/>
+            </group>
+          </group>
+          <notebook>
+            <page string="Data" attrs="{'invisible':[('data','=',False)]}">
+              <field name="data" widget="text"/>
+            </page>
+          </notebook>
+        </form>
+      </field>
+    </record>
+
+    <record id="tree_task_log" model="ir.ui.view">
+      <field name="name">automation.tree_task_log</field>
+      <field name="model">automation.task.log</field>
+      <field name="arch" type="xml">        
+        <tree string="Logs" create="false" delete="false"
+              decoration-muted="pri=='d'" 
+              decoration-info="pri=='n'" 
+              decoration-warning="pri=='w'" 
+              decoration-danger="pri in ['x','a','e']"
+          > 
+          <field name="create_date"/>
+          <field name="task_id"/>
+          <field name="stage_id"/>
+          <field name="pri"/>
+          <field name="message"/>
+          <field name="safe_ref"/>
+        </tree>
+      </field>
+    </record>
+
+    <record id="search_task_log" model="ir.ui.view">
+      <field name="name">automation.search_task_log</field>
+      <field name="model">automation.task.log</field>
+      <field name="arch" type="xml">
+        <search string="Log">
+          <field name="message"/>
+          <field name="code"/>
+          <field name="task_id"/>
+          <field name="stage_id"/>
+          <filter name="exception" string="Exception" domain="[('pri','in',['a','e','x'])]"/>
+          <filter name="alert" string="Alert" domain="[('pri','=','a')]"/>
+          <filter name="emergency" string="Emergency" domain="[('pri','=','a')]"/>
+          <filter name="error" string="Error" domain="[('pri','=','e')]"/>          
+          <filter name="warning" string="Warning" domain="[('pri','=','w')]"/>
+          <filter name="info"  string="Info" domain="[('pri','in',['n','i'])]"/>
+          <filter name="debug" string="Debug"  domain="[('pri','=','d')]"/>
+          <group string="Group By..." expand="0">
+            <filter name="by_task" string="Task" context="{'group_by': 'task_id'}"/>
+            <filter name="by_stage" string="Stage" context="{'group_by': 'stage_id'}"/>
+            <filter name="by_priority" string="Priority" context="{'group_by': 'pri'}"/>
+            <filter name="by_code" string="Code" context="{'group_by': 'code'}"/>
+          </group>
+        </search>
+      </field>
+    </record>
+
+    <record id="action_task_log" model="ir.actions.act_window">
+      <field name="name">Log</field>      
+      <field name="res_model">automation.task.log</field>
+      <field name="view_mode">tree,form</field>
+    </record>
+
+  </data>
+</odoo>

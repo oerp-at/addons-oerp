@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_automation_task_user,automation.task.user,model_automation_task,group_automation_user,1,1,1,1
+access_automation_task_manager,automation.task.manager,model_automation_task,group_automation_manager,1,1,1,1
+access_automation_task_system,automation.task.system,model_automation_task,base.group_system,1,1,1,1
+access_automation_task_stage_user,automation.task.stage.user,model_automation_task_stage,group_automation_user,1,0,0,0
+access_automation_task_stage_manager,automation.task.stage.manager,model_automation_task_stage,group_automation_manager,1,0,0,0
+access_automation_task_stage_system,automation.task.stage.system,model_automation_task_stage,base.group_system,1,1,1,1
+access_automation_task_log_user,automation.task.log.user,model_automation_task_log,group_automation_user,1,0,0,0
+access_automation_task_log_manager,automation.task.log.manager,model_automation_task_log,group_automation_manager,1,0,0,0
+access_automation_task_log_system,automation.task.log.system,model_automation_task_log,base.group_system,1,1,1,1
+access_automation_task_token_system,automation.task.token.system,model_automation_task_token,base.group_system,1,1,1,1
