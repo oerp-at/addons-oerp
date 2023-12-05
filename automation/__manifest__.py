@@ -1,16 +1,16 @@
 # pylint: disable=manifest-required-author
+# pylint: disable=missing-readme
+# pylint: disable=license-allowed
 {
     'name': 'Automation',
-    'version': '14.0.1.0.0',
-    'summary': 'Provide an automation framework',
+    'version': '17.0.1.0.0',
+    'summary': 'Simple Automation Framework',
     'category': 'Automation',
-    'author': 'Martin Reisenhofer',
-    'maintainers': ['mreisenhofer'],
+    'author': 'martin-reisenhofer',
+    'maintainers': ['martin-reisenhofer'],
     'website': 'https://github.com/oerp-at',
-    'license': 'LGPL-3',
+    'license': 'BSD-2-Clause',
     'depends': ['base',
-                'util_time',
-                'util_json',
                 'mail'],
     'data': [
         'security/security.xml',
