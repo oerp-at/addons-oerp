@@ -1,9 +1,8 @@
 from werkzeug.exceptions import BadRequest
 
 import odoo
-from odoo import models, SUPERUSER_ID
+from odoo import models
 from odoo.http import request
-from odoo.api import Environment
 
 
 class IrHttp(models.AbstractModel):
@@ -11,8 +10,8 @@ class IrHttp(models.AbstractModel):
 
     @classmethod
     def _auth_method_automation_task(cls):
-        token = request.params['token']
-        dbname = request.params['db']
+        token = request.header['Log-Token']
+        dbname = request.header['Log-DB']
 
         #check header
         if not dbname:
@@ -22,11 +21,11 @@ class IrHttp(models.AbstractModel):
 
         # check token
         registry = odoo.registry(dbname)
-        with registry.cursor() as _cr:
-            env = Environment(_cr, SUPERUSER_ID, {})
-            token = env['automation.task.token'].sudo().search([('token', '=', token)], limit=1)
+        with registry.cursor() as cr:
+            cr.execute("SELECT COUNT(id) FROM automation_task_token WHERE token = %s", (token,))
+            token = cr.fetchall()
             if not token:
-                raise BadRequest("Token not found.")    
+                raise BadRequest("Token not found.")
             if request.session.uid:
                 raise BadRequest("There should no user been set.")
 

@@ -1,11 +1,10 @@
 import time
 import uuid
 import logging
-import json
 import requests
 
 from odoo import api, fields, models, SUPERUSER_ID, _, exceptions
-from odoo.addons.util_json.fields import Json
+
 
 # pylint: disable=invalid-name
 _logger = logging.getLogger(__name__)
@@ -85,13 +84,13 @@ class TaskLogger:
         if self._status != status or self._progress != progress:
             self._status = status
             self._progress = progress
-            self.log("%s: %s" % (self._status, self._progress))
+            self.log("%s: %s", self._status, self._progress)
 
     def stage(self, subject, total=None):
-        self.log("= %s" % subject)
+        self.log("= %s", subject)
 
     def substage(self, subject, total=None):
-        self.log("== %s" % subject)
+        self.log("== %s", subject)
 
     def done(self):
         self.progress("Done", 100.0)
@@ -111,7 +110,7 @@ class TaskStatus(object):
             :param bool log: Log to logger also
         """
 
-             
+
         # init stack
         self.stage_stack = []
         self.last_status = None
@@ -120,8 +119,8 @@ class TaskStatus(object):
 
         # init loop
         self._loop_inc = 0.0
-        self._loop_progress = 0.0        
-        
+        self._loop_progress = 0.0
+
         # init task
         self.task = task
 
@@ -137,7 +136,7 @@ class TaskStatus(object):
         # init db
         self.db = task.env.cr.dbname
 
-        # init remote/local     
+        # init remote/local
         self.local = local
         if self.local:
             self.stage_obj = self.task.env["automation.task.stage"]
@@ -154,27 +153,25 @@ class TaskStatus(object):
         else:
             self.token = self.task.env["automation.task.token"].search([("task_id", "=", task.id)], limit=1).token
             if not self.token:
-                raise exceptions.UserError(_("No token for task %s [%s] was generated") % (self.task.name, self.task.id))
+                raise exceptions.UserError(_("No token for task %(task_name)s [%(task_id)s] was generated"
+                                            ,{'task_name': self.task.name, 'task_id': self.task.id}))
 
             baseurl = self.task.env["ir.config_parameter"].get_param("web.base.url")
             if not baseurl:
-                raise exceptions.UserError(_("Cannot determine base url"))
+                raise exceptions.UserError(_("Cannot determine Base-Url"))
             if baseurl.endswith("/"):
                 baseurl = baseurl[:-1]
 
 
-            # init path
-            def prepare_url(path):                
-                return "%s/%s?db=%s&token=%s" % (baseurl, path, self.db, self.token)
-                #return "%s/%s" % (baseurl, path)
+            self.log_path = "web/automation/log"
+            self.stage_path = "web/automation/stage"
+            self.progress_path = "web/automation/progress"
 
-            self.log_path = prepare_url("automation/log")
-            self.stage_path = prepare_url("automation/stage")
-            self.progress_path = prepare_url("automation/progress")
-            
             # prepare header
             self.headers = {
-                'Accept': 'application/form'
+                'Accept': 'application/form',
+                'Log-Token': self.token,
+                'Log-DB': self.db
             }
 
         # setup root stage
@@ -187,8 +184,8 @@ class TaskStatus(object):
         # second call to remote
         self.log(_("Started"))
 
-    def _post_data(self, url, data):       
-        res = requests.post(url, data=data, headers=self.headers)
+    def _post_data(self, url, data):
+        res = requests.post(url, data=data, headers=self.headers, timeout=120)
         res.raise_for_status()
         return res
 
@@ -206,9 +203,9 @@ class TaskStatus(object):
         if self.logger:
             self.logger.info("= Stage %s", data["name"])
         data["task_id"] = self.task.id
-        if self.local:            
+        if self.local:
             return self.stage_obj.create(data).id
-        else:            
+        else:
             res = self._post_data(self.stage_path, data)
             return int(res.text)
 
@@ -223,13 +220,13 @@ class TaskStatus(object):
                 ref_obj = ref_parts[0]
                 ref_id = int(ref_parts[1])
                 name = self.log_obj.env[ref_obj].browse(ref_id).name_get()[0]
-                data["message"] = "%s (%s,'%s')" % (data["message"], name[0], name[1])
+                data["message"] = f"{data['message']} ({name[0]},'{name[1]}')"
 
             # add progress
             if "progress" in data:
                 progress = data.pop("progress", 0.0)
                 self.task.env["automation.task.stage"].browse(self.stage_id).write({"progress": progress})
-            
+
             self.log_obj.create(data)
 
         # otherwise forward log to server
@@ -260,9 +257,6 @@ class TaskStatus(object):
             self.errors += 1
         elif pri == "w":
             self.warnings += 1
-
-        if not data is None and not isinstance(data, str):
-            data = json.dumps(data)
 
         values = {
             "stage_id": self.stage_id,
@@ -522,7 +516,7 @@ class AutomationTask(models.Model):
         _cr.execute(
             """SELECT task_id, COUNT(*) FROM automation_task_log
             WHERE pri = 'w'
-              AND task_id IN %s 
+              AND task_id IN %s
             GROUP BY 1
             """, (tuple(self.ids), ))
         values = dict(_cr.fetchall())
@@ -548,7 +542,7 @@ class AutomationTask(models.Model):
         if not self.ids:
             self.total_stages = 0
             return
-            
+
         res = dict.fromkeys(self.ids, 0)
         _cr = self._cr
         _cr.execute(
@@ -567,8 +561,8 @@ class AutomationTask(models.Model):
             taskc.stage("Stage %s" % stage)
 
             for proc in range(1, 100, 10):
-                taskc.log("Processing %s" % stage)
-                taskc.progress("Processing %s" % stage, proc)
+                taskc.log("Processing %s", stage)
+                taskc.progress(f"Processing {stage}", proc)
                 time.sleep(1)
 
             taskc.done()
@@ -692,7 +686,7 @@ class AutomationTask(models.Model):
 
         # new cron entry
         return {
-            "name": "Task: %s" % self.name,
+            "name": f"Task: {self.name}",
             "user_id": SUPERUSER_ID,
             "interval_type": "minutes",
             "interval_number": 1,
@@ -707,7 +701,7 @@ class AutomationTask(models.Model):
     def _get_task_values(self):
         self.ensure_one()
         return {
-            "name": "Task: %s" % self.name,
+            "name": f"Task: {self.name}",
             "state": "task",
             "sequence": 100000 + self.id,
             "model_id": self.env["ir.model"].search([("model", "=", "automation.task")], limit=1).id,
@@ -755,7 +749,7 @@ class AutomationTask(models.Model):
         token_obj.create({
             "task_id": self.id
         })
-        
+
 
         # set queued
         self.write({
@@ -1062,7 +1056,7 @@ class AutomationTaskLog(models.Model):
     ref = fields.Reference(_list_all_models, readonly=True, index=True)
     safe_ref = fields.Reference(_list_all_models, string="Reference", compute="_compute_safe_ref", store=False, readonly=True)
     code = fields.Char(index=True)
-    data = Json()
+    data = fields.Json()
 
     def _compute_safe_ref(self):
         ids = self.ids
