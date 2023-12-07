@@ -723,6 +723,9 @@ class AutomationTask(models.Model):
                 self.cron_id = self.env["ir.cron"].create(self._get_cron_values())
             else:
                 self.cron_id.write(self._get_cron_values())
+
+            # trigger cron task
+            self.cron_id._trigger(self)
         else:
             # unlink cron, if it is not
             # a cron task anymore
@@ -760,6 +763,7 @@ class AutomationTask(models.Model):
             "puuid": str(uuid.uuid4()),
             "exe_uuid": None
         })
+
 
     @api.model
     def _cleanup_tasks(self):
