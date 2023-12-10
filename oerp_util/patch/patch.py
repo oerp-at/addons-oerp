@@ -3,7 +3,6 @@
 import sys
 import os
 import shutil
-import filecmp
 import re
 import logging
 
@@ -16,7 +15,7 @@ class PatchError(Exception):
 
 def content_from_template(template, template_ctx):
     """ Replace {{var}} in template with values from template_ctx """
-    pattern = re.compile(r'\{\{[\s*([a-z0-9]+)\s*]\}\}')
+    pattern = re.compile(r'\{\{\s*([a-z0-9]+)\s*\}\}')
     def replace(match):
         var_name = match.group(1)
         return template_ctx.get(var_name, '')
@@ -43,7 +42,6 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
         if not os.path.exists(src_path):
             _logger.info('copy %s', file_name)
             shutil.copy(dst_path, src_path)
-
             if add_init:
                 dst_dir = os.path.dirname(dst_path)
                 dst_init_path = os.path.join(dst_dir, '__init__.py')
@@ -61,21 +59,31 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
                         with open(dst_init_path, 'w', encoding='utf-8') as f:
                             init_content = init_content + f'\n{import_line}\n'
                             f.write(init_content)
-
             return True
-
         else:
+            # compare with current and write only if different
+            with open(src_path, 'r', encoding='utf-8') as f:
+                src_content = f.read()
+            with open(dst_path, 'r', encoding='utf-8') as f:
+                dst_content = f.read()
+            if src_content == dst_content:
+                return False
 
             src_mtime = os.path.getmtime(src_path)
             dst_mtime = os.path.getmtime(dst_path)
+
             # check of update
             if src_mtime > dst_mtime:
                 _logger.warning('update %s', file_name)
                 shutil.copy(src_path, dst_path)
+                return True
             # check for patch back
-            elif src_mtime < dst_mtime and filecmp.cmp(src_mtime, dst_mtime, shallow=False):
+            elif src_mtime < dst_mtime:
                 _logger.warning('patch back to %s', src_path)
                 shutil.copy(dst_path, src_path)
+                return True
+
+            return False
 
     # copy template
     elif template_ctx:
@@ -134,7 +142,7 @@ def patch_dist():
     #
 
     src_path = os.path.abspath(os.path.dirname(__file__))
-    workspace_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    workspace_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
     odoo_path = os.path.join(workspace_path, 'odoo')
 
     # check if odoo source exists
@@ -199,16 +207,16 @@ def patch_dist():
 
     # setup vscode config
     if not patch(os.path.join(workspace_path, '.vscode'),
-          os.path.join(src_path, '.vscode'), copy_tree=True):
+          os.path.join(src_path, 'dev', '.vscode'), copy_tree=True):
         # if vscode directory exists, patch (back) snippets
-        patch(os.path.join(workspace_path, '.vscode', 'odoo.code-snipptes'),
-              os.path.join(src_path, '.vscode', 'odoo.code-snippets'),
+        patch(os.path.join(workspace_path, '.vscode', 'odoo.code-snippets'),
+              os.path.join(src_path, 'dev', '.vscode', 'odoo.code-snippets'),
               patch_back=True)
 
     # copy test config
     if patch(os.path.join(workspace_path, '.config'), directory=True):
         patch(os.path.join(workspace_path, '.config', 'odoo-test.conf'),
-              os.path.join(src_path, '.config', 'odoo-test.conf'),
+              os.path.join(src_path, 'dev', '.config', 'odoo-test.conf'),
               template_ctx=template_ctx)
 
 
