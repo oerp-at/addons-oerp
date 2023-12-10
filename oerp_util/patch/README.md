@@ -1,4 +1,4 @@
-# Odoo 17.0 Distribution
+# Odoo {{ odoo_version }} Distribution
 
 This is an all-in-one repository with all Odoo modules for development and
 distribution. It should make fast start easy and simple.
@@ -75,6 +75,44 @@ with
     ./odoo <cmd> --help
 
 
+## Profiles
+
+You can define a profile with the name of your project checkout folder. For example if I checkout an Odoo distribution with name `{{ profile }}`, then the profile name is `{{ profile }}`, it's simple.
+
+For this profile you can define default parametesr for commands which are automatically passed, like database and default language, test database download and more.
+
+The `odoo-profile.yml` can be defined in:
+
+* `/etc/odoo/odoo-prfile.yml`
+* `~/.odoo-profile.yml`
+* `<project-dir>/odoo-profile.yml`
+
+```
+---
+
+# default for all
+default:
+
+    # general definition
+    # of parameter database
+    database: {{ database }}
+
+    # special definition
+    # only for po_export function
+    po_export:
+        lang: de_DE
+
+{{ profile }}:
+    database: {{ database }}
+
+```
+
+After you defined the profiles, you can don't need to pass always the database, just use ...
+
+    odoo test oerp_util
+
+... for example. This makes the daily work easier.
+
 ## VSCode
 
 This repository already provide a workspace configuration with for vscode.
@@ -101,63 +139,19 @@ This repository already provide a workspace configuration with for vscode.
             "request": "launch",
             "program": "${workspaceFolder}/odoo/odoo-bin",
             "console": "integratedTerminal",
-            "args": ["serve",
-             "--db-filter=odoo16_"
-            ]
+            "args": ["serve"]
         },
         {
-            "name": "Odoo: Test,
+            "name": "Odoo: Test",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/odoo/odoo-bin",
             "console": "integratedTerminal",
-            "args": ["test",
-                "-d=<database>",
-                "--config=<odoo.conf>",
-                "--module=<module>"
+            "args": ["test"
+                "--config=${workspaceFolder}/.config/odoo-test.conf",
+                "<module>"
             ]
         }
-
-
     ]
 }
 ```
-
-## Profiles
-
-You can define a profile with the name of your project checkout folder. For example if I checkout an Odoo distribution with name `odoo-17.0-reisenhofer`, then the profile name is `odoo-17.0-reisenhofer`.
-
-For this profile you can define default parametesr for commands which are automatically passed, like database and default language, test database download and more.
-
-The `odoo-profile.yml` can be defined in:
-
-* `/etc/odoo/odoo-prfile.yml`
-* `~/.odoo-profile.yml`
-* `<project-dir>/odoo-profile.yml`
-
-```
----
-
-# default for all
-default:
-
-    # general definition
-    # of parameter database
-    database: odoo17_reisenhofer
-
-    # special definition
-    # only for po_export function
-    po_export:
-        lang: de_DE
-
-# a special configuration for profile/folder odoo-17.0-reisenhofer-stage
-odoo-17.0-reisenhofer-stage:
-    database: odoo17_reisenhofer_stage
-
-```
-
-After you defined the profiles, you can don't need to pass always the database, just use ...
-
-    odoo test oerp_util
-
-... for example. This makes the daily work easier.

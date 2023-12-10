@@ -1,12 +1,9 @@
 import time
 import uuid
 import logging
-import requests
-
 from odoo import api, fields, models, SUPERUSER_ID, _, exceptions
+from .status import TaskStatus
 
-
-# pylint: disable=invalid-name
 _logger = logging.getLogger(__name__)
 
 
@@ -14,334 +11,6 @@ def _list_all_models(self):
     """ show all available odoo models """
     self._cr.execute("SELECT model, name FROM ir_model ORDER BY name")
     return self._cr.fetchall()
-
-
-class TaskLogger:
-    """ Tasklogger is a helper class for logging to logger """
-    def __init__(self, name):
-        self.logger = logging.getLogger(name)
-        self.name = name
-        self._status = None
-        self._progress = 0
-        self._loop_inc = 0.0
-        self._loop_progress = 0.0
-        self.errors = 0
-        self.warnings = 0
-
-    # pylint: disable=unused-argument
-    def log(self, message, pri="i", obj=None, ref=None, progress=None, code=None, data=None):
-        if pri == "i":
-            self.logger.info(message)
-        elif pri == "e":
-            self.errors += 1
-            self.logger.error(message)
-        elif pri == "w":
-            self.warnings += 1
-            self.logger.warning(message)
-        elif pri == "d":
-            self.logger.debug(message)
-        elif pri == "x":
-            self.logger.fatal(message)
-        elif pri == "a":
-            self.logger.critical(message)
-
-    def loge(self, message, pri="e", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def logw(self, message, pri="w", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def logd(self, message, pri="d", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def logn(self, message, pri="n", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def loga(self, message, pri="a", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def logx(self, message, pri="x", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def loop_init(self, loopCount, status=None):
-        self._loop_progress = 0.0
-        if not loopCount:
-            self._loop_progress = 100.0
-            self._loop_inc = 0.0
-        else:
-            self._loop_inc = 100.0 / loopCount
-            self._loop_progress = 0.0
-        self.progress(status, self._loop_progress)
-
-    def loop_next(self, status=None, step=1):
-        self._loop_progress += self._loop_inc * step
-        self.progress(status, self._loop_progress)
-
-    def progress(self, status, progress):
-        progress = min(round(progress), 100)
-        if not status:
-            status = "Progress"
-        if self._status != status or self._progress != progress:
-            self._status = status
-            self._progress = progress
-            self.log("%s: %s", self._status, self._progress)
-
-    def stage(self, subject, total=None):
-        self.log("= %s", subject)
-
-    def substage(self, subject, total=None):
-        self.log("== %s", subject)
-
-    def done(self):
-        self.progress("Done", 100.0)
-
-    def close(self):
-        pass
-
-
-class TaskStatus(object):
-    """ task status object """
-    def __init__(self, task, total=1, local=False, logger=None, log=False):
-        """ construct a new task status object
-            :param task: The related task
-            :param int total: The stage count
-            :param bool local: Write all transaction within one transaction
-            :param logger: The logger to use
-            :param bool log: Log to logger also
-        """
-
-
-        # init stack
-        self.stage_stack = []
-        self.last_status = None
-        self.errors = 0
-        self.warnings = 0
-
-        # init loop
-        self._loop_inc = 0.0
-        self._loop_progress = 0.0
-
-        # init task
-        self.task = task
-
-        # init stage name
-        self.parent_stage_name = ""
-        self.stage_name = task.name
-
-        # init logger
-        self.logger = logger
-        if not self.logger and log:
-            self.logger = _logger
-
-        # init db
-        self.db = task.env.cr.dbname
-
-        # init remote/local
-        self.local = local
-        if self.local:
-            self.stage_obj = self.task.env["automation.task.stage"]
-            self.log_obj = self.task.env["automation.task.log"]
-            self.log_obj.search([("task_id", "=", self.task.id)]).unlink()
-            self.stage_obj.search([("task_id", "=", self.task.id)]).unlink()
-
-            self.log_path = ""
-            self.stage_path = ""
-            self.progress_path = ""
-            self.headers = {}
-            self.token = None
-
-        else:
-            self.token = self.task.env["automation.task.token"].search([("task_id", "=", task.id)], limit=1).token
-            if not self.token:
-                raise exceptions.UserError(_("No token for task %(task_name)s [%(task_id)s] was generated"
-                                            ,{'task_name': self.task.name, 'task_id': self.task.id}))
-
-            baseurl = self.task.env["ir.config_parameter"].get_param("web.base.url")
-            if not baseurl:
-                raise exceptions.UserError(_("Cannot determine Base-Url"))
-            if baseurl.endswith("/"):
-                baseurl = baseurl[:-1]
-
-
-            self.log_path = "web/automation/log"
-            self.stage_path = "web/automation/stage"
-            self.progress_path = "web/automation/progress"
-
-            # prepare header
-            self.headers = {
-                'Accept': 'application/form',
-                'Log-Token': self.token,
-                'Log-DB': self.db
-            }
-
-        # setup root stage
-        # first call to remote
-        self.root_stage_id = self._create_stage({"name": task.name, "total": total})
-        self.parent_stage_id = self.root_stage_id
-        self.stage_id = self.root_stage_id
-
-        # first log
-        # second call to remote
-        self.log(_("Started"))
-
-    def _post_data(self, url, data):
-        res = requests.post(url, data=data, headers=self.headers, timeout=120)
-        res.raise_for_status()
-        return res
-
-    def _post_progress(self, data):
-        if self.local:
-            self.stage_obj.browse(data["stage_id"]).write({
-                "task_id": data["task_id"],
-                "status": data["status"],
-                "progress": data["progress"],
-            })
-        else:
-            self._post_data(self.progress_path, data)
-
-    def _post_stage(self, data):
-        if self.logger:
-            self.logger.info("= Stage %s", data["name"])
-        data["task_id"] = self.task.id
-        if self.local:
-            return self.stage_obj.create(data).id
-        else:
-            res = self._post_data(self.stage_path, data)
-            return int(res.text)
-
-    def _post_log(self, data):
-        # check for local logging
-        data["task_id"] = self.task.id
-        if self.local:
-
-            ref = data.get("ref")
-            if ref:
-                ref_parts = ref.split(",")
-                ref_obj = ref_parts[0]
-                ref_id = int(ref_parts[1])
-                name = self.log_obj.env[ref_obj].browse(ref_id).name_get()[0]
-                data["message"] = f"{data['message']} ({name[0]},'{name[1]}')"
-
-            # add progress
-            if "progress" in data:
-                progress = data.pop("progress", 0.0)
-                self.task.env["automation.task.stage"].browse(self.stage_id).write({"progress": progress})
-
-            self.log_obj.create(data)
-
-        # otherwise forward log to server
-        else:
-            self._post_data(self.log_path, data)
-
-        # log message
-        if self.logger:
-            pri = data["pri"]
-            message = data["message"]
-            if pri == "i":
-                self.logger.info(message)
-            elif pri == "e":
-                self.errors += 1
-                self.logger.error(message)
-            elif pri == "w":
-                self.warnings += 1
-                self.logger.warning(message)
-            elif pri == "d":
-                self.logger.debug(message)
-            elif pri == "x":
-                self.logger.fatal(message)
-            elif pri == "a":
-                self.logger.critical(message)
-
-    def log(self, message, pri="i", obj=None, ref=None, progress=None, code=None, data=None):
-        if pri == "e":
-            self.errors += 1
-        elif pri == "w":
-            self.warnings += 1
-
-        values = {
-            "stage_id": self.stage_id,
-            "pri": pri,
-            "message": message,
-            "code": code,
-            "data": data,
-        }
-        if progress:
-            values["progress"] = progress
-        if obj:
-            ref = "%s,%s" % (obj._name, obj.id)
-        if ref:
-            values["ref"] = ref
-
-        self._post_log(values)
-
-    def loge(self, message, pri="e", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def logw(self, message, pri="w", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def logd(self, message, pri="d", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def logn(self, message, pri="n", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def loga(self, message, pri="a", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def logx(self, message, pri="x", **kwargs):
-        self.log(message, pri=pri, **kwargs)
-
-    def loop_init(self, loop_count, status=None):
-        self._loop_progress = 0.0
-        if not loop_count:
-            self._loop_progress = 100.0
-            self._loop_inc = 0.0
-        else:
-            self._loop_inc = 100.0 / loop_count
-            self._loop_progress = 0.0
-        self.progress(status, self._loop_progress)
-
-    def loop_next(self, status=None, step=1):
-        self._loop_progress += self._loop_inc * step
-        self.progress(status, self._loop_progress)
-
-    def progress(self, status, progress):
-        values = {
-            "stage_id": self.stage_id,
-            "task_id": self.task.id,
-            "status": status,
-            "progress": min(round(progress), 100),
-        }
-        if self.last_status is None or self.last_status != values:
-            self.last_status = values
-            self._post_progress(values)
-
-    def _create_stage(self, values):
-        return self._post_stage(values)
-
-    def stage(self, subject, total=None):
-        values = {"parent_id": self.parent_stage_id, "name": subject}
-        if total:
-            values["total"] = total
-        self.stage_stack.append((self.parent_stage_id, self.stage_id))
-        self.stage_id = self._create_stage(values)
-
-    def substage(self, subject, total=None):
-        values = {"parent_id": self.stage_id, "name": subject}
-        if total:
-            values["total"] = total
-        self.stage_stack.append((self.parent_stage_id, self.stage_id))
-        self.parent_stage_id = self.stage_id
-        self.stage_id = self._create_stage(values)
-
-    def done(self):
-        self.progress(_("Done"), 100.0)
-        if self.stage_stack:
-            self.parent_stage_id, self.stage_id = self.stage_stack.pop()
-
-    def close(self):
-        self._post_progress({"stage_id": self.root_stage_id, "status": _("Done"), "progress": 100.0})
 
 
 class AutomationTask(models.Model):
@@ -354,7 +23,7 @@ class AutomationTask(models.Model):
         required=True,
         readonly=True,
         copy=False,
-        default=lambda self: self.env["util.time"]._current_datetime_str(),
+        default=lambda self: fields.Datetime.now(),
     )
 
     state = fields.Selection([
@@ -364,12 +33,8 @@ class AutomationTask(models.Model):
         ("cancel", "Canceled"),
         ("failed", "Failed"),
         ("done", "Done"),
-    ],
-                             required=True,
-                             index=True,
-                             readonly=True,
-                             default="draft",
-                             copy=False)
+    ], required=True, index=True,
+    readonly=True, default="draft", copy=False)
 
     progress = fields.Float(readonly=True, compute="_compute_progress")
     error = fields.Text(readonly=True, copy=False)
@@ -393,12 +58,6 @@ class AutomationTask(models.Model):
         copy=False,
         readonly=True,
     )
-
-    puuid = fields.Char("Process UUID", index=True)
-
-    exe_type = fields.Selection([("c", "Cron"), ("e", "External")], default="c", string="Execution Type", index=True)
-
-    exe_uuid = fields.Char("Execution UUID", help="External execution uuid.", index=True)
 
     total_logs = fields.Integer(compute="_compute_total_logs")
     total_stages = fields.Integer(compute="_compute_total_stages")
@@ -447,16 +106,15 @@ class AutomationTask(models.Model):
             return
 
         res = dict.fromkeys(self.ids, 0.0)
-        _cr = self._cr
 
         # search stages
-        _cr.execute(
+        self._cr.execute(
             "SELECT id FROM automation_task_stage WHERE task_id IN %s AND parent_id IS NULL",
             (tuple(self.ids), ),
         )
 
         # get progress
-        stage_ids = [r[0] for r in _cr.fetchall()]
+        stage_ids = [r[0] for r in self._cr.fetchall()]
         for stage in self.env["automation.task.stage"].browse(stage_ids):
             res[stage.task_id.id] = stage.complete_progress
 
@@ -469,8 +127,7 @@ class AutomationTask(models.Model):
             self.res_ref = None
             return
 
-        _cr = self._cr
-        _cr.execute(
+        self._cr.execute(
             """SELECT res_model, ARRAY_AGG(id)
             FROM automation_task
             WHERE id IN %s
@@ -478,11 +135,11 @@ class AutomationTask(models.Model):
         """, (tuple(self.ids), ))
 
         values = {}
-        for res_model, task_ids in _cr.fetchall():
+        for res_model, task_ids in self._cr.fetchall():
             model_obj = self.env.get(res_model)
             if model_obj:
                 table_name = model_obj._table
-                _cr.execute(
+                self._cr.execute(
                     """SELECT
                         t.id, r.id
                     FROM automation_task t
@@ -490,7 +147,7 @@ class AutomationTask(models.Model):
                     WHERE t.id IN %%s
                 """ % table_name, (task_ids, ))
 
-                values.update(dict([(i, "%s,%s" % (res_model, r)) for (i, r) in _cr.fetchall()]))
+                values.update(dict([(i, "%s,%s" % (res_model, r)) for (i, r) in self._cr.fetchall()]))
 
         for obj in self:
             obj.res_ref = values.get(obj.id, None)
@@ -500,10 +157,9 @@ class AutomationTask(models.Model):
             self.total_logs = 0
             return
 
-        _cr = self._cr
-        _cr.execute("SELECT task_id, COUNT(*) FROM automation_task_log WHERE task_id IN %s GROUP BY 1",
+        self._cr.execute("SELECT task_id, COUNT(*) FROM automation_task_log WHERE task_id IN %s GROUP BY 1",
                     (tuple(self.ids), ))
-        values = dict(_cr.fetchall())
+        values = dict(self._cr.fetchall())
         for obj in self:
             obj.total_logs = values.get(obj.id) or 0
 
@@ -512,14 +168,13 @@ class AutomationTask(models.Model):
             self.total_warnings = 0
             return
 
-        _cr = self._cr
-        _cr.execute(
+        self._cr.execute(
             """SELECT task_id, COUNT(*) FROM automation_task_log
             WHERE pri = 'w'
               AND task_id IN %s
             GROUP BY 1
             """, (tuple(self.ids), ))
-        values = dict(_cr.fetchall())
+        values = dict(self._cr.fetchall())
         for obj in self:
             obj.total_warnings = values.get(obj.id) or 0
 
@@ -528,13 +183,12 @@ class AutomationTask(models.Model):
             self.total_errors = 0
             return
 
-        _cr = self._cr
-        _cr.execute(
+        self._cr.execute(
             """SELECT task_id, COUNT(*) FROM automation_task_log
             WHERE pri IN ('a','e','x')
               AND task_id IN %s GROUP BY 1
             """, (tuple(self.ids), ))
-        values = dict(_cr.fetchall())
+        values = dict(self._cr.fetchall())
         for obj in self:
             obj.total_errors = values.get(obj.id) or 0
 
@@ -544,12 +198,11 @@ class AutomationTask(models.Model):
             return
 
         res = dict.fromkeys(self.ids, 0)
-        _cr = self._cr
-        _cr.execute(
+        self._cr.execute(
             "SELECT task_id, COUNT(*) FROM automation_task_stage WHERE task_id IN %s GROUP BY 1",
             (tuple(self.ids), ),
         )
-        for task_id, stage_count in _cr.fetchall():
+        for task_id, stage_count in self._cr.fetchall():
             res[task_id] = stage_count
         for r in self:
             r.total_stages = res[r.id]
@@ -575,8 +228,7 @@ class AutomationTask(models.Model):
         self.ensure_one()
 
         task_id = self.id
-        _cr = self._cr
-        _cr.execute(
+        self._cr.execute(
             """WITH RECURSIVE task(id) AS (
                 SELECT
                     id
@@ -592,7 +244,7 @@ class AutomationTask(models.Model):
             SELECT id FROM task
             """, (task_id, ))
 
-        task_ids = [r[0] for r in _cr.fetchall()]
+        task_ids = [r[0] for r in self._cr.fetchall()]
         return self.browse(task_ids)
 
     def _task_get_after_tasks(self):
@@ -678,9 +330,8 @@ class AutomationTask(models.Model):
     def _get_cron_values(self):
         self.ensure_one()
 
-        # start after is set
-        # use start_after date instead of next call
-        nextcall = self.env["util.time"]._current_datetime_str()
+        # setup next call
+        nextcall = fields.Datetime.now()
         if self.start_after and nextcall < self.start_after:
             nextcall = self.start_after
 
@@ -701,7 +352,7 @@ class AutomationTask(models.Model):
     def _get_task_values(self):
         self.ensure_one()
         return {
-            "name": f"Task: {self.name}",
+            "name": f"Automation Action ({self.id})",
             "state": "task",
             "sequence": 100000 + self.id,
             "model_id": self.env["ir.model"].search([("model", "=", "automation.task")], limit=1).id,
@@ -712,35 +363,7 @@ class AutomationTask(models.Model):
     def _task_enqueue(self):
         """ queue task """
 
-        # check if it is a cron task
-        if self.exe_type == "c":
-            if not self.action_id:
-                self.action_id = self.env["ir.actions.server"].create(self._get_task_values())
-            else:
-                self.action_id.write(self._get_task_values())
-
-            if not self.cron_id:
-                self.cron_id = self.env["ir.cron"].create(self._get_cron_values())
-            else:
-                self.cron_id.write(self._get_cron_values())
-
-            # trigger cron task
-            self.cron_id._trigger(self)
-        else:
-            # unlink cron, if it is not
-            # a cron task anymore
-            cron = self.cron_id
-            if cron:
-                self.cron_id = None
-                cron.unlink()
-
-            # unlink action
-            action = self.action_id
-            if action:
-                self.action_id = None
-                action.unlink()
-
-        # set stages inactive
+        # remove stages
         self._cr.execute(
             "DELETE FROM automation_task_stage WHERE task_id=%s",
             (self.id, ),
@@ -753,23 +376,23 @@ class AutomationTask(models.Model):
             "task_id": self.id
         })
 
-
         # set queued
         self.write({
             "state": "queued",
             "parent_id": self.start_after_task_id.id,
             "start_after_task_id": None,
             "start_after": None,
-            "puuid": str(uuid.uuid4()),
-            "exe_uuid": None
         })
 
+        # create action on the fly
+        if not self.action_id:
+            self.action_id = self.env["ir.actions.server"].create(self._get_task_values())
 
-    @api.model
-    def _cleanup_tasks(self):
-        # clean up cron tasks
-        self._cr.execute("DELETE FROM ir_cron WHERE task_id IS NOT NULL AND NOT active")
-        return True
+        # (re)create cron entry
+        old_cron = self.cron_id
+        self.cron_id = self.env["ir.cron"].create(self._get_cron_values())
+        # cleanup old cron entry
+        old_cron.unlink()
 
     def action_queue(self):
         for task in self:
@@ -782,33 +405,27 @@ class AutomationTask(models.Model):
 
     def _task_options(self):
         self.ensure_one()
-
-        # get options
-
+        # get instance
         if self.res_model and self.res_id:
             model_obj = self.env[self.res_model]
             resource = model_obj.browse(self.res_id)
         else:
             resource = self
 
-        # options
-
+        # prepare options
         options = {"stages": 1, "resource": resource}
 
-        # get custom options
-
+        # fetch custom options
         if hasattr(resource, "_run_options"):
             res_options = getattr(resource, "_run_options")
             if callable(res_options):
                 res_options = resource._run_options()
             options.update(res_options)
-
         return options
 
     def _process_task(self):
         self.ensure_one()
         task = self
-        date_obj = self.env["util.time"]
 
         if task and task.state == "queued":
             try:
@@ -835,7 +452,7 @@ class AutomationTask(models.Model):
                 # change task state
                 # and commit
                 task.write({
-                    "state_change": date_obj._current_datetime_str(),
+                    "state_change": fields.Datetime.now(),
                     "state": "run",
                     "error": None,
                     "start_after_task_id": None,
@@ -857,10 +474,9 @@ class AutomationTask(models.Model):
                 # close
                 taskc.close()
 
-                # update status
-                task.write({"state_change": date_obj._current_datetime_str(), "state": "done", "error": None})
-
-                # commit after finish
+                # update status and commit
+                task.write({"state_change": fields.Datetime.now(), "state": "done", "error": None})
+                # pylint: disable=invalid-commit
                 self._cr.commit()
 
             except Exception as e:
@@ -885,7 +501,7 @@ class AutomationTask(models.Model):
 
                 # write error
                 task.write({
-                    "state_change": date_obj._current_datetime_str(),
+                    "state_change": fields.Datetime.now(),
                     "state": "failed",
                     "error": error,
                 })
@@ -912,10 +528,9 @@ class AutomationTaskMixin(models.AbstractModel):
 
     def unlink(self):
         # search inherited
-        _cr = self._cr
         ids = self.ids
-        _cr.execute("SELECT task_id FROM %s WHERE id IN %%s AND task_id IS NOT NULL" % self._table, (tuple(ids),))
-        task_ids = [r[0] for r in _cr.fetchall()]
+        self._cr.execute("SELECT task_id FROM %s WHERE id IN %%s AND task_id IS NOT NULL" % self._table, (tuple(ids),))
+        task_ids = [r[0] for r in self._cr.fetchall()]
         # unlink task
         res = super(AutomationTaskMixin, self).unlink()
         # unlink inherited
@@ -950,11 +565,11 @@ class AutomationTaskMixin(models.AbstractModel):
         """ Test Task """
         self.ensure_one()
         for stage in range(1, 10):
-            taskc.stage("Stage %s" % stage)
+            taskc.stage(f"Stage {stage}")
 
             for proc in range(1, 100, 10):
-                taskc.log("Processing %s" % stage)
-                taskc.progress("Processing %s" % stage, proc)
+                taskc.log(f"Processing {stage}")
+                taskc.progress(f"Processing {stage}", proc)
                 time.sleep(1)
 
             taskc.done()

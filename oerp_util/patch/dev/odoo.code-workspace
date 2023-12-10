@@ -1,0 +1,41 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"pylint.args": [
+			"--load-plugins",
+			"pylint_odoo",
+			"--disable",
+			"no-member",
+			"--disable",
+			"protected-access",
+			"--disable",
+			"import-error",
+			"--disable",
+			"missing-class-docstring",
+			"--disable",
+			"missing-function-docstring",
+			"--disable",
+			"too-few-public-methods",
+			"--disable",
+			"missing-module-docstring",
+			"--disable",
+			"invalid-name",
+			"--disable",
+			"abstract-method"
+		],
+		"files.exclude": {
+			"**/*.pyc": {"when": "$(basename).py"},
+			"**/__pycache__": true
+		},
+		"python.analysis.extraPaths": [
+			"./assembly"
+		],
+		"python.autoComplete.extraPaths": [
+			"./assembly"
+		]
+	}
+}
