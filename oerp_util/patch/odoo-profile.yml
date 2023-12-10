@@ -1,0 +1,4 @@
+default:
+  db: {{ database }}
+  po_export:
+      lang: de_DE

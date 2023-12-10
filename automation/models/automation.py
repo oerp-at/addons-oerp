@@ -18,7 +18,7 @@ class AutomationTask(models.Model):
     _description = "Automation Task"
     _order = "id asc"
 
-    name = fields.Char(required=True, readonly=True, states={"draft": [("readonly", False)]})
+    name = fields.Char(required=True)
     state_change = fields.Datetime(
         required=True,
         readonly=True,

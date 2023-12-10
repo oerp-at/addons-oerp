@@ -13,13 +13,13 @@ class PatchError(Exception):
     pass
 
 
-def content_from_template(template, template_ctx):
+def content_from_template(content, template_ctx):
     """ Replace {{var}} in template with values from template_ctx """
-    pattern = re.compile(r'\{\{\s*([a-z0-9]+)\s*\}\}')
+    pattern = re.compile(r'\{\{\s*([a-z0-9_]+)\s*}\}')
     def replace(match):
         var_name = match.group(1)
         return template_ctx.get(var_name, '')
-    return pattern.sub(replace, template)
+    return pattern.sub(replace, content)
 
 def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_back=False, add_init=False, copy_tree=False):
     """ A simple patch function with less library dependencies that it runs if python3 is installed."""
@@ -98,7 +98,7 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
 
         # write new file
         if not os.path.exists(dst_path):
-            _logger.info('copy %s', file_name)
+            _logger.info('copy %s from template', file_name)
             with open(dst_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             return True
@@ -108,7 +108,7 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
                 current_content = f.read()
             # update readme
             if content != current_content:
-                _logger.warning('update %s', file_name)
+                _logger.warning('update %s from template', file_name)
                 with open(dst_path, 'w', encoding='utf-8') as f:
                     f.write(content)
                 return True
@@ -207,8 +207,17 @@ def patch_dist():
 
     # copy Pipfile
     patch(os.path.join(workspace_path, 'Pipfile'),
-          os.path.join(src_path, 'Pipfile'),
+          os.path.join(src_path, 'Pipfile'))
+
+    # copy odoo-profile.yml
+    patch(os.path.join(workspace_path, 'odoo-profile.yml'),
+          os.path.join(src_path, 'odoo-profile.yml'),
           template_ctx=template_ctx)
+
+    # setup vscode workspace
+    patch(os.path.join(workspace_path, 'odoo.code-workspace'),
+          os.path.join(src_path, 'dev', 'odoo.code-workspace'),
+          patch_back=True)
 
     # setup vscode config
     if not patch(os.path.join(workspace_path, '.vscode'),
@@ -219,8 +228,8 @@ def patch_dist():
               patch_back=True)
 
     # copy test config
-    if patch(os.path.join(workspace_path, '.config'), directory=True):
-        patch(os.path.join(workspace_path, '.config', 'odoo-test.conf'),
+    patch(os.path.join(workspace_path, '.config'), directory=True)
+    patch(os.path.join(workspace_path, '.config', 'odoo-test.conf'),
               os.path.join(src_path, 'dev', '.config', 'odoo-test.conf'),
               template_ctx=template_ctx)
 

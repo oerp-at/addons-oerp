@@ -333,29 +333,28 @@ class ConfigCommand():
     def setup_env(self, fct=None):
         # setup pool
         error = False
-        with odoo.api.Environment.manage():
-            if self.params.database:
-                error = True
-                registry = odoo.registry(self.params.database)
-                with registry.cursor() as cr:
-                    uid = odoo.SUPERUSER_ID
-                    ctx = odoo.api.Environment(cr, uid,
-                                               {})['res.users'].context_get()
-                    env = odoo.api.Environment(cr, uid, ctx)
-                    try:
-                        if fct:
-                            fct(env)
-                        else:
-                            self.run_config_env(env)
-                        error = False
-                    except Exception as e:
-                        if self.params.debug:
-                            _logger.exception(e)
-                        else:
-                            _logger.error(e)
+        if self.params.database:
+            error = True
+            registry = odoo.registry(self.params.database)
+            with registry.cursor() as cr:
+                uid = odoo.SUPERUSER_ID
+                ctx = odoo.api.Environment(cr, uid,
+                                            {})['res.users'].context_get()
+                env = odoo.api.Environment(cr, uid, ctx)
+                try:
+                    if fct:
+                        fct(env)
+                    else:
+                        self.run_config_env(env)
+                    error = False
+                except Exception as e:
+                    if self.params.debug:
+                        _logger.exception(e)
+                    else:
+                        _logger.error(e)
 
-                    finally:
-                        cr.rollback()
+                finally:
+                    cr.rollback()
 
         if error and self.params.exit_error:
             sys.exit(-1)

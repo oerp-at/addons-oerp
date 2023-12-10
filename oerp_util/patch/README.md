@@ -83,7 +83,7 @@ For this profile you can define default parametesr for commands which are automa
 
 The `odoo-profile.yml` can be defined in:
 
-* `/etc/odoo/odoo-prfile.yml`
+* `/etc/odoo/odoo-profile.yml`
 * `~/.odoo-profile.yml`
 * `<project-dir>/odoo-profile.yml`
 
@@ -95,7 +95,7 @@ default:
 
     # general definition
     # of parameter database
-    database: {{ database }}
+    db: {{ database }}
 
     # special definition
     # only for po_export function
@@ -103,7 +103,7 @@ default:
         lang: de_DE
 
 {{ profile }}:
-    database: {{ database }}
+    db: {{ database }}
 
 ```
 
