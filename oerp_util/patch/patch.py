@@ -202,8 +202,13 @@ def patch_dist():
     #
 
     # setup directories
-    patch(os.path.join(workspace_path, '.venv'), directory=True)
     patch(os.path.join(workspace_path, '.test'), directory=True)
+    patch(os.path.join(workspace_path, '.venv'), directory=True)
+
+    # copy Pipfile
+    patch(os.path.join(workspace_path, 'Pipfile'),
+          os.path.join(src_path, 'Pipfile'),
+          template_ctx=template_ctx)
 
     # setup vscode config
     if not patch(os.path.join(workspace_path, '.vscode'),
