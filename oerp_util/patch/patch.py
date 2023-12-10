@@ -39,9 +39,9 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
         if not src_path:
             raise PatchError('patch_back requires src_path')
 
-        if not os.path.exists(src_path):
+        if not os.path.exists(dst_path):
             _logger.info('copy %s', file_name)
-            shutil.copy(dst_path, src_path)
+            shutil.copy(src_path, dst_path)
             if add_init:
                 dst_dir = os.path.dirname(dst_path)
                 dst_init_path = os.path.join(dst_dir, '__init__.py')
