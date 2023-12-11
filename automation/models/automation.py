@@ -575,7 +575,7 @@ class AutomationTaskMixin(models.AbstractModel):
     def _run(self, taskc):
         """ Test Task """
         self.ensure_one()
-        for stage in range(1, 10):
+        for stage in range(1, 2):
             taskc.stage(f"Stage {stage}")
 
             for proc in range(1, 100, 10):

@@ -1,6 +1,5 @@
 # pylint: disable=manifest-required-author
 # pylint: disable=missing-readme
-# pylint: disable=license-allowed
 {
     'name': 'Automation',
     'version': '17.0.1.0.0',
@@ -9,7 +8,7 @@
     'author': 'martin-reisenhofer',
     'maintainers': ['martin-reisenhofer'],
     'website': 'https://github.com/oerp-at',
-    'license': 'BSD-2-Clause',
+    'license': 'LGPL-3',
     'depends': ['base',
                 'mail'],
     'data': [
@@ -19,7 +18,8 @@
         'views/task_log.xml',
         'views/stage_view.xml',
         'views/cron_view.xml',
-        'views/task_view.xml'
+        'views/task_view.xml',
+        'views/task_example.xml'
     ],
     'installable': True
 }

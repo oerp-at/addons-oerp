@@ -9,7 +9,7 @@
     'author': 'martin-reisenhofer',
     'maintainers': ['martin-reisenhofer'],
     'website': 'https://github.com/oerp-at',
-    'license': 'BSD-2-Clause',
+    'license': 'LGPL-3',
     'depends': ['base',
                 'mail'],
     'data': [

@@ -1,0 +1,50 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <data>
+
+        <!-- automation.task.example inherit form view -->
+        <record id="automation_task_example_form" model="ir.ui.view">
+            <field name="name">automation.task.example.form</field>
+            <field name="model">automation.task.example</field>
+            <field name="inherit_id" ref="automation.form_automation_task"/>
+            <field name="mode">primary</field>
+            <field name="arch" type="xml">
+                <field name="owner_id" position="after">
+                </field>
+            </field>
+        </record>
+
+        <!-- automation.task.example inherit tree view -->
+        <record id="automation_task_example_tree" model="ir.ui.view">
+            <field name="name">automation.task.example.tree</field>
+            <field name="model">automation.task.example</field>
+            <field name="inherit_id" ref="automation.form_automation_task"/>
+            <field name="mode">primary</field>
+            <field name="arch" type="xml">
+                <field name="owner_id" position="after">
+                </field>
+            </field>
+        </record>
+
+        <!-- automation.task.example inherit search view -->
+        <record id="automation_task_example_search" model="ir.ui.view">
+            <field name="name">automation.task.example</field>
+            <field name="model">automation.task.example</field>
+            <field name="inherit_id" ref="automation.search_automation_task"/>
+            <field name="mode">primary</field>
+            <field name="arch" type="xml">
+                <field name="owner_id" position="after">
+                </field>
+            </field>
+        </record>
+
+        <!-- automation.task.example action window -->
+        <record id="automation_task_example_action" model="ir.actions.act_window">
+            <field name="name">Automation Task Sample</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">automation.task.example</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+    </data>
+</odoo>

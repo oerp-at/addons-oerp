@@ -10,8 +10,8 @@ class IrHttp(models.AbstractModel):
 
     @classmethod
     def _auth_method_automation_task(cls):
-        token = request.header['Log-Token']
-        dbname = request.header['Log-DB']
+        token = request.httprequest.headers['X-Automation-Token']
+        dbname = request.httprequest.headers['X-Automation-DB']
 
         #check header
         if not dbname:

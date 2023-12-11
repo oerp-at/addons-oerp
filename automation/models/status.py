@@ -63,22 +63,19 @@ class TaskStatus(object):
                 raise exceptions.UserError(_("No token for task %(task_name)s [%(task_id)s] was generated"
                                             ,{'task_name': self.task.name, 'task_id': self.task.id}))
 
-            baseurl = self.task.env["ir.config_parameter"].get_param("web.base.url")
+            baseurl = self.task.get_base_url()
             if not baseurl:
                 raise exceptions.UserError(_("Cannot determine Base-Url"))
-            if baseurl.endswith("/"):
-                baseurl = baseurl[:-1]
 
-
-            self.log_path = "web/automation/log"
-            self.stage_path = "web/automation/stage"
-            self.progress_path = "web/automation/progress"
+            self.log_path = f"{baseurl}/automation/log"
+            self.stage_path = f"{baseurl}/automation/stage"
+            self.progress_path = f"{baseurl}/automation/progress"
 
             # prepare header
             self.headers = {
                 'Accept': 'application/form',
-                'Log-Token': self.token,
-                'Log-DB': self.db
+                'X-Automation-Token': self.token,
+                'X-Automation-DB': self.db
             }
 
         # setup root stage
