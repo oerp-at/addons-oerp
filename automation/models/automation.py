@@ -279,6 +279,8 @@ class AutomationTask(models.Model):
             task._check_execution_rights()
             if task.state == "queued":
                 task.state = "cancel"
+                if task.cron_id:
+                    task.cron_id.active = False
         return True
 
     def action_stage(self):
@@ -399,8 +401,10 @@ class AutomationTask(models.Model):
             # check rights
             task._check_execution_rights()
             if task.state in ("draft", "cancel", "failed", "done"):
-                # sudo task
-                task.sudo()._task_enqueue()
+                # sudo task, and check if it is not active already
+                sudo_task = task.sudo()
+                if not sudo_task.cron_id or not sudo_task.cron_id.active:
+                    task.sudo()._task_enqueue()
         return True
 
     def _task_options(self):
