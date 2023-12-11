@@ -1,7 +1,7 @@
 import time
 import uuid
 import logging
-from odoo import api, fields, models, SUPERUSER_ID, _, exceptions
+from odoo import api, fields, models, SUPERUSER_ID, _, exceptions, tools
 from .status import TaskStatus
 
 _logger = logging.getLogger(__name__)
@@ -427,6 +427,12 @@ class AutomationTask(models.Model):
             options.update(res_options)
         return options
 
+    def _commit_state(self):
+        """ ugly hack but needed to commit changes """
+        if not tools.config.get('test_enable'):
+            # pylint: disable=invalid-commit
+            self._cr.commit()
+
     def _process_task(self):
         self.ensure_one()
         task = self
@@ -463,8 +469,7 @@ class AutomationTask(models.Model):
                     "parent_id": task.start_after_task_id.id
                 })
                 # commit after start
-                # pylint: disable=invalid-commit
-                self._cr.commit()
+                self._commit_state()
 
                 # run task
                 taskc = TaskStatus(task, stage_count)
@@ -481,7 +486,7 @@ class AutomationTask(models.Model):
                 # update status and commit
                 task.write({"state_change": fields.Datetime.now(), "state": "done", "error": None})
                 # pylint: disable=invalid-commit
-                self._cr.commit()
+                self._commit_state()
 
             except Exception as e:
                 # rollback on error
@@ -509,8 +514,10 @@ class AutomationTask(models.Model):
                     "state": "failed",
                     "error": error,
                 })
-                # pylint: disable=invalid-commit
-                self._cr.commit()
+
+                # finally commit current state after
+                # rollback
+                self._commit_state()
 
         return True
 
