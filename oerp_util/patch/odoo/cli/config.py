@@ -1,6 +1,7 @@
 # © 2007 Martin Reisenhofer <martin@reisenhofer.biz>
 # License BSD-2-Clause or later (https://opensource.org/license/bsd-2-clause/).
 
+import io
 import argparse
 import fnmatch
 import glob
@@ -26,8 +27,10 @@ from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 from odoo.models import LOG_ACCESS_COLUMNS
 from odoo.modules.module import MANIFEST_NAMES
 from odoo.modules.registry import Registry
+from odoo.service.server import ThreadedServer
 from odoo.tests.loader import unwrap_suite
 from odoo.tests.result import OdooTestResult
+from odoo.tests.suite import OdooSuite
 from odoo.tools import misc, unique
 from odoo.tools.config import config
 from odoo.tools.translate import (PoFileReader, PoFileWriter,
@@ -43,6 +46,23 @@ ODOO_RELEASE = odoo.release
 ADDON_API = ODOO_RELEASE.version
 ADDONS_PATTERN = "addons*"
 ADDONS_CUSTOM = "custom-addons"
+
+
+class OdooTestRunner(object):
+    """
+    A test runner class that displays results in in logger.
+    Simplified version of TextTestRunner()
+    """
+
+    def run(self, test):
+        result = OdooTestResult()
+
+        start_time = time.perf_counter()
+        test(result)
+        time_taken = time.perf_counter() - start_time
+        run = result.testsRun
+        _logger.info("Ran %d test%s in %.3fs", run, run != 1 and "s" or "", time_taken)
+        return result
 
 
 class Profile(argparse.ArgumentParser):
@@ -360,7 +380,6 @@ class ConfigCommand():
             sys.exit(-1)
 
 
-
 def update_database(database):
     """ Odoo Database Update """
     registry = Registry.new(database, update_module=True)
@@ -379,8 +398,6 @@ def update_database(database):
                 _logger.info("Finished refreshing views")
     except KeyError:
         pass
-
-
 
 class Update(ConfigCommand, Command):
     """ Update Module/All """
@@ -717,12 +734,43 @@ class Test(ConfigCommand, Command):
 
         )
 
+        self.parser.add_argument(
+            "--test-server",
+            help="Run test server for web tests",
+            action="store_true",
+            default=True,
+            required=False
+        )
+
+
+        self.parser.add_argument(
+            "--xml-report",
+            help="Generate standard XML unit test report",
+            metavar="XML_REPORT"
+        )
+
+        self.xml_runner = None
+        self.xml_report_data = io.BytesIO()
+
     def run_config(self):
         if self.params.test_download:
             config["test_download"] = self.params.test_download
 
         # run with env
         self.setup_env()
+
+    def _get_test_runner(self):
+        if self.params.xml_report:
+            if self.xml_runner is None:
+                from xmlrunner import XMLTestRunner
+                self.xml_runner = XMLTestRunner(output=self.xml_report_data)
+            return self.xml_runner
+        else:
+            return OdooTestRunner()
+
+    def _get_server(self):
+        server = ThreadedServer(odoo.http.root)
+        return server
 
     def run_test(self,
                  module_name,
@@ -731,7 +779,7 @@ class Test(ConfigCommand, Command):
                  test_tags=None,
                  test_position=None):
         global current_test
-        from odoo.tests.common import TagsSelector  # Avoid import loop
+        from odoo.tests.tag_selector import TagsSelector  # Avoid import loop
         current_test = module_name
 
         def match_filter(test):
@@ -742,22 +790,25 @@ class Test(ConfigCommand, Command):
             return test._testMethodName.startswith(test_prefix)
 
         mods = odoo.tests.loader.get_test_modules(module_name)
-        threading.currentThread().testing = True
+        threading.current_thread().testing = True
         config_tags = TagsSelector(test_tags) if test_tags else None
         position_tag = TagsSelector(test_position) if test_position else None
         results = []
         for m in mods:
             tests = unwrap_suite(unittest.TestLoader().loadTestsFromModule(m))
-            suite = unittest.TestSuite(
+            suite = OdooSuite(
                 t for t in tests
-                if (not position_tag or position_tag.check(t)) and
-                (not config_tags or config_tags.check(t)) and match_filter(t))
+                if (not position_tag or position_tag.check(t))
+                   and (not config_tags or config_tags.check(t))
+                   and match_filter(t)
+                   and (not isinstance(t, odoo.tests.common.HttpCase) or self.params.test_server)
+            )
 
             if suite.countTestCases():
                 t0 = time.time()
                 t0_sql = odoo.sql_db.sql_counter
                 _logger.info('%s running tests.', m.__name__)
-                result = OdooTestRunner().run(suite)
+                result = self._get_test_runner().run(suite)
                 results.append({
                     "module": module_name,
                     "test":  m.__name__,
@@ -769,14 +820,14 @@ class Test(ConfigCommand, Command):
                 })
 
         current_test = None
-        threading.currentThread().testing = False
+        threading.current_thread().testing = False
         return results
 
     def run_config_env(self, env):
         # important to be here, that it not conflicts
         # with tag parsing
         config["test_enable"] = True
-
+        config["test_server"] = config.get("test_server", self.params.test_server)
 
         module_name = self.params.module
         test_prefix = self.params.test_prefix
@@ -810,6 +861,12 @@ class Test(ConfigCommand, Command):
 
         results = []
         if modules:
+            # start test server for http tests
+            server = self._get_server() if config.get("test_server") else None
+            if server:
+                server.start()
+
+            # run tests
             for module_name in modules:
                 results.extend(self.run_test(module_name, test_prefix, test_case,
                                    test_tags, test_position))
@@ -818,6 +875,12 @@ class Test(ConfigCommand, Command):
         if not results:
             _logger.warning("No tests!")
         else:
+            # write xml report if used
+            if self.params.xml_report:
+                from xmlrunner.extra.xunit_plugin import transform
+                with open(self.params.xml_report, 'wb') as f:
+                    f.write(transform(self.xml_report_data.getvalue()))
+
             failed = list(filter(lambda r: not r["ok"], results))
             successful = list(filter(lambda r: r["ok"], results))
             result_txt = tabulate(
@@ -1100,6 +1163,7 @@ class CleanUp(ConfigCommand, Command):
             cr.rollback()
 
 
+
 ###############################################################################
 # Setup Utils
 ###############################################################################
@@ -1113,14 +1177,12 @@ def get_dirs(in_dir):
                 res.append(dir_name)
     return res
 
-
 def list_dir(in_dir):
     res = []
     for item in os.listdir(in_dir):
         if not item.startswith("."):
             res.append(item)
     return res
-
 
 def find_file(directory, pattern):
     for root, dirs, files in os.walk(directory):
@@ -1129,18 +1191,15 @@ def find_file(directory, pattern):
                 filename = os.path.join(root, basename)
                 yield filename
 
-
 def cleanup_python(directory):
     for file_name in find_file(directory, "*.pyc"):
         os.remove(file_name)
-
 
 def link_file(src, dst):
     if os.path.exists(dst):
         if os.path.islink(dst):
             os.remove(dst)
     os.symlink(src, dst)
-
 
 def link_directory_entries(src, dst, ignore=None, names=None):
     links = set()
@@ -1169,7 +1228,6 @@ def link_directory_entries(src, dst, ignore=None, names=None):
             links.add(dst_path)
 
     return links
-
 
 def is_addon(addon_path):
     if not addon_path or not os.path.exists(addon_path) or addon_path.endswith('.pyc'):
