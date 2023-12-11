@@ -12,6 +12,7 @@ odoo-test-helper = "*"
 vcrpy-unittest = "*"
 requests-mock = "*"
 parquet-tools = "*"
+unittest-xml-reporting = "*"
 
 [packages]
 pyyaml = "*"
