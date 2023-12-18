@@ -502,7 +502,7 @@ class AutomationTask(models.Model):
                     if not error and hasattr(e, "message"):
                         error = e.message
                 except:
-                    _logger.exception("Error parsing failed")
+                    _logger.exception("Parsing failed")
 
                 #if there is no message
                 if not error:
