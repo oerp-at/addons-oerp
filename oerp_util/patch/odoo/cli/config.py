@@ -17,6 +17,7 @@ import unittest
 from datetime import datetime
 from multiprocessing import Pool
 import yaml
+import polib
 
 import psycopg2
 from tabulate import tabulate
@@ -34,7 +35,7 @@ from odoo.tests.suite import OdooSuite
 from odoo.tools import misc, unique
 from odoo.tools.config import config
 from odoo.tools.translate import (PoFileReader, PoFileWriter,
-                                  TranslationModuleReader)
+                                  TranslationModuleReader, TranslationImporter)
 
 from . import Command
 from .server import main
@@ -46,23 +47,6 @@ ODOO_RELEASE = odoo.release
 ADDON_API = ODOO_RELEASE.version
 ADDONS_PATTERN = "addons*"
 ADDONS_CUSTOM = "custom-addons"
-
-
-class OdooTestRunner(object):
-    """
-    A test runner class that displays results in in logger.
-    Simplified version of TextTestRunner()
-    """
-
-    def run(self, test):
-        result = OdooTestResult()
-
-        start_time = time.perf_counter()
-        test(result)
-        time_taken = time.perf_counter() - start_time
-        run = result.testsRun
-        _logger.info("Ran %d test%s in %.3fs", run, run != 1 and "s" or "", time_taken)
-        return result
 
 
 class Profile(argparse.ArgumentParser):
@@ -234,7 +218,6 @@ class ConfigCommand():
         self.parser.add_argument("-m",
                                  "--module",
                                  metavar="MODULE",
-                                 envvar=True,
                                  default=default_module,
                                  required=False)
 
@@ -536,6 +519,42 @@ class PoIgnoreFileWriter(PoFileWriter, Command):
 
 class Po_Export(ConfigCommand, Command):
     """ Export *.po File """
+
+    def __init__(self):
+        super().__init__()
+        self.lang = None
+        self.langfile = None
+        self.pot = False
+        self.modpath = None
+        self.langdir = None
+        self.export_backup_file = None
+        self.export_file = None
+
+        self.parser.add_argument(
+            "--merge",
+            nargs='+',
+            name="merge",
+            help="*.po files to merge into export file, if the translation is empty"
+        )
+        self.parser.add_argument(
+            "--force-merge",
+            nargs='+',
+            name="force_merge",
+            help="*.po files to merge into export file"
+        )
+        self.parser.add_argument(
+            "--no-merge",
+            name="no_merge",
+            action="store_true",
+            help="No merge of backup file"
+        )
+        self.parser.add_argument(
+            "--pot",
+            name="pot",
+            action="store_true",
+            help="Export translation template"
+        )
+
     def run_config(self):
         # check module
         if not self.params.module:
@@ -548,9 +567,18 @@ class Po_Export(ConfigCommand, Command):
                           self.params.module)
             return
 
-        # check lang
-        self.lang = self.params.lang
-        self.langfile = self.lang.split("_")[0] + ".po"
+        # check if it should be a template
+        if (self.params.pot
+            or not self.params.lang
+            or self.params.lang == "pot"):
+            self.lang = None
+            self.langfile = self.params.module + ".pot"
+            self.pot = True
+        else:
+            self.lang = self.params.lang
+            self.pot = False
+            self.langfile = self.lang.split("_")[0] + ".po"
+
         self.langdir = os.path.join(self.modpath, "i18n")
         if not os.path.exists(self.langdir):
             _logger.warning("Created language directory %s", self.langdir)
@@ -566,43 +594,142 @@ class Po_Export(ConfigCommand, Command):
         writer.write_rows(translations)
         del translations
 
+    def load_ignore(self):
+        ignore = None
+        ignore_filename = f'{self.export_file}.ignore'
+        if os.path.exists(ignore_filename):
+            _logger.info("Load ignore file %s", ignore_filename)
+            ignore = set()
+            with misc.file_open(ignore_filename, mode="rb") as fileobj:
+                reader = PoFileReader(fileobj)
+                for row in reader:
+                    if not row.get("value"):
+                        # type, name, imd_name, src, value, comments
+                        imd_name = row.get("imd_name")
+                        module = row.get("module") or ""
+                        if imd_name and module and not imd_name.find(
+                                ".") > 0:
+                            imd_name = f'{module}.{imd_name}'
+                        ignore.add(
+                            (row["type"], row["name"], imd_name,
+                                row["src"], row["value"], row["comments"]))
+        return ignore
+
+    def create_backup(self):
+        if not self.export_backup_file:
+            return False
+
+        _logger.info('Create backup %s', self.export_backup_file)
+        shutil.copy(self.export_file, self.export_backup_file)
+        return True
+
+    def remove_backup(self):
+        if not self.export_backup_file:
+            return False
+        os.remove(self.export_backup_file)
+        return True
+
+    def restore_backup(self):
+        if not self.export_backup_file:
+            return False
+        _logger.warning("Restore previous %s", self.export_file)
+        shutil.copy(self.export_backup_file, self.export_file)
+        return True
+
+    def merge(self, file_to_merge, force=False):
+        """ merge translations from backup to untranslated entries """
+        if not file_to_merge:
+            return False
+        _logger.info('Merge translations with %s', file_to_merge)
+        po_file = polib.pofile(self.export_file)
+
+        # merge key function
+        def fuzzy_key(entry):
+            return entry.msgid_with_context
+
+        # load translations to merge
+        po_file_to_merge = polib.pofile(file_to_merge)
+        po_fuzzy_merge_entry_set = dict(
+            (fuzzy_key(entry), entry) for entry in po_file_to_merge if entry.msgstr.strip()
+        )
+
+        # build translation set
+        po_merge_entry_set = {
+            str(m) for m in po_file_to_merge
+        }
+
+        # merge translations
+        po_entry_count = 0
+        changed = False
+        for po_entry in po_file:
+            po_entry_count += 1
+
+            if not self.pot and not po_entry.msgstr or force:
+                po_merge_entry = po_fuzzy_merge_entry_set.get(fuzzy_key(po_entry))
+                if po_merge_entry and po_merge_entry.msgstr:
+                    po_entry.msgstr = po_merge_entry.msgstr
+
+            # check if entry is in the translation set
+            if str(po_entry) not in po_merge_entry_set:
+                changed = True
+
+        # check amount of entries
+        if po_entry_count != len(po_merge_entry_set):
+            changed = True
+
+        # write po file
+        po_file.save(self.export_file)
+        return changed
+
     def run_config_env(self, env):
         # check module installed
         if not env["ir.module.module"].search(
             [("state", "=", "installed"), ("name", "=", self.params.module)]):
             _logger.error("No module %s installed!", self.params.module)
             return
+        # set export file
+        self.export_file = os.path.join(self.langdir, self.langfile)
+        self.export_backup_file = (f'{self.export_file}.backup'
+                                    if os.path.exists(self.export_file) else None)
+        # preprocessing
+        self.create_backup()
+        ignore = self.load_ignore()
 
-        exportFileName = os.path.join(self.langdir, self.langfile)
-        with open(exportFileName, "wb") as exportStream:
-            ignore = None
-            ignore_filename = "%s.ignore" % exportFileName
-            if os.path.exists(ignore_filename):
-                _logger.info("Load ignore file %s", ignore_filename)
-                ignore = set()
-                with misc.file_open(ignore_filename, mode="rb") as fileobj:
-                    reader = PoFileReader(fileobj)
-                    for row in reader:
-                        if not row.get("value"):
-                            # type, name, imd_name, src, value, comments
-                            imd_name = row.get("imd_name")
-                            module = row.get("module") or ""
-                            if imd_name and module and not imd_name.find(
-                                    ".") > 0:
-                                imd_name = "%s.%s" % (module, imd_name)
-                            ignore.add(
-                                (row["type"], row["name"], imd_name,
-                                 row["src"], row["value"], row["comments"]))
-
-            _logger.info('Writing %s', exportFileName)
-            self.trans_export(self.lang, [self.params.module], exportStream,
+        # write translations
+        with open(self.export_file, "wb") as export_stream:
+            _logger.info('Writing %s', self.export_file)
+            self.trans_export(self.lang, [self.params.module], export_stream,
                               env.cr, ignore)
 
+        # merge with other files
+        if self.params.merge:
+            for merge_file in self.params.merge:
+                self.merge(merge_file)
+        if self.params.force_merge:
+            for merge_file in self.params.merge:
+                self.merge(merge_file, force=True)
 
-class Po_Import(Po_Export, Command):
+        # merge empty translations with backup file (if exists)
+        # and delete backup file afterwards
+        if not self.params.no_merge and self.export_backup_file:
+            if not self.merge(self.export_backup_file):
+                # if no change, restore backup file
+                # to keep timestamp
+                _logger.warning('No translations changes')
+                self.restore_backup()
+        # remove backup
+        self.remove_backup()
+
+
+class Po_Import(ConfigCommand, Command):
     """ Import *.po File """
     def __init__(self):
         super(Po_Import, self).__init__()
+        self.lang = None
+        self.langfile = None
+        self.langdir = None
+        self.modpath = None
+
         self.parser.add_argument("--overwrite",
                                  action="store_true",
                                  default=True,
@@ -613,6 +740,32 @@ class Po_Import(Po_Export, Command):
                                  default=False,
                                  help="Verbose translation import")
 
+    def run_config(self):
+        # check module
+        if not self.params.module:
+            _logger.error("No module defined for export!")
+            return
+
+        # check path
+        self.modpath = odoo.modules.get_module_path(self.params.module)
+        if not self.modpath:
+            _logger.error("No module %s not found in path!",
+                          self.params.module)
+            return
+
+        # check language
+        if not self.params.lang:
+            _logger.error("No language defined for import!")
+            return
+
+        # define language vars
+        self.lang = self.params.lang
+        self.langfile = self.lang.split("_")[0] + ".po"
+        self.langdir = os.path.join(self.modpath, "i18n")
+
+        # run with env
+        self.setup_env()
+
 
     def run_config_env(self, env):
         # check module installed
@@ -620,9 +773,6 @@ class Po_Import(Po_Export, Command):
             [("state", "=", "installed"), ("name", "=", self.params.module)]):
             _logger.error("No module %s installed!", self.params.module)
             return
-
-        if  self.params.lang:
-            _logger.warning("no lang")
 
         import_file = os.path.join(self.langdir, self.langfile)
         if not os.path.exists(import_file):
@@ -635,50 +785,11 @@ class Po_Import(Po_Export, Command):
                          self.params.module, self.lang)
 
         cr = env.cr
-        odoo.tools.trans_load(cr,
-                              import_file,
-                              self.lang,
-                              verbose=self.params.verbose,
-                              overwrite=self.params.overwrite)
-        cr.commit()
+        translation_importer = TranslationImporter(cr, verbose=True)
+        translation_importer.load_file(import_file, self.lang)
+        translation_importer.save(overwrite=self.params.overwrite)
 
-
-class Po_Cleanup(Po_Export, Command):
-    """ Import *.po File """
-    def __init__(self):
-        super(Po_Cleanup, self).__init__()
-
-    def run_config_env(self, env):
-        # check module installed
-        if not self.env["ir.module.module"].search(
-            [("state", "=", "installed"), ("name", "=", self.params.module)]):
-            _logger.error("No module %s installed!", self.params.module)
-            return
-
-        import_filename = os.path.join(self.langdir, self.langfile)
-        if not os.path.exists(import_filename):
-            _logger.error("File %s does not exist!", import_filename)
-            return
-
-        cr = env.cr
-        with open(import_filename) as f:
-            tf = PoFileReader(f)
-            for trans_type, name, res_id, source, trad, comments in tf:
-                if not trad:
-                    _logger.info("DELETE %s,%s" % (source, self.lang))
-
-                    cr.execute(
-                        """DELETE FROM ir_translation WHERE src=%s
-                              AND lang=%s
-                              AND module IS NULL
-                              AND type='code'
-                              AND value IS NOT NULL""", (source, self.lang))
-
-                    cr.execute(
-                        """DELETE FROM ir_translation WHERE src=%s
-                              AND lang=%s
-                              AND module IS NULL
-                              AND value=%s""", (source, self.lang, source))
+        # and commit
         cr.commit()
 
 
