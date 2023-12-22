@@ -14,6 +14,7 @@ import threading
 import time
 import itertools
 import unittest
+from operator import itemgetter
 from datetime import datetime
 from multiprocessing import Pool
 import yaml
