@@ -14,7 +14,6 @@ import threading
 import time
 import itertools
 import unittest
-from operator import itemgetter
 from datetime import datetime
 from multiprocessing import Pool
 import yaml
@@ -1677,21 +1676,21 @@ class Serve(Command):
 
         args, unknown = parser.parse_known_args(args=cmdargs)
 
-        # configure addons paths, if it is no passed
-        if "--addons-path" not in cmdargs and args.addons_path:
-            cmdargs.append(f"--addons-path={args.addons_path}")
-
-        # configure config file, if it is no passed
-        if "--config" not in cmdargs and args.config:
-            cmdargs.append(f"--config={args.config}")
-
         # configure database name
         # (use defaults from parser if not used)
         if args.database or args.create:
             if "--db-filter" not in cmdargs:
-                cmdargs.append(f"--db-filter=^{args.database}$")
+                cmdargs = [f"--db-filter=^{args.database}$"] + cmdargs
             if "-d" not in cmdargs and "--database" not in cmdargs:
-                cmdargs.append(f"--database={args.database}")
+                cmdargs = [f"--database={args.database}"] + cmdargs
+
+        # configure addons paths, if it is no passed
+        if "--addons-path" not in cmdargs and args.addons_path:
+            cmdargs = [f"--addons-path={args.addons_path}"] + cmdargs
+
+        # configure config file, if it is no passed
+        if "--config" not in cmdargs and args.config:
+            cmdargs = [f"--config={args.config}"] + cmdargs
 
         main(cmdargs)
 
