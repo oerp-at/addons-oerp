@@ -5,5 +5,14 @@
         name="Automation"
         web_icon="automation,static/description/icon.png"
         groups="group_automation_user"
-    />    
+    />
+
+    <menuitem
+        id="menu_automation_config"
+        name="Configuration"
+        groups="group_automation_manager"
+        parent="menu_automation_root"
+        sequence="1001"
+    />
+
 </odoo>
