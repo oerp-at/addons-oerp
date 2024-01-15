@@ -14,9 +14,9 @@
                 'mail'],
     'data': [
     ],
-    'python':[
+    'python': [
         'azure-core',
         'azure-ai-formrecognizer'
-    ]
+    ],
     'installable': True
 }
