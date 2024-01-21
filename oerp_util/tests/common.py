@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from odoo.tools import config
 
@@ -24,6 +25,22 @@ class TestMixin(object):
             parent_path = download_path
 
         return os.path.join(parent_path, path)
+
+    def testDownload(self, name, data):
+        path = self.getDownloadPath(name)
+        if path:
+            if isinstance(data, dict) or isinstance(data, list):
+                if not path.endswith('.json'):
+                    path = path + '.json'
+                data = json.dumps(data, indent=2)
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(data)
+            elif isinstance(data, str):
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(data)
+            else:
+                with open(path, 'wb') as f:
+                    f.write(data)
 
     def assertPdf(self, data, name=None):
         ''' Asserts that the given data is a valid PDF.

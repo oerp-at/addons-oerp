@@ -123,8 +123,11 @@ class TaskStatus(object):
                 ref_parts = ref.split(",")
                 ref_obj = ref_parts[0]
                 ref_id = int(ref_parts[1])
-                name = self.log_obj.env[ref_obj].browse(ref_id).name_get()[0]
-                data["message"] = f"{data['message']} ({name[0]},'{name[1]}')"
+                obj = self.log_obj.env[ref_obj].browse(ref_id).exists()
+                if obj:
+                    data["message"] = f"{data['message']} ({obj.id}, '{obj.display_name}')"
+                else:
+                    data["message"] = f"{data['message']} ({ref})"
 
             # add progress
             if "progress" in data:
