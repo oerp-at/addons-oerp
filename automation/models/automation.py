@@ -94,7 +94,7 @@ class AutomationTask(models.Model):
                                      help="Tasks which already started after this task.",
                                      readonly=True)
 
-    action_id = fields.Many2one("ir.actions.server", "Server Action", ondelete="restrict", index=True, readonly=True)
+    action_id = fields.Many2one("ir.actions.server", "Server Action", ondelete="set null", index=True, readonly=True)
 
     def _compute_task_id(self):
         for obj in self:
@@ -280,7 +280,7 @@ class AutomationTask(models.Model):
             if task.state == "queued":
                 task.state = "cancel"
                 if task.cron_id:
-                    task.cron_id.active = False
+                    task.cron_id.unlink()
         return True
 
     def action_stage(self):
@@ -347,7 +347,6 @@ class AutomationTask(models.Model):
             "numbercall": 1,
             "active": True,
             "priority": 100000 + self.id,
-            "task_id": self.id,
             "ir_actions_server_id": self.action_id.id
         }
 
