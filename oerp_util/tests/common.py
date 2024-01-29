@@ -26,7 +26,7 @@ class TestMixin(object):
 
         return os.path.join(parent_path, path)
 
-    def testDownload(self, name, data):
+    def saveTestData(self, name, data):
         path = self.getDownloadPath(name)
         if path:
             if isinstance(data, dict) or isinstance(data, list):
