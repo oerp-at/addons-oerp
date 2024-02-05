@@ -233,6 +233,14 @@ def patch_dist():
               os.path.join(src_path, 'dev', '.config', 'odoo-test.conf'),
               template_ctx=template_ctx)
 
+    # copy docker
+    patch(os.path.join(workspace_path, 'docker'),
+              os.path.join(src_path, 'docker'),
+              copy_tree=True)
+
+    patch(os.path.join(workspace_path, 'Dockerfile'),
+              os.path.join(src_path, 'Dockerfile'))
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

@@ -1,0 +1,12 @@
+#!/bin/sh
+if [ "$(whoami)" != "odoo" ]; then
+    echo "This script must be run as the 'odoo' user."
+    exit 1
+fi
+export ODOO_EXIT_ERROR=${ODOO_EXIT_ERROR:-1}
+export ODOO_CONFIG_NAME=${ODOO_CONFIG_NAME:-odoo.conf}
+export ODOO_CONFIG=${ODOO_CONFIG:-/data/etc/${ODOO_CONFIG_NAME}}
+while [ ! -f $ODOO_CONFIG ]; do
+    sleep 1
+done
+/home/odoo/odoo/odoo-bin "$@"
