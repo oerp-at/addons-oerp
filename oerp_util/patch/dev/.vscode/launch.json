@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Odoo: Server",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/odoo/odoo-bin",
             "console": "integratedTerminal",
@@ -14,7 +14,7 @@
         },
         {
             "name": "Odoo: Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/odoo/odoo-bin",
             "console": "integratedTerminal",
