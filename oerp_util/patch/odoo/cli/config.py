@@ -13,11 +13,17 @@ import sys
 import threading
 import time
 import itertools
+from operator import itemgetter
+import subprocess
+import tempfile
+import requests
+from urllib.parse import urlparse
 import unittest
 from datetime import datetime
 from multiprocessing import Pool
 import yaml
 import polib
+import zipfile
 
 import psycopg2
 from tabulate import tabulate
@@ -81,9 +87,16 @@ class Profile(argparse.ArgumentParser):
                     if profile_defaults:
                         self.update(profile_defaults)
 
-        # mapping
-        self.mapping = {
+        # path mappping of parameters
+        self.path_mapping = {
             'database': ['db']
+        }
+        # environment var mapping
+        self.env_mapping = {
+            'ODOO_DATABASE': ['PGDATABASE'],
+            'ODOO_DB_USER': ['PGUSER'],
+            'ODOO_DB_PASSWORD': ['PGPASSWORD'],
+            'ODOO_DB_HOST': ['PGHOST']
         }
 
 
@@ -136,6 +149,19 @@ class Profile(argparse.ArgumentParser):
         # return package paths
         return ",".join(package_paths) or None
 
+    def get_envvar(self, envvar, default=None):
+        """ :return: value of environment variable """
+        value = os.environ.get(envvar, default)
+        if value is None:
+            mappings = self.env_mapping.get(envvar)
+            if mappings:
+                for mapping in mappings:
+                    alt_value = os.environ.get(mapping, default)
+                    if alt_value:
+                        value = alt_value
+                        break
+        return value
+
     def add_argument(self, *args, name=None, envvar=False, **kwargs):
         """ add an argument to the ser"""
         # get name from metavar or dest if not set
@@ -159,7 +185,7 @@ class Profile(argparse.ArgumentParser):
             default = None
             if envvar:
                 envvar = f'ODOO_{name.upper()}' if not isinstance(envvar, str) else envvar
-                default = os.environ.get(envvar, None)
+                default = self.get_envvar(envvar, None)
                 if not default is None and kwargs.get('action') == 'store_true':
                     default = bool(default)
                 extend_help(f'The environment variable {envvar} can be used instead.')
@@ -168,7 +194,7 @@ class Profile(argparse.ArgumentParser):
             # try to get default value from profile
             if default is None:
                 # get default value
-                path = self.mapping.get(name)
+                path = self.path_mapping.get(name)
                 if path:
                     default = self.get(path)
                 else:
@@ -1633,6 +1659,204 @@ class UpdateList(ConfigCommand, Command):
         updated, added = modul_obj.update_list()
         _logger.info('Modules Updated: %s, Added: %s', updated, added)
         env.cr.commit()
+
+
+
+###############################################################################
+# Database Management
+###############################################################################
+
+
+class ConfigException(Exception):
+    pass
+
+
+class Restore(ConfigCommand, Command):
+
+    def __init__(self):
+        super().__init__()
+        self.filestore = None
+        self.db_dump = None
+
+        self.parser.add_argument(
+            "--update",
+            action="store_true",
+            name="update",
+            default=False,
+            help="Update the database after restore")
+        self.parser.add_argument(
+            "--install",
+            nargs='+',
+            name="install",
+            help="Install a specific module after restore")
+        self.parser.add_argument(
+            "--restore-fs",
+            name="restore_fs",
+            help="The filestore source for restore"
+        )
+        self.parser.add_argument(
+            "--restore-db",
+            name="restore_db",
+            help="The database source for restore"
+        )
+        self.parser.add_argument(
+            "--restore-zip",
+            name="restore_zip",
+            help="The database+filestore within zip for restore"
+        )
+        self.parser.add_argument(
+            "--restore-zip-db",
+            name="restore_zip_db",
+            help="The database to download as ZIP"
+        )
+        self.parser.add_argument(
+            "--restore-zip-password",
+            name="restore_zip_password",
+            help="The password needed to download the ZIP"
+        )
+
+
+    def restore_filestore(self, url):
+        # normalize url
+        rsync_url = f"{url.netloc}:{url.path}/" if url.netloc else f"{url.path}/"
+        rsync_filestore = self.filestore
+        if not rsync_filestore.endswith(os.path.sep):
+            rsync_filestore += os.path.sep
+        # execute rsync
+        _logger.info("Restore filestore from %s to %s", rsync_url, rsync_filestore)
+        subprocess.run([
+            'rsync',
+            '-avz',
+            rsync_url,
+            rsync_filestore
+        ], check=True)
+        _logger.info("Restored filestore from %s to %s", rsync_url, rsync_filestore)
+
+    def download_database(self, url):
+        if url.netloc:
+            # check if database exists
+            ssh_url = f"{url.netloc}"
+            result = subprocess.check_output(f"ssh {ssh_url} -q 'ls {url.path}'", shell=True).decode()
+            if not result:
+                raise ConfigException(f"No database found at {str(url)}")
+
+            # download database
+            if result != url.path:
+                dump_file = [r for r in result.split("\n") if r][-1]
+                if not dump_file:
+                    raise ConfigException(f"No database file found at {str(url)}")
+                dump_path = f"{url.path}/{dump_file}"
+            else:
+                dump_path = url.path
+
+            dest_path = os.path.join(self.parser.config_dir, 'db.dump')
+            rsync_url = f"{ssh_url}:{dump_path}"
+            _logger.info("Download database %s to %s", rsync_url, dest_path)
+            subprocess.run([
+                'rsync',
+                '-avz',
+                rsync_url,
+                dest_path
+            ], check=True)
+            self.db_dump = dest_path
+        else:
+            if not os.path.exists(url.path):
+                raise ConfigException(f"No database file found at {str(url)}")
+            elif os.path.isdir(url.path):
+                db_files = [f for f in os.listdir(url.path) if f.endswith(".dump") or f.endswith(".sql")]
+                if not db_files:
+                    raise ConfigException(f"No database file found at {str(url)}")
+                self.db_dump = os.path.join(url.path, db_files[0])
+            else:
+                self.db_dump = url.path
+
+    def check_database(self):
+        subprocess.check_output(f'psql -A -d {self.params.database} -c "SELECT COUNT(id) FROM res_company"', shell=True)
+
+    def restore_database(self):
+        _logger.info("Drop and restore database from %s", self.db_dump)
+        subprocess.run(f"dropdb --if-exists {self.params.database}", shell=True, check=True)
+        subprocess.run(f"createdb {self.params.database}", shell=True, check=True)
+
+        try:
+            subprocess.run(f"pg_restore -d {self.params.database} < {self.db_dump}", shell=True, check=True)
+            self.check_database()
+        except subprocess.CalledProcessError:
+            subprocess.run(f"psql -d {self.params.database} -f {self.db_dump}", shell=True, check=True)
+            self.check_database()
+
+        _logger.info("Restored database from %s", self.db_dump)
+
+    def restore_and_update(self):
+        # init needed env
+        self.filestore = os.path.join(config['data_dir'], 'filestore', self.params.database)
+
+        # restore filestore
+        if self.params.restore_fs:
+            restore_url = urlparse(self.params.restore_fs)
+            if not restore_url:
+                raise ConfigException(f"Invalid filestore restore url {self.params.restore_fs}")
+            self.restore_filestore(restore_url)
+
+        # copy database
+        if self.params.restore_db:
+            restore_url = urlparse(self.params.restore_db)
+            if not restore_url:
+                raise ConfigException(f"Invalid database restore url {self.params.restore_db}")
+            self.download_database(restore_url)
+
+        # restore database
+        if self.db_dump:
+            self.restore_database()
+
+            # update database
+            if self.params.update:
+                config["update"]["all"] = 1
+                update_database(self.params.database)
+
+            self.setup_env()
+
+    def run_config(self):
+        if self.params.restore_zip:
+            _logger.info("Restore from zip %s", self.params.restore_zip)
+            restore_url = urlparse(self.params.restore_zip)
+            if not restore_url:
+                raise ConfigException(f"Invalid restore url {self.params.restore_zip}")
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                if restore_url.netloc:
+                    if not self.params.restore_zip_password:
+                        raise ConfigException("Password needed to be set via --restore-zip-password for ZIP download")
+                    if not self.params.restore_zip_db:
+                        raise ConfigException("Database needed to be set via --restore-zip-db for ZIP download")
+                    payload = {
+                        "master_pwd": self.params.restore_zip_password,
+                        "name": self.params.restore_zip_db,
+                        "backup_format": "zip"
+                    }
+                    response = requests.post(self.params.restore_zip, data=payload, timeout=1800)
+                    response.raise_for_status()
+                    self.params.restore_zip = os.path.join(temp_dir, "backup.zip")
+                    extract_dir = os.path.join(temp_dir, "backup")
+                    with open(self.params.restore_zip, 'wb') as f:
+                        f.write(response.content)
+                else:
+                    extract_dir = temp_dir
+
+                with zipfile.ZipFile(self.params.restore_zip, 'r') as zip_ref:
+                    zip_ref.extractall(extract_dir)
+
+                self.params.restore_fs = os.path.join(extract_dir, "filestore")
+                self.params.restore_db = extract_dir
+                self.restore_and_update()
+        else:
+            self.restore_and_update()
+
+    def run_config_env(self, env):
+        # install modules
+        if self.params.install:
+            for module_name in self.params.install:
+                self.install_module(env, module_name)
 
 
 
