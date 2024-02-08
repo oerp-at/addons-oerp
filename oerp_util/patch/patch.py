@@ -127,7 +127,7 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
     else:
 
         if not os.path.exists(dst_path):
-            _logger.info('Copy %s', file_name)
+            _logger.info('copy %s', file_name)
             shutil.copy(src_path, dst_path)
             return True
 
