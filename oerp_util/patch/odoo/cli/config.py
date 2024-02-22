@@ -1,6 +1,6 @@
 # © 2007 Martin Reisenhofer <martin@reisenhofer.biz>
 # License BSD-2-Clause or later (https://opensource.org/license/bsd-2-clause/).
-
+import uuid
 import io
 import argparse
 import fnmatch
@@ -1729,6 +1729,18 @@ class Restore(ConfigCommand, Command):
             name="wait_for_data",
             default=False,
             help="Wait until restore data is available, and check it every 5 seconds.")
+        self.parser.add_argument(
+            "--neutralize",
+            action="store_true",
+            name="neutralize",
+            default=False,
+            help="Neutralize production data (deleting mail servers etc...).")
+        self.parser.add_argument(
+            "--development",
+            action="store_true",
+            name="development",
+            default=False,
+            help="Prepare development database.")
 
     def restore_filestore(self, url):
         # normalize url
@@ -1752,6 +1764,48 @@ class Restore(ConfigCommand, Command):
         ], check=True)
         _logger.info("Restored filestore from %s to %s", rsync_url, rsync_filestore)
 
+    def neutralize(self):
+        _logger.info("Neutralize database %s", self.params.database)
+        with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
+            # update uuid
+            database_uuid = str(uuid.uuid4())
+            cr.execute("""UPDATE ir_config_parameter
+                       SET value = %s
+                       WHERE key = 'database.uuid' """, (database_uuid,))
+            # remove enterprise data
+            remove_keys = (
+                'database.expiration_date',
+                'database.expiration_reason',
+                'database.enterprise_code'
+            )
+            cr.execute("""DELETE FROM ir_config_parameter
+                       WHERE key IN %s """, (remove_keys,))
+            # set new creation date
+            create_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cr.execute("""UPDATE ir_config_parameter
+                       SET value = %s
+                       WHERE key = 'database.create_date' """, (create_date,))
+            # neutralize database
+            odoo.modules.neutralize.neutralize_database(cr)
+
+    def prepare_local_development(self):
+        _logger.info("Prepare database %s for local development", self.params.database)
+        with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
+            # reset password to admin
+            cr.execute("""UPDATE res_users
+                       SET password = 'admin'
+                       WHERE active AND password IS NOT NULL""")
+            # set url to localhost
+            cr.execute("""UPDATE ir_config_parameter
+                       SET value = 'http://localhost:8069'
+                       WHERE key = 'web.base.url'""")
+            # remove url freeze
+            cr.execute("DELETE FROM ir_config_parameter WHERE key = 'web.base.url.freeze'")
+            # mark database for development
+            cr.execute("""INSERT INTO ir_config_parameter (key, value)
+                    VALUES ('database.development', 'True')
+                    ON CONFLICT (key) DO UPDATE SET value = 'True';""")
+
     def download_database(self, url):
         if url.netloc:
             # check if database exists
@@ -1761,23 +1815,45 @@ class Restore(ConfigCommand, Command):
                 raise ConfigException(f"No database found at {str(url)}")
 
             # download database
-            if result != url.path:
-                dump_file = [r for r in result.split("\n") if r][-1]
-                if not dump_file:
-                    raise ConfigException(f"No database file found at {str(url)}")
+            dump_file = [r for r in result.split("\n") if r][-1]
+            if not dump_file:
+                raise ConfigException(f"No database file found at {str(url)}")
+            if dump_file != url.path:
                 dump_path = f"{url.path}/{dump_file}"
             else:
                 dump_path = url.path
 
+            # detect zip format
+            split_dump_file = os.path.splitext(dump_path)
+            zip_ext = ''
+            extract_cmd = None
+            if len(split_dump_file) == 2:
+                if split_dump_file[1] == '.bz2':
+                    zip_ext = split_dump_file[1]
+                    extract_cmd = 'bzip2 -d %s'
+
+            # bild paths
             dest_path = os.path.join(self.parser.config_dir, 'db.dump')
+            zipped_dest_path = f'{dest_path}{zip_ext}'
+
             rsync_url = f"{ssh_url}:{dump_path}"
             _logger.info("Download database %s to %s", rsync_url, dest_path)
             subprocess.run([
                 'rsync',
                 '-avz',
                 rsync_url,
-                dest_path
+                zipped_dest_path
             ], check=True)
+
+            # check if there is something to extract
+            if extract_cmd:
+                if os.path.exists(dest_path):
+                    os.remove(dest_path)
+                _logger.info("Extract database %s to %s", zipped_dest_path, dest_path)
+                subprocess.run(extract_cmd % zipped_dest_path, shell=True, check=True)
+                if not os.path.exists(dest_path):
+                    raise ConfigException(f"Extracted database not found at {dest_path}")
+
             self.db_dump = dest_path
         else:
             if not os.path.exists(url.path):
@@ -1844,7 +1920,14 @@ class Restore(ConfigCommand, Command):
 
         # restore database
         if self.db_dump:
+            # restore
             self.restore_database()
+
+            # neutralize and/or development
+            if self.params.neutralize or self.params.development:
+                self.neutralize()
+            if self.params.development:
+                self.prepare_local_development()
 
             # update database
             if self.params.update:

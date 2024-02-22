@@ -21,7 +21,7 @@ def content_from_template(content, template_ctx):
         return template_ctx.get(var_name, '')
     return pattern.sub(replace, content)
 
-def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_back=False, add_init=False, copy_tree=False):
+def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_back=False, add_init=False, copy_tree=False, update=True):
     """ A simple patch function with less library dependencies that it runs if python3 is installed."""
     if directory:
         if not os.path.exists(dst_path):
@@ -102,11 +102,11 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
             with open(dst_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             return True
-        else:
+        elif update:
             # compare with current and write only if different
             with open(dst_path, 'r', encoding='utf-8') as f:
                 current_content = f.read()
-            # update readme
+            # check if content is to update
             if content != current_content:
                 _logger.warning('update %s from template', file_name)
                 with open(dst_path, 'w', encoding='utf-8') as f:
@@ -212,7 +212,7 @@ def patch_dist():
     # copy odoo-profile.yml
     patch(os.path.join(workspace_path, 'odoo-profile.yml'),
           os.path.join(src_path, 'odoo-profile.yml'),
-          template_ctx=template_ctx)
+          template_ctx=template_ctx, update=False)
 
     # setup vscode workspace
     patch(os.path.join(workspace_path, 'odoo.code-workspace'),
