@@ -325,7 +325,7 @@ class ConfigCommand():
 
         if params.db_port:
             config_args.append("--db_port")
-            config_args.append(params.db_port)
+            config_args.append(str(params.db_port))
 
         if params.db_user:
             config_args.append("--db_user")
@@ -915,10 +915,11 @@ class Test(ConfigCommand, Command):
                  test_case=None,
                  test_tags=None,
                  test_position=None):
-        global current_test
-        from odoo.tests.tag_selector import TagsSelector  # Avoid import loop
-        current_test = module_name
 
+        from odoo.tests.tag_selector import TagsSelector  # Avoid import loop
+        from ..modules import module
+
+        # define filter and get modules
         def match_filter(test):
             if not test_prefix or not isinstance(test, unittest.TestCase):
                 if not test_case:
@@ -927,9 +928,15 @@ class Test(ConfigCommand, Command):
             return test._testMethodName.startswith(test_prefix)
 
         mods = odoo.tests.loader.get_test_modules(module_name)
+
+        # set testing flags
         threading.current_thread().testing = True
+        module.current_test = module_name
+
+        # query modules, tests and run
         config_tags = TagsSelector(test_tags) if test_tags else None
         position_tag = TagsSelector(test_position) if test_position else None
+        test_server_enabled = config.get('test_server', False)
         results = []
         for m in mods:
             tests = unwrap_suite(unittest.TestLoader().loadTestsFromModule(m))
@@ -938,7 +945,7 @@ class Test(ConfigCommand, Command):
                 if (not position_tag or position_tag.check(t))
                    and (not config_tags or config_tags.check(t))
                    and match_filter(t)
-                   and (not isinstance(t, odoo.tests.common.HttpCase) or self.params.test_server)
+                   and (not isinstance(t, odoo.tests.common.HttpCase) or test_server_enabled)
             )
 
             if suite.countTestCases():
@@ -956,8 +963,10 @@ class Test(ConfigCommand, Command):
                     "result": result
                 })
 
-        current_test = None
+        # remove testing flags
+        module.current_test = None
         threading.current_thread().testing = False
+
         return results
 
     def run_config_env(self, env):
@@ -1683,42 +1692,53 @@ class Restore(ConfigCommand, Command):
             action="store_true",
             name="update",
             default=False,
-            help="Update the database after restore")
+            help="Update the database after restore.")
         self.parser.add_argument(
             "--install",
             nargs='+',
             name="install",
-            help="Install a specific module after restore")
+            help="Install a specific module after restore.")
         self.parser.add_argument(
             "--restore-fs",
             name="restore_fs",
-            help="The filestore source for restore"
+            help="The filestore source for restore."
         )
         self.parser.add_argument(
             "--restore-db",
             name="restore_db",
-            help="The database source for restore"
+            help="The database source for restore."
         )
         self.parser.add_argument(
             "--restore-zip",
             name="restore_zip",
-            help="The database+filestore within zip for restore"
+            help="The database+filestore within zip for restore."
         )
         self.parser.add_argument(
             "--restore-zip-db",
             name="restore_zip_db",
-            help="The database to download as ZIP"
+            help="The database to download as ZIP."
         )
         self.parser.add_argument(
             "--restore-zip-password",
             name="restore_zip_password",
-            help="The password needed to download the ZIP"
+            help="The password needed to download the ZIP."
         )
-
+        self.parser.add_argument(
+            "--wait-for-data",
+            action="store_true",
+            name="wait_for_data",
+            default=False,
+            help="Wait until restore data is available, and check it every 5 seconds.")
 
     def restore_filestore(self, url):
         # normalize url
-        rsync_url = f"{url.netloc}:{url.path}/" if url.netloc else f"{url.path}/"
+        if url.netloc:
+            rsync_url = f"{url.netloc}:{url.path}/"
+        else:
+            rsync_url = f"{url.path}/"
+            if not os.path.exists(rsync_url):
+                raise ConfigException(f"No filestore found at {rsync_url}")
+
         rsync_filestore = self.filestore
         if not rsync_filestore.endswith(os.path.sep):
             rsync_filestore += os.path.sep
@@ -1779,31 +1799,48 @@ class Restore(ConfigCommand, Command):
         subprocess.run(f"createdb {self.params.database}", shell=True, check=True)
 
         try:
-            subprocess.run(f"pg_restore -d {self.params.database} < {self.db_dump}", shell=True, check=True)
+            subprocess.run(f"pg_restore -d {self.params.database} < {self.db_dump}", shell=True, check=False)
             self.check_database()
         except subprocess.CalledProcessError:
-            subprocess.run(f"psql -d {self.params.database} -f {self.db_dump}", shell=True, check=True)
+            subprocess.run(f"psql -d {self.params.database} -f {self.db_dump}", shell=True, check=False)
             self.check_database()
 
         _logger.info("Restored database from %s", self.db_dump)
 
     def restore_and_update(self):
         # init needed env
-        self.filestore = os.path.join(config['data_dir'], 'filestore', self.params.database)
+        db_name = config.get('db_name')
+        if not db_name:
+            raise ConfigException("No database name configured")
+
+        self.filestore = os.path.join(config['data_dir'], 'filestore', db_name)
 
         # restore filestore
-        if self.params.restore_fs:
-            restore_url = urlparse(self.params.restore_fs)
-            if not restore_url:
-                raise ConfigException(f"Invalid filestore restore url {self.params.restore_fs}")
-            self.restore_filestore(restore_url)
+        while True:
+            try:
+                # copy filestore
+                if self.params.restore_fs:
+                    restore_url = urlparse(self.params.restore_fs)
+                    if not restore_url:
+                        raise ConfigException(f"Invalid filestore restore url {self.params.restore_fs}")
+                    self.restore_filestore(restore_url)
 
-        # copy database
-        if self.params.restore_db:
-            restore_url = urlparse(self.params.restore_db)
-            if not restore_url:
-                raise ConfigException(f"Invalid database restore url {self.params.restore_db}")
-            self.download_database(restore_url)
+                # copy database
+                if self.params.restore_db:
+                    restore_url = urlparse(self.params.restore_db)
+                    if not restore_url:
+                        raise ConfigException(f"Invalid database restore url {self.params.restore_db}")
+                    self.download_database(restore_url)
+
+                break
+
+            except (ConfigException, subprocess.CalledProcessError) as e:
+                if self.params.wait_for_data:
+                    _logger.warning(str(e))
+                    _logger.warning("Waiting another 5 seconds for data...")
+                    time.sleep(5)
+                else:
+                    raise e
 
         # restore database
         if self.db_dump:
