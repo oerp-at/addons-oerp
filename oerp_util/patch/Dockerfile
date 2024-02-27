@@ -77,7 +77,9 @@ RUN apt-get install -y -f \
     python3-yaml \
     python3-pdfminer \
     python3-google-auth \
-    python3-pip
+    python3-tabulate \
+    python3-pip \
+    python3-phonenumbers
 
 # install whktmltopdf
 COPY docker/install /install
@@ -108,6 +110,9 @@ RUN mkdir /data/log
 RUN mkdir /data/sessions
 
 # copy odoo source
+COPY addons-design-themes /home/odoo/addons-design-themes
+COPY addons-enterprise /home/odoo/addons-enterprise
+COPY addons-oerp /home/odoo/addons-oerp
 COPY odoo /home/odoo/odoo
 
 # switch to root and cleanup
