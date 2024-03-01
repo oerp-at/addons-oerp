@@ -19,5 +19,12 @@ class TestAutomation(HttpCase):
 
         # check if done
         self.assertEqual(task.state, 'done')
-        # check if logs are createds
+        # check if logs are created
         self.assertTrue(task.total_logs, 'Check if logs are created')
+
+        # delete task
+        cron = task.cron_id
+        action = task.action_id
+        task.unlink()
+        self.assertFalse(cron.exists(), "Check if cron was deleted")
+        self.assertFalse(action.exists(), "Check if action was deleted")
