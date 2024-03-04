@@ -1,6 +1,6 @@
 # © 2007 Martin Reisenhofer <martin@reisenhofer.biz>
 # License BSD-2-Clause or later (https://opensource.org/license/bsd-2-clause/).
-import uuid
+
 import io
 import argparse
 import fnmatch
@@ -16,14 +16,14 @@ import itertools
 from operator import itemgetter
 import subprocess
 import tempfile
-import requests
-from urllib.parse import urlparse
 import unittest
 from datetime import datetime
 from multiprocessing import Pool
-import yaml
-import polib
 import zipfile
+from urllib.parse import urlparse
+import polib
+import yaml
+import requests
 
 import psycopg2
 from tabulate import tabulate
@@ -62,8 +62,8 @@ class Profile(argparse.ArgumentParser):
         super().__init__(**kwargs)
         self.name = name
         self.defaults = {}
-        self.base_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), '../../../'))
-        self.server_dir = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../.."))
+        self.base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../'))
+        self.server_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
         self.profile = os.path.basename(self.base_dir)
 
         # ensure that config dir exist
@@ -325,7 +325,7 @@ class ConfigCommand():
 
         if params.db_port:
             config_args.append("--db_port")
-            config_args.append(str(params.db_port))
+            config_args.append(params.db_port)
 
         if params.db_user:
             config_args.append("--db_user")
@@ -915,11 +915,10 @@ class Test(ConfigCommand, Command):
                  test_case=None,
                  test_tags=None,
                  test_position=None):
-
+        global current_test
         from odoo.tests.tag_selector import TagsSelector  # Avoid import loop
-        from ..modules import module
+        current_test = module_name
 
-        # define filter and get modules
         def match_filter(test):
             if not test_prefix or not isinstance(test, unittest.TestCase):
                 if not test_case:
@@ -928,15 +927,9 @@ class Test(ConfigCommand, Command):
             return test._testMethodName.startswith(test_prefix)
 
         mods = odoo.tests.loader.get_test_modules(module_name)
-
-        # set testing flags
         threading.current_thread().testing = True
-        module.current_test = module_name
-
-        # query modules, tests and run
         config_tags = TagsSelector(test_tags) if test_tags else None
         position_tag = TagsSelector(test_position) if test_position else None
-        test_server_enabled = config.get('test_server', False)
         results = []
         for m in mods:
             tests = unwrap_suite(unittest.TestLoader().loadTestsFromModule(m))
@@ -945,7 +938,7 @@ class Test(ConfigCommand, Command):
                 if (not position_tag or position_tag.check(t))
                    and (not config_tags or config_tags.check(t))
                    and match_filter(t)
-                   and (not isinstance(t, odoo.tests.common.HttpCase) or test_server_enabled)
+                   and (not isinstance(t, odoo.tests.common.HttpCase) or self.params.test_server)
             )
 
             if suite.countTestCases():
@@ -963,10 +956,8 @@ class Test(ConfigCommand, Command):
                     "result": result
                 })
 
-        # remove testing flags
-        module.current_test = None
+        current_test = None
         threading.current_thread().testing = False
-
         return results
 
     def run_config_env(self, env):
@@ -991,7 +982,7 @@ class Test(ConfigCommand, Command):
 
         if self.params.test_addons:
             dir_server = os.path.abspath(
-                os.path.join(os.path.dirname(os.path.realpath(__file__)), "../.."))
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
             dir_workspace = os.path.abspath(os.path.join(dir_server, ".."))
 
             allowed_modules = set()
@@ -1414,7 +1405,7 @@ class Assemble(Command):
             return
 
         dir_server = os.path.abspath(
-            os.path.join(os.path.dirname(os.path.realpath(__file__)), "../.."))
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
         dir_workspace = os.path.abspath(os.path.join(dir_server, ".."))
 
         lib_path = os.path.join(dir_workspace, "assembly")
@@ -1692,65 +1683,42 @@ class Restore(ConfigCommand, Command):
             action="store_true",
             name="update",
             default=False,
-            help="Update the database after restore.")
+            help="Update the database after restore")
         self.parser.add_argument(
             "--install",
             nargs='+',
             name="install",
-            help="Install a specific module after restore.")
+            help="Install a specific module after restore")
         self.parser.add_argument(
             "--restore-fs",
             name="restore_fs",
-            help="The filestore source for restore."
+            help="The filestore source for restore"
         )
         self.parser.add_argument(
             "--restore-db",
             name="restore_db",
-            help="The database source for restore."
+            help="The database source for restore"
         )
         self.parser.add_argument(
             "--restore-zip",
             name="restore_zip",
-            help="The database+filestore within zip for restore."
+            help="The database+filestore within zip for restore"
         )
         self.parser.add_argument(
             "--restore-zip-db",
             name="restore_zip_db",
-            help="The database to download as ZIP."
+            help="The database to download as ZIP"
         )
         self.parser.add_argument(
             "--restore-zip-password",
             name="restore_zip_password",
-            help="The password needed to download the ZIP."
+            help="The password needed to download the ZIP"
         )
-        self.parser.add_argument(
-            "--wait-for-data",
-            action="store_true",
-            name="wait_for_data",
-            default=False,
-            help="Wait until restore data is available, and check it every 5 seconds.")
-        self.parser.add_argument(
-            "--neutralize",
-            action="store_true",
-            name="neutralize",
-            default=False,
-            help="Neutralize production data (deleting mail servers etc...).")
-        self.parser.add_argument(
-            "--development",
-            action="store_true",
-            name="development",
-            default=False,
-            help="Prepare development database.")
+
 
     def restore_filestore(self, url):
         # normalize url
-        if url.netloc:
-            rsync_url = f"{url.netloc}:{url.path}/"
-        else:
-            rsync_url = f"{url.path}/"
-            if not os.path.exists(rsync_url):
-                raise ConfigException(f"No filestore found at {rsync_url}")
-
+        rsync_url = f"{url.netloc}:{url.path}/" if url.netloc else f"{url.path}/"
         rsync_filestore = self.filestore
         if not rsync_filestore.endswith(os.path.sep):
             rsync_filestore += os.path.sep
@@ -1764,48 +1732,6 @@ class Restore(ConfigCommand, Command):
         ], check=True)
         _logger.info("Restored filestore from %s to %s", rsync_url, rsync_filestore)
 
-    def neutralize(self):
-        _logger.info("Neutralize database %s", self.params.database)
-        with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
-            # update uuid
-            database_uuid = str(uuid.uuid4())
-            cr.execute("""UPDATE ir_config_parameter
-                       SET value = %s
-                       WHERE key = 'database.uuid' """, (database_uuid,))
-            # remove enterprise data
-            remove_keys = (
-                'database.expiration_date',
-                'database.expiration_reason',
-                'database.enterprise_code'
-            )
-            cr.execute("""DELETE FROM ir_config_parameter
-                       WHERE key IN %s """, (remove_keys,))
-            # set new creation date
-            create_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            cr.execute("""UPDATE ir_config_parameter
-                       SET value = %s
-                       WHERE key = 'database.create_date' """, (create_date,))
-            # neutralize database
-            odoo.modules.neutralize.neutralize_database(cr)
-
-    def prepare_local_development(self):
-        _logger.info("Prepare database %s for local development", self.params.database)
-        with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
-            # reset password to admin
-            cr.execute("""UPDATE res_users
-                       SET password = 'admin'
-                       WHERE active AND password IS NOT NULL""")
-            # set url to localhost
-            cr.execute("""UPDATE ir_config_parameter
-                       SET value = 'http://localhost:8069'
-                       WHERE key = 'web.base.url'""")
-            # remove url freeze
-            cr.execute("DELETE FROM ir_config_parameter WHERE key = 'web.base.url.freeze'")
-            # mark database for development
-            cr.execute("""INSERT INTO ir_config_parameter (key, value)
-                    VALUES ('database.development', 'True')
-                    ON CONFLICT (key) DO UPDATE SET value = 'True';""")
-
     def download_database(self, url):
         if url.netloc:
             # check if database exists
@@ -1815,45 +1741,23 @@ class Restore(ConfigCommand, Command):
                 raise ConfigException(f"No database found at {str(url)}")
 
             # download database
-            dump_file = [r for r in result.split("\n") if r][-1]
-            if not dump_file:
-                raise ConfigException(f"No database file found at {str(url)}")
-            if dump_file != url.path:
+            if result != url.path:
+                dump_file = [r for r in result.split("\n") if r][-1]
+                if not dump_file:
+                    raise ConfigException(f"No database file found at {str(url)}")
                 dump_path = f"{url.path}/{dump_file}"
             else:
                 dump_path = url.path
 
-            # detect zip format
-            split_dump_file = os.path.splitext(dump_path)
-            zip_ext = ''
-            extract_cmd = None
-            if len(split_dump_file) == 2:
-                if split_dump_file[1] == '.bz2':
-                    zip_ext = split_dump_file[1]
-                    extract_cmd = 'bzip2 -d %s'
-
-            # bild paths
             dest_path = os.path.join(self.parser.config_dir, 'db.dump')
-            zipped_dest_path = f'{dest_path}{zip_ext}'
-
             rsync_url = f"{ssh_url}:{dump_path}"
             _logger.info("Download database %s to %s", rsync_url, dest_path)
             subprocess.run([
                 'rsync',
                 '-avz',
                 rsync_url,
-                zipped_dest_path
+                dest_path
             ], check=True)
-
-            # check if there is something to extract
-            if extract_cmd:
-                if os.path.exists(dest_path):
-                    os.remove(dest_path)
-                _logger.info("Extract database %s to %s", zipped_dest_path, dest_path)
-                subprocess.run(extract_cmd % zipped_dest_path, shell=True, check=True)
-                if not os.path.exists(dest_path):
-                    raise ConfigException(f"Extracted database not found at {dest_path}")
-
             self.db_dump = dest_path
         else:
             if not os.path.exists(url.path):
@@ -1875,59 +1779,35 @@ class Restore(ConfigCommand, Command):
         subprocess.run(f"createdb {self.params.database}", shell=True, check=True)
 
         try:
-            subprocess.run(f"pg_restore -d {self.params.database} < {self.db_dump}", shell=True, check=False)
+            subprocess.run(f"pg_restore -d {self.params.database} < {self.db_dump}", shell=True, check=True)
             self.check_database()
         except subprocess.CalledProcessError:
-            subprocess.run(f"psql -d {self.params.database} -f {self.db_dump}", shell=True, check=False)
+            subprocess.run(f"psql -d {self.params.database} -f {self.db_dump}", shell=True, check=True)
             self.check_database()
 
         _logger.info("Restored database from %s", self.db_dump)
 
     def restore_and_update(self):
         # init needed env
-        db_name = config.get('db_name')
-        if not db_name:
-            raise ConfigException("No database name configured")
-
-        self.filestore = os.path.join(config['data_dir'], 'filestore', db_name)
+        self.filestore = os.path.join(config['data_dir'], 'filestore', self.params.database)
 
         # restore filestore
-        while True:
-            try:
-                # copy filestore
-                if self.params.restore_fs:
-                    restore_url = urlparse(self.params.restore_fs)
-                    if not restore_url:
-                        raise ConfigException(f"Invalid filestore restore url {self.params.restore_fs}")
-                    self.restore_filestore(restore_url)
+        if self.params.restore_fs:
+            restore_url = urlparse(self.params.restore_fs)
+            if not restore_url:
+                raise ConfigException(f"Invalid filestore restore url {self.params.restore_fs}")
+            self.restore_filestore(restore_url)
 
-                # copy database
-                if self.params.restore_db:
-                    restore_url = urlparse(self.params.restore_db)
-                    if not restore_url:
-                        raise ConfigException(f"Invalid database restore url {self.params.restore_db}")
-                    self.download_database(restore_url)
-
-                break
-
-            except (ConfigException, subprocess.CalledProcessError) as e:
-                if self.params.wait_for_data:
-                    _logger.warning(str(e))
-                    _logger.warning("Waiting another 5 seconds for data...")
-                    time.sleep(5)
-                else:
-                    raise e
+        # copy database
+        if self.params.restore_db:
+            restore_url = urlparse(self.params.restore_db)
+            if not restore_url:
+                raise ConfigException(f"Invalid database restore url {self.params.restore_db}")
+            self.download_database(restore_url)
 
         # restore database
         if self.db_dump:
-            # restore
             self.restore_database()
-
-            # neutralize and/or development
-            if self.params.neutralize or self.params.development:
-                self.neutralize()
-            if self.params.development:
-                self.prepare_local_development()
 
             # update database
             if self.params.update:
