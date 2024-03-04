@@ -55,6 +55,16 @@ ADDONS_PATTERN = "addons*"
 ADDONS_CUSTOM = "custom-addons"
 
 
+def get_file_path():
+    return os.path.realpath(os.path.dirname(__file__))
+
+def get_base_dir():
+    return os.path.abspath(os.path.join(get_file_path(), '../../../'))
+
+def get_server_dir():
+    return os.path.abspath(os.path.join(get_file_path(), "../.."))
+
+
 class Profile(argparse.ArgumentParser):
     """ Profile based argument Parser """
 
@@ -62,8 +72,8 @@ class Profile(argparse.ArgumentParser):
         super().__init__(**kwargs)
         self.name = name
         self.defaults = {}
-        self.base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../'))
-        self.server_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
+        self.base_dir = get_base_dir()
+        self.server_dir = get_server_dir()
         self.profile = os.path.basename(self.base_dir)
 
         # ensure that config dir exist
@@ -981,8 +991,7 @@ class Test(ConfigCommand, Command):
             modules = [name for (name, ) in cr.fetchall()]
 
         if self.params.test_addons:
-            dir_server = os.path.abspath(
-                os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
+            dir_server = get_server_dir()
             dir_workspace = os.path.abspath(os.path.join(dir_server, ".."))
 
             allowed_modules = set()
@@ -1404,8 +1413,7 @@ class Assemble(Command):
             _logger.error("Can only executed from virtual environment")
             return
 
-        dir_server = os.path.abspath(
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
+        dir_server = get_server_dir()
         dir_workspace = os.path.abspath(os.path.join(dir_server, ".."))
 
         lib_path = os.path.join(dir_workspace, "assembly")
