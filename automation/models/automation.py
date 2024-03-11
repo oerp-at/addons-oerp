@@ -86,15 +86,18 @@ class AutomationTask(models.Model):
                                     "start_after_task_id",
                                     "Post Tasks",
                                     help="Tasks which are started after this task.",
-                                    readonly=True)
+                                    readonly=True,
+                                    copy=False)
 
     child_task_ids = fields.One2many("automation.task",
                                      "parent_id",
                                      "Child Tasks",
                                      help="Tasks which already started after this task.",
-                                     readonly=True)
+                                     readonly=True,
+                                     copy=False)
 
-    action_id = fields.Many2one("ir.actions.server", "Server Action", ondelete="set null", index=True, readonly=True)
+    action_id = fields.Many2one("ir.actions.server", "Server Action", ondelete="set null",
+                                index=True, readonly=True, copy=False)
 
     def _compute_task_id(self):
         for obj in self:
@@ -519,6 +522,16 @@ class AutomationTask(models.Model):
                 self._commit_state()
 
         return True
+
+    def unlink(self):
+        """ unlink dependend objects crons and actions """
+        crons = self.cron_id
+        actions = self.action_id
+        if crons:
+            crons.unlink()
+        if actions:
+            actions.unlink()
+        return super().unlink()
 
 
 class AutomationTaskMixin(models.AbstractModel):
