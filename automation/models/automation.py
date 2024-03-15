@@ -633,7 +633,8 @@ class AutomationTaskStage(models.Model):
                 if not exclude_root or stage.parent_id:
                     name.append(stage.name)
                 stage = stage.parent_id
-            obj.complete_name = " / ".join(reversed(name))
+            complete_name = " / ".join(reversed(name)) or '/'
+            obj.complete_name = complete_name
 
     def _calc_progress(self):
         self.ensure_one()
@@ -697,8 +698,8 @@ class AutomationTaskLog(models.Model):
     message = fields.Text(readonly=True)
     ref = fields.Reference(_list_all_models, readonly=True, index=True)
     safe_ref = fields.Reference(_list_all_models, string="Reference", compute="_compute_safe_ref", store=False, readonly=True)
-    code = fields.Char(index=True)
-    data = fields.Json()
+    code = fields.Char(index=True, readonly=True)
+    data = fields.Json(readonly=True)
 
     def _compute_safe_ref(self):
         ids = self.ids
