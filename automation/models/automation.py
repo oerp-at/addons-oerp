@@ -652,7 +652,7 @@ class AutomationTaskStage(models.Model):
 
     def _compute_progress(self):
         for obj in self:
-            self.complete_progress = obj._calc_progress()
+            obj.complete_progress = obj._calc_progress()
 
 
 class AutomationTaskLog(models.Model):
