@@ -44,15 +44,17 @@ from odoo.tools.translate import (PoFileReader, PoFileWriter,
                                   TranslationModuleReader, TranslationImporter)
 
 from . import Command
-from .server import main
 
 
 _logger = logging.getLogger('config')
 
 ODOO_RELEASE = odoo.release
 ADDON_API = ODOO_RELEASE.version
-ADDONS_PATTERN = "addons*"
-ADDONS_CUSTOM = "custom-addons"
+ADDONS_PATTERN = 'addons*'
+ADDONS_CUSTOM = 'custom-addons'
+
+RESTORED_FILE_NAME = 'restored'
+DEFAULT_SLEEP = 5
 
 
 def get_file_path():
@@ -63,6 +65,30 @@ def get_base_dir():
 
 def get_server_dir():
     return os.path.abspath(os.path.join(get_file_path(), "../.."))
+
+def update_database(database):
+    """ Odoo Database Update """
+    registry = Registry.new(database, update_module=True)
+
+    # refresh
+    try:
+        if config["reinit"] == "full":
+            with registry.cursor() as cr:
+                cr.execute("SELECT matviewname FROM pg_matviews")
+
+                for (matview, ) in cr.fetchall():
+                    _logger.info("REFRESH MATERIALIZED VIEW %s ...", matview)
+                    cr.execute("REFRESH MATERIALIZED VIEW %s" % matview)
+                    cr.commit()
+
+                _logger.info("Finished refreshing views")
+    except KeyError:
+        pass
+
+
+
+class ConfigException(Exception):
+    pass
 
 
 class Profile(argparse.ArgumentParser):
@@ -225,6 +251,156 @@ class Profile(argparse.ArgumentParser):
         return super().add_argument(*args, **kwargs)
 
 
+class DatabaseMixin(object):
+
+    def setup_db_env(self, admin_user=None, admin_password=None):
+        self.db_env = os.environ.copy()
+        self.db_name = config['db_name']
+
+        # update database params
+        changed_db_env = {}
+        for config_key, env_name in (
+            ('db_user', 'PGUSER'),
+            ('db_password', 'PGPASSWORD'),
+            ('db_port', 'PGPORT'),
+            ('db_host', 'PGHOST'),
+            ('db_name', 'PGDATABASE')
+            ):
+            value = config.get(config_key)
+            if value:
+                changed_db_env[env_name] = str(value)
+
+        if changed_db_env:
+            self.db_env.update(changed_db_env)
+
+        # create admin env
+        self.db_admin_env = None
+        self.db_admin_user = admin_user
+        self.db_admin_password = admin_password
+        if self.db_admin_user:
+            self.db_admin_env = self.db_env.copy()
+            self.db_admin_env['PGUSER'] = self.db_admin_user
+            if not self.db_admin_password is None:
+                self.db_admin_env['PGPASSWORD'] = self.db_admin_password
+
+    def get_db_env(self, admin=False):
+        if admin and self.db_admin_env:
+            return self.db_admin_env
+        return self.db_env
+
+    def set_db_name(self, db_name):
+        self.db_name = db_name
+        config['db_name'] = self.db_name
+        self.db_env['PGDATABASE'] = self.db_name
+        if self.db_admin_env:
+            self.db_admin_env['PGDATABASE'] = self.db_name
+
+    def dropdb(self, database, admin=False):
+        _logger.warning('Dropping database %s', database)
+        return subprocess.run(f"dropdb --if-exists {database}", shell=True, check=True, env=self.get_db_env(admin=admin))
+
+    def check_database(self):
+        return subprocess.check_output('psql -A -c "SELECT COUNT(id) FROM res_company"', shell=True, env=self.get_db_env())
+
+    def connect_database_admin(self, database=None):
+        if self.db_admin_user is None:
+            return self.connect_database(database=database)
+        return self.connect_database(user=self.db_admin_user, password=self.db_admin_password, database=database)
+
+    def backup_database(self, backup_file, compatible=True):
+        _logger.info("Backup database %s to %s (compatible=%s)", self.db_name, backup_file, compatible)
+        if compatible:
+            cmd = f'pg_dump -f {backup_file} {self.db_name}'
+        else:
+            cmd = f'pg_dump -F c -f {backup_file} {self.db_name}'
+        return subprocess.run(cmd, shell=True, check=True, env=self.get_db_env(admin=True))
+
+    def createdb(self, database, admin=False):
+        return subprocess.run(f"createdb {database}", shell=True, check=True, env=self.get_db_env(admin=admin))
+
+    def restore_database(self, backup_file, admin=False):
+        self.dropdb(self.db_name, admin=admin)
+        _logger.info("Restore database %s from %s", self.db_name, backup_file)
+        self.createdb(self.db_name, admin=admin)
+        db_env=self.get_db_env(admin=admin)
+        try:
+            subprocess.run(f"pg_restore -d {self.db_name} < {backup_file}", shell=True, check=False, env=db_env)
+            self.check_database()
+        except subprocess.CalledProcessError:
+            subprocess.run(f"psql -d {self.db_name} -f {backup_file}", shell=True, check=False, env=db_env)
+            self.check_database()
+        _logger.info("Restored database from %s", backup_file)
+
+    def connect_database(self, user=None, password=None, database=None):
+        # prepare connection string
+        params = []
+        def add_param(param_name, config_name):
+            value = config.get(config_name)
+            if value:
+                params.append(f"{param_name}='{value}'")
+
+        add_param("host", "db_host")
+        add_param("port", "db_port")
+
+        if database is None:
+            add_param("dbname", "db_name")
+        elif database:
+            params.append(f"dbname='{database}'")
+
+        # allow user overwrite
+        if user is None:
+            add_param("user", "db_user")
+        elif user:
+            params.append(f"user='{user}'")
+
+        # allow password override
+        if password is None:
+            add_param("password", "db_password")
+        elif password:
+            params.append(f"password='{password}'")
+
+        # connect
+        params = " ".join(params)
+        return psycopg2.connect(params)
+
+    def is_database_ready(self):
+        try:
+            con = self.connect_database()
+            # get odoo base version
+            base_version = odoo.modules.load_information_from_description_file('base')['version']
+            # fetch data from database
+            try:
+                cr = con.cursor()
+                def fetch_value():
+                    row = cr.fetchone()
+                    return row[0] if row else None
+                try:
+                    cr.execute("SELECT latest_version FROM ir_module_module WHERE name=%s", ['base'])
+                    version = fetch_value()
+                    cr.execute("SELECT COUNT(*) FROM ir_module_module WHERE state LIKE %s", ['to %'])
+                    changes = fetch_value()
+                finally:
+                    cr.close()
+            finally:
+                con.close()
+        except psycopg2.DatabaseError as e:
+            _logger.warning(str(e))
+            return False
+
+        # check results
+        if version is None:
+            _logger.warning('Database %s has no version', self.db_name)
+            return False
+        if version != base_version:
+            _logger.warning('Database %s has different version %s != %s', self.db_name, version, base_version)
+            return False
+        if changes:
+            _logger.warning('Database %s is currently being updated', self.db_name)
+            return False
+        # everything fine
+        return True
+
+
 class ConfigCommand():
 
     """ Basic config command """
@@ -369,12 +545,16 @@ class ConfigCommand():
     def run_config_env(self, env):
         _logger.info("Nothing to do!")
 
-    def setup_env(self, fct=None):
+    def setup_env(self, fct=None, database=None):
+        # get database
+        if not database:
+            database = config['db_name']
+
         # setup pool
         error = False
-        if self.params.database:
+        if database:
             error = True
-            registry = odoo.registry(self.params.database)
+            registry = odoo.registry(database)
             with registry.cursor() as cr:
                 uid = odoo.SUPERUSER_ID
                 ctx = odoo.api.Environment(cr, uid,
@@ -398,25 +578,51 @@ class ConfigCommand():
         if error and self.params.exit_error:
             sys.exit(-1)
 
+    def sync_files(self, src, dest, dirs=False, info="Sync", filestore=False, delete=False, local=False):
+        if dirs:
+            if not src.endswith(os.path.sep) and not src.endswith('/'):
+                src += os.path.sep
+            if not dest.endswith(os.path.sep) and not dest.endswith('/'):
+                dest += os.path.sep
 
-def update_database(database):
-    """ Odoo Database Update """
-    registry = Registry.new(database, update_module=True)
+        # build command
+        if local:
+            if dirs:
+                # create destination directory if not exists
+                if not os.path.exists(dest):
+                    _logger.warning('Create directory %s', dest)
+                    os.makedirs(dest, exist_ok=True)
+                # tree copy or update /*
+                cmd = f"cp -ru {src}* {dest}"
+            else:
+                # simple file copy
+                cmd = f"cp {src} {dest}"
+        else:
+            # rsync
+            cmd = ["rsync",
+                   "-avz"]
 
-    # refresh
-    try:
-        if config["reinit"] == "full":
-            with registry.cursor() as cr:
-                cr.execute("SELECT matviewname FROM pg_matviews")
+            if delete:
+                cmd.append('--delete')
+            if filestore:
+                cmd.append(f'--exclude /{RESTORED_FILE_NAME}')
 
-                for (matview, ) in cr.fetchall():
-                    _logger.info("REFRESH MATERIALIZED VIEW %s ...", matview)
-                    cr.execute("REFRESH MATERIALIZED VIEW %s" % matview)
-                    cr.commit()
+            cmd.append(src)
+            cmd.append(dest)
+            cmd = " ".join(cmd)
 
-                _logger.info("Finished refreshing views")
-    except KeyError:
-        pass
+        # copy
+        _logger.info('%s from %s to %s ...', info, src, dest)
+        res = subprocess.run(cmd, check=True, shell=True)
+
+        # sync deletes if local copy is used
+        # errors are not handled
+        if local and dirs:
+            subprocess.run(f"rsync -vr --delete --ignore-existing {src} {dest}", check=False, shell=True)
+
+        _logger.info('%s from %s to %s done!', info, src, dest)
+        return res
+
 
 class Update(ConfigCommand, Command):
     """ Update Module/All """
@@ -1684,15 +1890,107 @@ class UpdateList(ConfigCommand, Command):
 ###############################################################################
 
 
-class ConfigException(Exception):
-    pass
+class Backup(ConfigCommand, DatabaseMixin):
+
+    def __init__(self):
+        super().__init__()
+
+        self.parser.add_argument(
+            "--pg_admin_user",
+            name="pg_admin_user",
+            envvar="PGADMINUSER",
+            help="The database admin user"
+        )
+        self.parser.add_argument(
+            "--pg_admin_password",
+            name="pg_admin_password",
+            help="The database admin password",
+            envvar="PGADMINPASSWORD",
+        )
+        self.parser.add_argument(
+            "--backup-dir",
+            name="backup_dir",
+            required=True,
+            help="The backup directory."
+        )
+        self.parser.add_argument(
+            "--only-database",
+            action="store_true",
+            name="only_database",
+            default=False,
+            help="Only Database.")
+
+        self.parser.add_argument(
+            "--compatible",
+            action="store_true",
+            name="compatible",
+            default=True,
+            help="Create a database backup which is compatible with different postgres versions.")
+
+        self.parser.add_argument(
+            "--backlog",
+            type=int,
+            name="backlog",
+            default=6,
+            help="The amount of database backups to keep.")
+
+    def create_backlog(self, file_path):
+        if self.params.backlog > 0 and os.path.exists(file_path):
+            # ensure backlog dir
+            backlog_dir = os.path.join(os.path.dirname(file_path), ".backlog")
+            if not os.path.exists(backlog_dir):
+                _logger.warning('Create backlog directory %s', backlog_dir)
+                os.mkdir(backlog_dir)
+
+            # ensure max size of backlog
+            base_name = os.path.basename(file_path)
+            if os.path.exists(backlog_dir):
+                for index, backlog_name in enumerate(sorted(os.listdir(backlog_dir), reverse=True)):
+                    # delete backlogfile if index is bigger than backlog size
+                    backlog_file_path = os.path.join(backlog_dir, backlog_name)
+                    if index >= self.params.backlog and os.path.isfile(backlog_file_path):
+                        _logger.warning('Delete old backup %s', backlog_file_path)
+                        os.unlink(backlog_file_path)
+
+            # build new backlog file
+            t = datetime.fromtimestamp(os.path.getctime(file_path))
+            new_backup_file = os.path.join(backlog_dir, f'{t.strftime("%Y-%m-%d_%H%M%S")}_{base_name}')
+            _logger.info('Backlog current backup %s to %s', file_path, new_backup_file)
+            shutil.move(file_path, new_backup_file)
+
+        return file_path
+
+    def run_config(self):
+        self.setup_db_env(admin_user=self.pg_admin_user, admin_password=self.params.pg_admin_password)
+        self.filestore = os.path.abspath(os.path.join(config['data_dir'], 'filestore', self.db_name))
+
+        # create backup directory
+        self.backup_dir = os.path.abspath(os.path.join(self.params.backup_dir))
+        if not os.path.exists(self.backup_dir):
+            _logger.info('Create backup directory %s', self.backup_dir)
+            os.makedirs(self.backup_dir, exist_ok=True)
+
+        # backup file store
+        if not self.params.only_database:
+            filestore_backup_path = os.path.abspath(os.path.join(self.params.backup_dir, "filestore"))
+            self.sync_files(self.filestore, filestore_backup_path, dirs=True, filestore=True, local=True)
+            # third check if restored flag is accedently copied
+            restored_file_path = os.path.join(filestore_backup_path, 'restored')
+            if os.path.exists(restored_file_path):
+                _logger.info("Remove %s", restored_file_path)
+                os.unlink(restored_file_path)
+
+        # backup database
+        backup_file_path = self.create_backlog(os.path.join(self.backup_dir, 'db.dump'))
+        self.backup_database(backup_file_path, compatible=self.params.compatible)
 
 
-class Restore(ConfigCommand, Command):
+class Restore(ConfigCommand, Command, DatabaseMixin):
 
     def __init__(self):
         super().__init__()
         self.filestore = None
+        self.restored_file = None
         self.db_dump = None
 
         self.parser.add_argument(
@@ -1749,28 +2047,31 @@ class Restore(ConfigCommand, Command):
             name="development",
             default=False,
             help="Prepare development database.")
+        self.parser.add_argument(
+            "--pg_admin_user",
+            name="pg_admin_user",
+            envvar="PGADMINUSER",
+            help="The database admin user."
+        )
+        self.parser.add_argument(
+            "--pg_admin_password",
+            name="pg_admin_password",
+            help="The database admin password.",
+            envvar="PGADMINPASSWORD",
+        )
 
     def restore_filestore(self, url):
-        # normalize url
+        # prepare urls
+        local = False
         if url.netloc:
             rsync_url = f"{url.netloc}:{url.path}/"
         else:
+            local = True
             rsync_url = f"{url.path}/"
             if not os.path.exists(rsync_url):
                 raise ConfigException(f"No filestore found at {rsync_url}")
-
-        rsync_filestore = self.filestore
-        if not rsync_filestore.endswith(os.path.sep):
-            rsync_filestore += os.path.sep
-        # execute rsync
-        _logger.info("Restore filestore from %s to %s", rsync_url, rsync_filestore)
-        subprocess.run([
-            'rsync',
-            '-avz',
-            rsync_url,
-            rsync_filestore
-        ], check=True)
-        _logger.info("Restored filestore from %s to %s", rsync_url, rsync_filestore)
+        # sync filestore
+        self.sync_files(rsync_url, self.filestore, local=local, dirs=True, filestore=True, info="Restore")
 
     def neutralize(self):
         _logger.info("Neutralize database %s", self.params.database)
@@ -1840,18 +2141,13 @@ class Restore(ConfigCommand, Command):
                     zip_ext = split_dump_file[1]
                     extract_cmd = 'bzip2 -d %s'
 
-            # bild paths
+            # build paths
             dest_path = os.path.join(self.parser.config_dir, 'db.dump')
             zipped_dest_path = f'{dest_path}{zip_ext}'
-
             rsync_url = f"{ssh_url}:{dump_path}"
-            _logger.info("Download database %s to %s", rsync_url, dest_path)
-            subprocess.run([
-                'rsync',
-                '-avz',
-                rsync_url,
-                zipped_dest_path
-            ], check=True)
+
+            # sync file
+            self.sync_files(rsync_url, zipped_dest_path, info='Download Database')
 
             # check if there is something to extract
             if extract_cmd:
@@ -1874,22 +2170,37 @@ class Restore(ConfigCommand, Command):
             else:
                 self.db_dump = url.path
 
-    def check_database(self):
-        subprocess.check_output(f'psql -A -d {self.params.database} -c "SELECT COUNT(id) FROM res_company"', shell=True)
+    def setup_db_env(self, admin_user=None, admin_password=None):
+        super().setup_db_env(admin_user=admin_user, admin_password=admin_password)
 
-    def restore_database(self):
-        _logger.info("Drop and restore database from %s", self.db_dump)
-        subprocess.run(f"dropdb --if-exists {self.params.database}", shell=True, check=True)
-        subprocess.run(f"createdb {self.params.database}", shell=True, check=True)
+        # if not admin user is set, skip
+        if not admin_user:
+            return
 
+        # get database user
+        odoo_db_user = config.get('db_user')
+        odoo_db_password = config.get('db_password')
+        if not odoo_db_user:
+            raise ConfigException('(CreateUser) Odoo database user is not defined')
+        if not odoo_db_password:
+            raise ConfigException('(CreateUser) Odoo database user password is not defined')
+
+        # prepare new user
+        con = self.connect_database_admin(database='postgres')
         try:
-            subprocess.run(f"pg_restore -d {self.params.database} < {self.db_dump}", shell=True, check=False)
-            self.check_database()
-        except subprocess.CalledProcessError:
-            subprocess.run(f"psql -d {self.params.database} -f {self.db_dump}", shell=True, check=False)
-            self.check_database()
-
-        _logger.info("Restored database from %s", self.db_dump)
+            cr = con.cursor()
+            try:
+                cr.execute('SELECT rolname FROM pg_catalog.pg_roles WHERE rolname = %s', (odoo_db_user,))
+                res = cr.fetchall()
+                if not res:
+                    cr.execute(f'CREATE USER {odoo_db_user} WITH CREATEDB PASSWORD %s', (odoo_db_password, ))
+                else:
+                    cr.execute(f'ALTER USER {odoo_db_user} WITH CREATEDB PASSWORD %s', (odoo_db_password,))
+                cr.execute('COMMIT')
+            finally:
+                cr.close()
+        finally:
+            con.close()
 
     def restore_and_update(self):
         # init needed env
@@ -1897,7 +2208,20 @@ class Restore(ConfigCommand, Command):
         if not db_name:
             raise ConfigException("No database name configured")
 
+        # setup database environment
+        self.setup_db_env(admin_user=self.params.pg_admin_user,
+                          admin_password=self.params.pg_admin_password)
+
+        # ensure filestore
         self.filestore = os.path.join(config['data_dir'], 'filestore', db_name)
+        if not os.path.exists(self.filestore):
+            _logger.warning('Create filestore %s', self.filestore)
+            os.makedirs(self.filestore, exist_ok=True)
+
+        # remove restored marker if exists
+        self.restored_file = os.path.join(self.filestore, RESTORED_FILE_NAME)
+        if os.path.exists(self.restored_file):
+            os.unlink(self.restored_file)
 
         # restore filestore
         while True:
@@ -1921,8 +2245,8 @@ class Restore(ConfigCommand, Command):
             except (ConfigException, subprocess.CalledProcessError) as e:
                 if self.params.wait_for_data:
                     _logger.warning(str(e))
-                    _logger.warning("Waiting another 5 seconds for data...")
-                    time.sleep(5)
+                    _logger.warning("Waiting another %s seconds for data...", DEFAULT_SLEEP)
+                    time.sleep(DEFAULT_SLEEP)
                 else:
                     raise e
 
@@ -1986,6 +2310,10 @@ class Restore(ConfigCommand, Command):
             for module_name in self.params.install:
                 self.install_module(env, module_name)
 
+        # add restored marker
+        with open(self.restored_file, "w", encoding="utf-8") as f:
+            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
 
 
 ###############################################################################
@@ -2026,23 +2354,58 @@ class Serve(Command):
             envvar=True,
             help="Specify the configuration")
 
+        parser.add_argument("--wait-for-database",
+            name="wait_for_database",
+            action="store_true",
+            envvar=True)
+
+        parser.add_argument("--wait-for-restore",
+            name="wait_for_restore",
+            action="store_true",
+            envvar=True)
+
         args, unknown = parser.parse_known_args(args=cmdargs)
+
+        # remove additional args
+        for additional_arg in ('--wait-for-database', '--wait-for-restore'):
+            if additional_arg in cmdargs:
+                cmdargs.remove(additional_arg)
 
         # configure database name
         # (use defaults from parser if not used)
-        if args.database or args.create:
+        if args.database:
             if "--db-filter" not in cmdargs:
                 cmdargs = [f"--db-filter=^{args.database}$"] + cmdargs
             if "-d" not in cmdargs and "--database" not in cmdargs:
                 cmdargs = [f"--database={args.database}"] + cmdargs
 
-        # configure addons paths, if it is no passed
+        # configure addons paths, if it is not passed
         if "--addons-path" not in cmdargs and args.addons_path:
             cmdargs = [f"--addons-path={args.addons_path}"] + cmdargs
 
-        # configure config file, if it is no passed
+        # configure config file, if it is not passed
         if "--config" not in cmdargs and args.config:
             cmdargs = [f"--config={args.config}"] + cmdargs
 
-        main(cmdargs)
+        # prepare hook
+        report_configuration_fct = odoo.cli.server.report_configuration
+        def report_configuration_hook():
+            report_configuration_fct()
 
+            # wait for restore
+            if args.wait_for_restore:
+                restored_file = os.path.join(config['data_dir'], 'filestore', config['db_name'], RESTORED_FILE_NAME)
+                while not os.path.exists(restored_file):
+                    _logger.warning('Waiting %s seconds for %s...', DEFAULT_SLEEP, restored_file)
+                    time.sleep(DEFAULT_SLEEP)
+
+            # add wait for database function
+            if args.wait_for_database:
+                self.setup_db_env()
+                while not self.is_database_ready():
+                    _logger.warning('Waiting %s for database %s...', DEFAULT_SLEEP, self.db_name)
+                    time.sleep(DEFAULT_SLEEP)
+
+        # install configuration hook and start server
+        odoo.cli.server.report_configuration = report_configuration_hook
+        odoo.cli.server.main(cmdargs)
