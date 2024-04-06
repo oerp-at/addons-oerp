@@ -241,6 +241,11 @@ def patch_dist():
     patch(os.path.join(workspace_path, 'Dockerfile'),
               os.path.join(src_path, 'Dockerfile'))
 
+    # copy kubernetes
+    patch(os.path.join(workspace_path, 'kubernetes'),
+              os.path.join(src_path, 'kubernetes'),
+              copy_tree=True)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
