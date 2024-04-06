@@ -10,7 +10,8 @@
     'website': 'https://github.com/oerp-at',
     'license': 'LGPL-3',
     'depends': ['base',
-                'mail'],
+                'mail',
+                'oerp_util'],
     'data': [
         'security/security.xml',
         'security/ir.model.access.csv',

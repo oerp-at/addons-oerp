@@ -1,0 +1,29 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "odoo.fullname" . }}-filestore
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "odoo.labels" . | indent 4 }}
+spec:
+  storageClassName: {{ .Values.filestore.storageClassName }}
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.filestore.size | quote }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "odoo.fullname" . }}-sessionstore
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "odoo.labels" . | indent 4 }}
+spec:
+  storageClassName: {{ .Values.sessionstore.storageClassName }}
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.sessionstore.size | quote }}

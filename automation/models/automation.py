@@ -1,7 +1,9 @@
 import time
 import uuid
 import logging
+import json
 from odoo import api, fields, models, SUPERUSER_ID, _, exceptions, tools
+from odoo.addons.oerp_util.fields import Json
 from .status import TaskStatus
 
 _logger = logging.getLogger(__name__)
@@ -38,6 +40,9 @@ class AutomationTask(models.Model):
 
     progress = fields.Float(readonly=True, compute="_compute_progress")
     error = fields.Text(readonly=True, copy=False)
+    error_action = Json('Error Action', readonly=True, copy=False)
+    error_action_context = Json('Error Context', readonly=True, copy=False)
+    error_action_name = fields.Char(readonly=True, copy=False)
     group_id = fields.Many2one('res.groups', 'Group', ondelete="set null")
     owner_id = fields.Many2one(
         "res.users",
@@ -86,15 +91,17 @@ class AutomationTask(models.Model):
                                     "start_after_task_id",
                                     "Post Tasks",
                                     help="Tasks which are started after this task.",
-                                    readonly=True)
+                                    readonly=True,
+                                    copy=False)
 
     child_task_ids = fields.One2many("automation.task",
                                      "parent_id",
                                      "Child Tasks",
                                      help="Tasks which already started after this task.",
-                                     readonly=True)
+                                     readonly=True,
+                                     copy=False)
 
-    action_id = fields.Many2one("ir.actions.server", "Server Action", ondelete="set null", index=True, readonly=True)
+    action_id = fields.Many2one("ir.actions.server", "Server Action", ondelete="set null", index=True, readonly=True, copy=False)
 
     def _compute_task_id(self):
         for obj in self:
@@ -393,7 +400,8 @@ class AutomationTask(models.Model):
         old_cron = self.cron_id
         self.cron_id = self.env["ir.cron"].create(self._get_cron_values())
         # cleanup old cron entry
-        old_cron.unlink()
+        if old_cron:
+            old_cron.unlink()
 
     def action_queue(self):
         for task in self:
@@ -464,6 +472,9 @@ class AutomationTask(models.Model):
                     "state_change": fields.Datetime.now(),
                     "state": "run",
                     "error": None,
+                    "error_action": None,
+                    "error_action_name": None,
+                    "error_action_context": None,
                     "start_after_task_id": None,
                     "parent_id": task.start_after_task_id.id
                 })
@@ -496,12 +507,20 @@ class AutomationTask(models.Model):
 
                 # securely try to get message
                 error = None
-                try:
-                    error = str(e)
-                    if not error and hasattr(e, "message"):
-                        error = e.message
-                except:
-                    _logger.exception("Parsing failed")
+                error_action = None
+                error_action_name = None
+                error_action_context = None
+
+                # securely try to get message
+                if isinstance(e, exceptions.RedirectWarning):
+                    error, error_action, error_action_name, error_action_context = e.args
+                else:
+                    try:
+                        error = str(e)
+                        if not error and hasattr(e, "message"):
+                            error = e.message
+                    except:
+                        _logger.exception("Parsing failed")
 
                 #if there is no message
                 if not error:
@@ -512,6 +531,9 @@ class AutomationTask(models.Model):
                     "state_change": fields.Datetime.now(),
                     "state": "failed",
                     "error": error,
+                    "error_action": error_action,
+                    "error_action_name": error_action_name,
+                    "error_action_context": error_action_context
                 })
 
                 # finally commit current state after
@@ -519,6 +541,12 @@ class AutomationTask(models.Model):
                 self._commit_state()
 
         return True
+
+    def action_error_redirect(self):
+        for task in self:
+            if task.error_action:
+                return json.loads(task.error_action)
+        return {}
 
 
 class AutomationTaskMixin(models.AbstractModel):
@@ -571,6 +599,9 @@ class AutomationTaskMixin(models.AbstractModel):
     def action_error(self):
         return self.task_id.action_error()
 
+    def action_error_redirect(self):
+        return self.task_id.action_error_redirect()
+
     def _run(self, taskc):
         """ Test Task """
         self.ensure_one()
@@ -578,7 +609,9 @@ class AutomationTaskMixin(models.AbstractModel):
             taskc.stage(f"Stage {stage}")
 
             for proc in range(1, 100, 10):
-                taskc.log(f"Processing {stage}")
+                taskc.log(f"Processing {stage}", data={
+                    'progress': proc
+                })
                 taskc.progress(f"Processing {stage}", proc)
                 time.sleep(1)
 
@@ -638,7 +671,7 @@ class AutomationTaskStage(models.Model):
 
     def _compute_progress(self):
         for obj in self:
-            self.complete_progress = obj._calc_progress()
+            obj.complete_progress = obj._calc_progress()
 
 
 class AutomationTaskLog(models.Model):
@@ -685,7 +718,7 @@ class AutomationTaskLog(models.Model):
     ref = fields.Reference(_list_all_models, readonly=True, index=True)
     safe_ref = fields.Reference(_list_all_models, string="Reference", compute="_compute_safe_ref", store=False, readonly=True)
     code = fields.Char(index=True)
-    data = fields.Json()
+    data = Json()
 
     def _compute_safe_ref(self):
         ids = self.ids

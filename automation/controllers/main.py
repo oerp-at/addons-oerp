@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 from odoo import http, SUPERUSER_ID
 from odoo.http import request
 from odoo.api import Environment
@@ -30,6 +29,7 @@ class TaskLogController(http.Controller):
         'total',
         'parent_id'
     }
+
 
     def _get_values(self, **kwargs):
         for field in kwargs:

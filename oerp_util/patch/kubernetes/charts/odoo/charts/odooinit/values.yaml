@@ -1,0 +1,96 @@
+# Default values for odoo.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# odoo specific configuration
+adminPassword: "admin"
+additionalConfig: ""
+workers: 3
+cronThreads: 2
+pgHost: ""
+pgUser: ""
+pgPort: "5432"
+pgDatabase: ""
+pgPassword: ""
+restore: false
+restoreModule: ""
+restoreFilestorePath: ""
+restoreDatabasePath: ""
+restoreOnUpdate: false
+pgAdminUser: ""
+pgAdminPassword: ""
+backupVolumeClaim: ""
+update: true
+updateBackoffLimit: 0
+queue: false
+
+# backup
+backup: false
+backupPath: ''
+backupBacklog: 10
+backupNeutralize: true
+backupOnlyDatabase: false
+backupSchedule: ''
+backupBackoffLimit: 0
+
+image:
+  repository: odoo
+  pullPolicy: Always
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsGroup: 1000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources:
+  limits:
+     memory: "8Gi"
+  requests:
+     cpu: "1"
+     memory: "4Gi"
+
+
+volumes: []
+volumeMounts: []
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+filestore:
+  size: 10Gi
+  storageClassName: "default"
+
+sessionstore:
+  size: 1Gi
+  storageClassName: "default"
+
+

@@ -8,10 +8,10 @@
       <field name="arch" type="xml">
         <form string="Task" create="false">
           <header>
-            <button type="object" name="action_queue" string="Start" class="oe_highlight" invisible="state != 'draft'"/>
-            <button type="object" name="action_queue" string="Restart" invisible="state not in ('cancel','failed','done')"/>
-            <button type="object" name="action_cancel" string="Cancel" invisible="state != 'queued'"/>
-            <field name="state" widget="statusbar" statusbar_visible="draft,queued,run,done"/>
+            <button type="object" name="action_queue" string="Start" class="oe_highlight" states="draft"/>
+            <button type="object" name="action_queue" string="Restart" states="cancel,failed,done"/>
+            <button type="object" name="action_cancel" string="Cancel" states="queued"/>
+            <field name="state" widget="statusbar" statusbar_visible="draft,queued,run,done" statusbar_colors='{"draft":"blue"}'/>
           </header>
           <sheet>
             <div class="oe_button_box" name="button_box">
@@ -34,7 +34,7 @@
                       id="warning_button"
                       icon="fa-exclamation-triangle"
                       name="action_warning"
-                      invisible="not total_warnings">
+                      attrs="{'invisible':[('total_warnings','=',0)]}">
                       <field name="total_warnings" widget="statinfo" string="Warnings"/>
               </button>
               <button type="object"
@@ -42,7 +42,7 @@
                       id="error_button"
                       icon="fa-exclamation-circle"
                       name="action_error"
-                      invisible="not total_errors">
+                      attrs="{'invisible':[('total_errors','=',0)]}">
                       <field name="total_errors" widget="statinfo" string="Errors"/>
               </button>
               <button type="object"
@@ -54,23 +54,33 @@
             </div>
             <group name="task_specific">
               <group name="task_name">
-                <field name="name" readonly="state != 'draft'"/>
-                <field name="owner_id"/>
-                <field name="group_id" invisible="not group_id and state != 'draft'"/>
-                <field name="res_ref" invisible="not res_ref"/>
+                <field name="name" attrs="{'readonly':[('state','!=','draft')]}"/>
+                <field name="res_ref" attrs="{'invisible':[('res_ref','=',False)]}"/>
                 <field name="task_id" invisible="1" required="0"/>
               </group>
               <group name="task_progress">
                 <field name="progress" widget="progressbar"/>
-                <field name="cron_id" invisible="not cron_id" groups="base.group_system"/>
-                <field name="start_after_task_id" invisible="not start_after_task_id"/>
-                <field name="start_after" invisible="not start_after"/>
+                <field name="cron_id" attrs="{'invisible':[('cron_id','=',False)]}" groups="base.group_system"/>
+                <field name="start_after_task_id" attrs="{'invisible':[('start_after_task_id','=',False)]}"/>
+                <field name="start_after" attrs="{'invisible':[('start_after','=',False)]}"/>
                 <field name="state_change"/>
               </group>
             </group>
+            <group name="task_access" groups="base.group_no_one">
+              <group name="task_owner">
+                <field name="owner_id"/>
+              </group>
+              <group name="task_group">
+                <field name="group_id"/>
+              </group>
+            </group>
             <notebook>
-              <page string="Error" invisible="state != 'failed'">
-                <field name="error"/>
+              <page name="task_error" string="Error" attrs="{'invisible':[('state','!=','failed')]}">
+                  <field name="error"/>
+                  <button name="action_error_redirect" type="object"
+                          attrs="{'invisible':[('error_action_name', '=', False)]}">
+                    <field name="error_action_name"/>
+                  </button>
               </page>
             </notebook>
           </sheet>

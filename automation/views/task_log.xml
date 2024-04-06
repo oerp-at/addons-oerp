@@ -20,7 +20,7 @@
             </group>
           </group>
           <notebook>
-            <page string="Data" invisible="not data">
+            <page string="Data" attrs="{'invisible':[('data','=',False)]}">
               <field name="data" widget="text"/>
             </page>
           </notebook>

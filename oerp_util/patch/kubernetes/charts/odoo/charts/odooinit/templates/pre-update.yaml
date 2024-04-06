@@ -1,0 +1,62 @@
+{{- if .Values.update }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "odoo.fullname" . }}-update
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-9"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.updateBackoffLimit }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ include "odoo.fullname" . }}-update
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          args:
+          - update
+          volumeMounts:
+            - name: {{ include "odoo.fullname" . }}-config-vol
+              mountPath: /data/etc
+              readOnly: true
+            - name: {{ include "odoo.fullname" . }}-session-vol
+              mountPath: /data/sessions
+            - name: {{ include "odoo.fullname" . }}-filestore-vol
+              mountPath: /data/filestore
+          envFrom:
+            - secretRef:
+                name: "{{ include "odoo.fullname" . }}-postgres-config"
+      volumes:
+        - name: {{ include "odoo.fullname" . }}-config-vol
+          secret:
+            secretName: {{ include "odoo.fullname" . }}-config
+        - name: {{ include "odoo.fullname" . }}-session-vol
+          persistentVolumeClaim:
+            claimName: {{ include "odoo.fullname" . }}-sessionstore
+        - name: {{ include "odoo.fullname" . }}-filestore-vol
+          persistentVolumeClaim:
+            claimName: {{ include "odoo.fullname" . }}-filestore
+{{- end }}
