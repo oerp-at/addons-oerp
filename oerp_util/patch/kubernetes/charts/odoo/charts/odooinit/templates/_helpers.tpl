@@ -81,11 +81,15 @@ Create odoo cron config
 {{- define "odoo-cron.config" -}}
 [options]
 admin_passwd = {{ .Values.adminPassword }}
+{{- if not .Values.databaseManager }}
+list_db = False
+{{- end }}
 proxy_mode = True
 log_handler = [':INFO']
 log_level = info
 data_dir = /data
 workers = 0
+db_maxconn = {{ mul 5 .Values.cronThreads | int }}
 max_cron_threads = {{ .Values.cronThreads }}
 {{- if .Values.queue }}
 server_wide_modules = web,queue_job
@@ -103,6 +107,9 @@ Create odoo worker config
 {{- define "odoo.config" -}}
 [options]
 admin_passwd = {{ .Values.adminPassword }}
+{{- if not .Values.databaseManager }}
+list_db = False
+{{- end }}
 proxy_mode = True
 log_handler = [':INFO']
 log_level = info
@@ -110,8 +117,10 @@ data_dir = /data
 workers = {{ .Values.workers }}
 {{- if gt (int .Values.workers) 0 }}
 max_cron_threads = 0
+db_maxconn = {{ mul 3 .Values.workers | int }}
 {{- else }}
 max_cron_threads = {{ .Values.cronThreads }}
+db_maxconn = {{ add (mul 5 .Values.cronThreads) 20 | int }}
 limit_time_real_cron = 0
 limit_time_real = 0
 limit_memory_soft = 0

@@ -1,0 +1,24 @@
+#!/bin/sh
+TEAMS_WEBHOOK=$1
+ODOO_VERSION=$2
+ODOO_FRONTEND=$3
+
+[ -z "$TEAMS_WEBHOOK" ] && exit 0
+[ -z "$ODOO_VERSION" ] && exit 0
+[ -z "$ODOO_FRONTEND" ] && exit 0
+
+curl -H "Content-Type: application/json" -d '{
+  "@type": "MessageCard",
+  "summary": "Deployment Finished",
+  "sections": [
+    {
+      "activityTitle": "Deployment of '"$ODOO_VERSION"' finished",
+      "facts": [
+        {
+          "name": "URL:",
+          "value": "'"$ODOO_FRONTEND"'"
+        }
+      ]
+    }
+  ]
+}' $TEAMS_WEBHOOK

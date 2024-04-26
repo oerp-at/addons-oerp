@@ -30,12 +30,10 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "{{ .Values.ingress.timeout }}"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "{{ .Values.ingress.timeout }}"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "{{ .Values.ingress.timeout }}"
-    {{- if .Values.ingress.cloudflare }}
-    nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
-    {{- end }}
     nginx.ingress.kubernetes.io/configuration-snippet: |
       {{- if .Values.ingress.cloudflare }}
       proxy_set_header X-Real-IP $http_true_client_ip;
+      proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
       {{- end }}
     {{- end }}
 spec:
