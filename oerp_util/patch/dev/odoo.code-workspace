@@ -31,11 +31,12 @@
 			"**/*.pyc": {"when": "$(basename).py"},
 			"**/__pycache__": true
 		},
-		"python.analysis.include": [
-			"./assembly",
-			"./odoo"
+		"python.analysis.extraPaths": [
+			"./assembly"
 		],
-		"python.analysis.autoSearchPaths": false,
+		"python.autoComplete.extraPaths": [
+			"./assembly"
+		],
 		"python.analysis.userFileIndexingLimit": -1
 	}
 }
