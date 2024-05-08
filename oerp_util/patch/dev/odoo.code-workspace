@@ -35,7 +35,9 @@
 			"./assembly",
 			"./odoo"
 		],
-		"python.analysis.autoSearchPaths": false,
+		"python.autoComplete.extraPaths": [
+			"./assembly"
+		],
 		"python.analysis.userFileIndexingLimit": -1
 	}
 }

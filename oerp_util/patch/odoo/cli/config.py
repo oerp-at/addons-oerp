@@ -2261,6 +2261,12 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
             if self.params.development:
                 self.prepare_local_development()
 
+            # neutralize and/or development
+            if self.params.neutralize or self.params.development:
+                self.neutralize()
+            if self.params.development:
+                self.prepare_local_development()
+
             # update database
             if self.params.update:
                 config["update"]["all"] = 1
