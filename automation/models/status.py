@@ -1,3 +1,4 @@
+import json
 import logging
 import requests
 from odoo import exceptions, _
@@ -90,7 +91,7 @@ class TaskStatus(object):
 
 
     def _post_data(self, url, data, result_parser=lambda res: None):
-        with requests.post(url, json=data, headers=self.headers, timeout=120) as res:
+        with requests.post(url, data=data, headers=self.headers, timeout=120) as res:
             res.raise_for_status()
             return result_parser(res)
 
@@ -166,6 +167,9 @@ class TaskStatus(object):
             self.errors += 1
         elif pri == "w":
             self.warnings += 1
+
+        if not data is None and not isinstance(data, str):
+            data = json.dumps(data)
 
         values = {
             "stage_id": self.stage_id,
