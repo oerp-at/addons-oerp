@@ -64,6 +64,7 @@ ingress:
   enabled: false
   cloudflare: false
   maxBodySize: "512m"
+  proxyBuffer: "1024k"
   timeout: "720"
   className: ""
   annotations: {}
