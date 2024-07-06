@@ -2253,7 +2253,13 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
         # restore database
         if self.db_dump:
             # restore
-            self.restore_database()
+            self.restore_database(self.db_dump)
+
+            # neutralize and/or development
+            if self.params.neutralize or self.params.development:
+                self.neutralize()
+            if self.params.development:
+                self.prepare_local_development()
 
             # neutralize and/or development
             if self.params.neutralize or self.params.development:
