@@ -25,7 +25,11 @@
 			"--disable",
 			"invalid-name",
 			"--disable",
-			"abstract-method"
+			"abstract-method",
+			"--disable",
+			"access-member-before-definition",
+			"--disable",
+			"attribute-defined-outside-init"
 		],
 		"files.exclude": {
 			"**/*.pyc": {"when": "$(basename).py"},
