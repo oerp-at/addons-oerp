@@ -15,9 +15,9 @@ class IrHttp(models.AbstractModel):
 
         #check header
         if not dbname:
-            raise BadRequest("Database not specified.")
+            raise BadRequest("Database not specified")
         if not token:
-            raise BadRequest("Token not specified.")
+            raise BadRequest("Token not specified")
 
         # check token
         registry = odoo.registry(dbname)
@@ -25,8 +25,8 @@ class IrHttp(models.AbstractModel):
             cr.execute("SELECT COUNT(id) FROM automation_task_token WHERE token = %s", (token,))
             token = cr.fetchall()
             if not token:
-                raise BadRequest("Token not found.")
+                raise BadRequest("Token not found")
             if request.session.uid:
-                raise BadRequest("There should no user been set.")
+                raise BadRequest("There should no user been set")
 
         return True

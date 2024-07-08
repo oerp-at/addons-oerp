@@ -1,3 +1,4 @@
+import json
 import logging
 import requests
 from odoo import exceptions, _
@@ -88,10 +89,11 @@ class TaskStatus(object):
         # second call to remote
         self.log(_("Started"))
 
-    def _post_data(self, url, data):
-        res = requests.post(url, data=data, headers=self.headers, timeout=120)
-        res.raise_for_status()
-        return res
+
+    def _post_data(self, url, data, result_parser=lambda res: None):
+        with requests.post(url, data=data, headers=self.headers, timeout=120) as res:
+            res.raise_for_status()
+            return result_parser(res)
 
     def _post_progress(self, data):
         if self.local:
@@ -110,8 +112,9 @@ class TaskStatus(object):
         if self.local:
             return self.stage_obj.create(data).id
         else:
-            res = self._post_data(self.stage_path, data)
-            return int(res.text)
+            return self._post_data(self.stage_path,
+                                   data,
+                                   result_parser=lambda res: int(res.text))
 
     def _post_log(self, data):
         # check for local logging
@@ -165,6 +168,9 @@ class TaskStatus(object):
         elif pri == "w":
             self.warnings += 1
 
+        if not data is None and not isinstance(data, str):
+            data = json.dumps(data)
+
         values = {
             "stage_id": self.stage_id,
             "pri": pri,
@@ -175,7 +181,7 @@ class TaskStatus(object):
         if progress:
             values["progress"] = progress
         if obj:
-            ref = "%s,%s" % (obj._name, obj.id)
+            ref = f"{obj.name},{obj.id}"
         if ref:
             values["ref"] = ref
 
