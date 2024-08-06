@@ -19,6 +19,7 @@ class TestMixin(object):
         if parent_path:
             # create parent directories
             parent_path = os.path.join(download_path, parent_path)
+            path = os.path.basename(path)
             os.makedirs(parent_path, exist_ok=True)
         else:
             # or use download path directly
