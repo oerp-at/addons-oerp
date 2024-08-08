@@ -1345,6 +1345,9 @@ class CleanUp(ConfigCommand, Command):
         # methods is not in cache it will be fetched, and fields that exist in the registry but not
         # in the database will be prefetched, this will of course fail and prevent the uninstall.
         for ir_field in env['ir.model.fields'].browse(field_ids):
+            if not ir_field.exists():
+                field_ids.remove(ir_field.id)
+                continue
             if ir_field.model in env:
                 model = env[ir_field.model]
                 field = model._fields.get(ir_field.name)
@@ -1415,7 +1418,7 @@ class CleanUp(ConfigCommand, Command):
         # remove constraints
         delete(env['ir.model.constraint'].browse(unique(constraint_ids)))
         constraints = env['ir.model.constraint'].search([('module', 'in', modules.ids)])
-        constraints._module_data_uninstall()
+        constraints.unlink()
 
         # If we delete a selection field, and some of its values have ondelete='cascade',
         # we expect the records with that value to be deleted. If we delete the field first,
