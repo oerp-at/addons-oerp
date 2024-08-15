@@ -99,6 +99,10 @@ class AutomationTask(models.Model):
     action_id = fields.Many2one("ir.actions.server", "Server Action", ondelete="set null",
                                 index=True, readonly=True, copy=False)
 
+    error_count = fields.Integer(readonly=True)
+    warning_count = fields.Integer(readonly=True)
+
+
     def _compute_task_id(self):
         for obj in self:
             self.task_id = obj
@@ -468,6 +472,8 @@ class AutomationTask(models.Model):
                     "state": "run",
                     "error": None,
                     "start_after_task_id": None,
+                    "error_count": 0,
+                    "warning_count": 0,
                     "parent_id": task.start_after_task_id.id
                 })
                 # commit after start
@@ -486,7 +492,13 @@ class AutomationTask(models.Model):
                 taskc.close()
 
                 # update status and commit
-                task.write({"state_change": fields.Datetime.now(), "state": "done", "error": None})
+                task.write({"state_change": fields.Datetime.now(),
+                            "state": "done",
+                            "error": None,
+                            "error_count": taskc.errors,
+                            "warning_count": taskc.warnings
+                    })
+
                 # pylint: disable=invalid-commit
                 self._commit_state()
 
@@ -515,6 +527,8 @@ class AutomationTask(models.Model):
                     "state_change": fields.Datetime.now(),
                     "state": "failed",
                     "error": error,
+                    "error_count": taskc.errors,
+                    "warning_count": taskc.warnings
                 })
 
                 # finally commit current state after
