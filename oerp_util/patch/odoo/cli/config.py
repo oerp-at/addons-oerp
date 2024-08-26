@@ -1463,6 +1463,19 @@ class CleanUp(ConfigCommand, Command):
 
     def _cleanup_modules(self, env):
         cr = env.cr
+
+        # search invalid module data
+        cr.execute("SELECT id, name FROM ir_model_data WHERE model = 'ir.module.module' AND module = 'base' AND res_id NOT IN (SELECT id FROM ir_module_module)")
+        rows = cr.fetchall()
+        if rows:
+            for res_id, name in rows:
+                if self.params.fix:
+                    cr.execute("DELETE FROM ir_model_data WHERE id = %s", (res_id,))
+                    _logger.warning("[FIX] Invalid module data: %s", name)
+                else:
+                    _logger.warning("[FOUND] Invalid module data: %s", name)
+
+        # search invalid modules
         cr.execute('SELECT name, latest_version FROM ir_module_module')
         rows = cr.fetchall()
         invalid_modules = []
