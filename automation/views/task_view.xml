@@ -82,13 +82,22 @@
       <field name="name">automation.tree_automation_task</field>
       <field name="model">automation.task</field>
       <field name="arch" type="xml">
-        <tree string="Tasks" create="false" decoration-muted="state=='cancel'" decoration-info="state=='draft'" decoration-bf="state=='queued'" decoration-warning="state=='run'" decoration-danger="state=='failed'">
+        <tree string="Tasks" create="false"
+          decoration-muted="state=='cancel'"
+          decoration-info="state=='draft'"
+          decoration-bf="state=='queued'"
+          decoration-warning="state=='run' or warning_count > 0"
+          decoration-danger="state=='failed' or error_count > 0">
+
           <field name="name"/>
           <field name="owner_id"/>
           <field name="res_ref" optional="hide"/>
           <field name="progress" widget="progressbar"/>
           <field name="state_change"/>
           <field name="state"/>
+          <field name="warning_count" string="Warnings" optional="hide"/>
+          <field name="error_count" string="Errors" optional="hide"/>
+
         </tree>
       </field>
     </record>
@@ -106,6 +115,8 @@
           <filter name="task_running" string="Running" domain="[('state','in',['run','queued'])]"/>
           <filter name="task_failed" string="Failed" domain="[('state','=','failed')]"/>
           <filter name="task_done" string="Done" domain="[('state','=','done')]"/>
+          <filter name="task_warnings" string="Warnings" domain="[('warning_count','>',0)]"/>
+          <filter name="task_errors" string="Errors" domain="[('error_count','>',0)]"/>
           <group expand="0" string="Group By...">
             <filter name="by_owner" string="Owner" context="{'group_by': 'owner_id'}"/>
             <filter name="by_state" string="State" context="{'group_by': 'state'}"/>
