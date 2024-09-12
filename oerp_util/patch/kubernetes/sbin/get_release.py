@@ -6,7 +6,9 @@ import os
 from git import Repo
 
 
+# "Merge branch 'feature/ERP-277' into '14.0-xyz-stage'"
 MERGE_PATTERN = re.compile("Merge branch '([^']*)' into '([^']*)'")
+# 14.0.1.0.0 or 14.0.1.0
 RELEASE_PATTERN = re.compile(r"release/([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?)")
 
 

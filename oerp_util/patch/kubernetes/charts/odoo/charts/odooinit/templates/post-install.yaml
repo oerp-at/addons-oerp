@@ -1,4 +1,4 @@
- {{- if .Values.restore -}}
+ {{- if .Values.restore.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -38,14 +38,14 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           args:
           - restore
-          {{- if .Values.restoreFilestorePath }}
-          - "--restore-fs={{ .Values.restoreFilestorePath }}"
+          {{- if .Values.restore.filestorePath }}
+          - "--restore-fs={{ .Values.restore.filestorePath }}"
           {{- end }}
-          {{- if .Values.restoreDatabasePath }}
-          - "--restore-db={{ .Values.restoreDatabasePath }}"
+          {{- if .Values.restore.databasePath }}
+          - "--restore-db={{ .Values.restore.databasePath }}"
           {{- end }}
-          {{- if .Values.restoreModule }}
-          - "--install={{ .Values.restoreModule }}"
+          {{- if .Values.restore.installModule }}
+          - "--install={{ .Values.restore.installModule }}"
           {{- end }}
           - "--update"
           - "--wait-for-data"

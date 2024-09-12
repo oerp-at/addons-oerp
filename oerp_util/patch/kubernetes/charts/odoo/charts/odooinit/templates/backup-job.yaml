@@ -7,6 +7,9 @@ metadata:
     {{- include "odoo.labels" . | nindent 4 }}
 spec:
   schedule: {{ .Values.backupSchedule }}
+  {{- if .Values.backupTimezone }}
+  timeZone: "{{ .Values.backupTimezone }}"
+  {{- end }}
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
