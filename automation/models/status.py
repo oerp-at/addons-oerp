@@ -9,7 +9,7 @@ _logger = logging.getLogger(__name__)
 class TaskStatus(object):
     """ This class is used to log the progress of a task. """
 
-    def __init__(self, task, total=1, local=False, logger=None, log=False):
+    def __init__(self, task, total=1, local=False, logger=None, log=False, options=None):
         """ construct a new task status object
             :param task: The related task
             :param int total: The stage count
@@ -17,7 +17,8 @@ class TaskStatus(object):
             :param logger: The logger to use
             :param bool log: Log to logger also
         """
-
+        # init options
+        self.options = options if not options is None else {}
 
         # init stack
         self.stage_stack = []
@@ -98,7 +99,7 @@ class TaskStatus(object):
     def _post_progress(self, data):
         if self.local:
             self.stage_obj.browse(data["stage_id"]).write({
-                "task_id": data["task_id"],
+                "task_id": self.task.id,
                 "status": data["status"],
                 "progress": data["progress"],
             })
@@ -260,7 +261,7 @@ class TaskStatus(object):
 class TaskLogger:
     """ Tasklogger is a helper class for logging to python logger,
         especially for use in tests. """
-    def __init__(self, name):
+    def __init__(self, name, options=None):
         self.logger = logging.getLogger(name)
         self.name = name
         self._status = None
@@ -269,6 +270,7 @@ class TaskLogger:
         self._loop_progress = 0.0
         self.errors = 0
         self.warnings = 0
+        self.options = options if not options is None else {}
 
     # pylint: disable=unused-argument
     def log(self, message, pri="i", obj=None, ref=None, progress=None, code=None, data=None):

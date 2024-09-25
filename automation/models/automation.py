@@ -439,6 +439,10 @@ class AutomationTask(models.Model):
             # pylint: disable=invalid-commit
             self._cr.commit()
 
+    def _rollback_state(self):
+        if not tools.config.get('test_enable'):
+            self._cr.rollback()
+
     def _process_task(self):
         self.ensure_one()
         task = self
@@ -480,7 +484,8 @@ class AutomationTask(models.Model):
                 self._commit_state()
 
                 # run task
-                taskc = TaskStatus(task, stage_count)
+                taskc_test = tools.config.get('test_enable')
+                taskc = TaskStatus(task, stage_count, options=task_options, local=taskc_test, log=taskc_test)
                 resource._run(taskc)
 
                 # check fail on errors
@@ -504,7 +509,7 @@ class AutomationTask(models.Model):
 
             except Exception as e:
                 # rollback on error
-                self._cr.rollback()
+                self._rollback_state()
 
                 _logger.exception("Task execution failed")
                 task = self.browse(task.id)  # reload task after rollback
