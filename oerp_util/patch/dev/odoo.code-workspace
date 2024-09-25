@@ -29,19 +29,19 @@
 			"--disable",
 			"access-member-before-definition",
 			"--disable",
-			"attribute-defined-outside-init"
+			"attribute-defined-outside-init",
+			"--disable",
+			"missing-return"
 		],
 		"files.exclude": {
 			"**/*.pyc": {"when": "$(basename).py"},
 			"**/__pycache__": true
 		},
-		"python.analysis.include": [
+
+		"python.analysis.userFileIndexingLimit": -1,
+		"python.analysis.extraPaths": [
 			"./assembly"
-		],
-		"python.autoComplete.extraPaths": [
-			"./assembly"
-		],
-		"python.analysis.userFileIndexingLimit": -1
+		]
 	}
 }
 
