@@ -170,17 +170,26 @@ class Profile(argparse.ArgumentParser):
         # nothing was found return default
         return default
 
+    def is_addon_repository(self, directory):
+        if not directory:
+            return False
+        if not os.path.isdir(directory):
+            return False
+        if not glob.glob(f'{directory}/*/'):
+            return False
+        return True
+
     def get_default_addon_path(self):
-        addon_pattern = [f"{self.base_dir}/{ADDONS_PATTERN}"]
+        addon_pattern = [f"{self.base_dir}/{ADDONS_PATTERN}/"]
         # add addons collections
         dir_custom_addons =  os.path.join(self.base_dir, ADDONS_CUSTOM)
-        if os.path.exists(dir_custom_addons):
-            addon_pattern.append(f"{dir_custom_addons}/{ADDONS_PATTERN}")
+        if os.path.exists(dir_custom_addons) and self.is_addon_repository(dir_custom_addons):
+            addon_pattern.append(f"{dir_custom_addons}/{ADDONS_PATTERN}/")
         # build package paths
         package_paths = set()
         for cur_pattern in addon_pattern:
             for package_dir in glob.glob(cur_pattern):
-                if os.path.isdir(package_dir):
+                if self.is_addon_repository(package_dir):
                     package_paths.add(package_dir)
         # return package paths
         return ",".join(package_paths) or None
@@ -471,7 +480,6 @@ class ConfigCommand():
 
         self.parser.add_argument("--lang",
                                  required=False,
-                                 metavar="LANG",
                                  envvar=True)
 
         self.parser.add_argument(
@@ -1460,22 +1468,8 @@ class CleanUp(ConfigCommand, Command):
         # remove remaining module data records
         module_data.unlink()
 
-
     def _cleanup_modules(self, env):
         cr = env.cr
-
-        # search invalid module data
-        cr.execute("SELECT id, name FROM ir_model_data WHERE model = 'ir.module.module' AND module = 'base' AND res_id NOT IN (SELECT id FROM ir_module_module)")
-        rows = cr.fetchall()
-        if rows:
-            for res_id, name in rows:
-                if self.params.fix:
-                    cr.execute("DELETE FROM ir_model_data WHERE id = %s", (res_id,))
-                    _logger.warning("[FIX] Invalid module data: %s", name)
-                else:
-                    _logger.warning("[FOUND] Invalid module data: %s", name)
-
-        # search invalid modules
         cr.execute('SELECT name, latest_version FROM ir_module_module')
         rows = cr.fetchall()
         invalid_modules = []
@@ -1519,6 +1513,25 @@ class CleanUp(ConfigCommand, Command):
                 cr.execute('DELETE FROM ir_module_module_dependency WHERE name in %s', (tuple(invalid_modules), ))
                 # reset module state
                 cr.execute("UPDATE ir_module_module SET state = 'installed' WHERE state = 'to upgrade'")
+
+        # check unreferenced
+        cr.execute("""SELECT d.name FROM ir_model_data d
+                    LEFT JOIN ir_module_module m ON m.id = d.res_id
+                    WHERE d.model = 'ir.module.module'
+                    AND m.id IS NULL""")
+        unref_modules = [r[0] for r in cr.fetchall()]
+        if unref_modules:
+            if self.params.fix:
+                # remove unreferenced
+                _logger.warning("[FIX] unreferenced modul data: %s", ', '.join(unref_modules))
+                cr.execute("""DELETE FROM ir_model_data WHERE id IN (
+                    SELECT d.id FROM ir_model_data d
+                    LEFT JOIN ir_module_module m ON m.id = d.res_id
+                    WHERE d.model = 'ir.module.module'
+                    AND m.id IS NULL
+                )""")
+            else:
+                _logger.warning("[FOUND] unreferenced modul data: %s", ', '.join(unref_modules))
 
     def run_config(self):
         # run with env
@@ -2112,14 +2125,19 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
                        SET value = %s
                        WHERE key = 'database.create_date' """, (create_date,))
             # neutralize database
-            odoo.modules.neutralize.neutralize_database(cr)
+            cr.execute("SELECT COALESCE(COUNT(id),0) FROM ir_config_parameter WHERE KEY = 'database.is_neutralized' AND value IN ('true', 'True')")
+            is_neutralized = cr.fetchone()[0]
+            if not is_neutralized:
+                odoo.modules.neutralize.neutralize_database(cr)
+            else:
+                _logger.warning('Database %s is already neutralized', self.params.database)
 
     def prepare_local_development(self):
         _logger.info("Prepare database %s for local development", self.params.database)
         with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
             # reset password to admin
             cr.execute("""UPDATE res_users
-                       SET password = 'admin'
+                       SET password = '$pbkdf2-sha512$600000$UWrtfU/JGSMEIESIUUrp3Q$I/P7liB6AwKFLVL49LCiQJSqRIK16D21Fc4MLP7ijeEa1SRKAWQ2ODSWVFm5p/tfd97FXf/FW.xQCmuCHdGQhw'
                        WHERE active AND password IS NOT NULL""")
             # set url to localhost
             cr.execute("""UPDATE ir_config_parameter
@@ -2271,12 +2289,6 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
         if self.db_dump:
             # restore
             self.restore_database(self.db_dump)
-
-            # neutralize and/or development
-            if self.params.neutralize or self.params.development:
-                self.neutralize()
-            if self.params.development:
-                self.prepare_local_development()
 
             # neutralize and/or development
             if self.params.neutralize or self.params.development:
