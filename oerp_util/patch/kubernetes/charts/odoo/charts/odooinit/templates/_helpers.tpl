@@ -81,6 +81,9 @@ Create odoo cron config
 {{- define "odoo-cron.config" -}}
 [options]
 admin_passwd = {{ .Values.adminPassword }}
+{{- if not .Values.databaseManager }}
+list_db = False
+{{- end }}
 proxy_mode = True
 log_handler = [':INFO']
 log_level = info
@@ -95,6 +98,9 @@ limit_time_real = 0
 limit_memory_soft = 0
 limit_memory_hard = 0
 {{ include "odoo.addConfig" . }}
+{{- if .Values.additionalCronConfig }}
+{{ .Values.additionalCronConfig }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -103,6 +109,9 @@ Create odoo worker config
 {{- define "odoo.config" -}}
 [options]
 admin_passwd = {{ .Values.adminPassword }}
+{{- if not .Values.databaseManager }}
+list_db = False
+{{- end }}
 proxy_mode = True
 log_handler = [':INFO']
 log_level = info

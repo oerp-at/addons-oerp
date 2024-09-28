@@ -26,16 +26,76 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- if eq .Values.ingress.className "nginx" }}
+    nginx.org/client-max-body-size: "{{ .Values.ingress.maxBodySize }}"
     nginx.ingress.kubernetes.io/proxy-body-size: "{{ .Values.ingress.maxBodySize }}"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "{{ .Values.ingress.timeout }}"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "{{ .Values.ingress.timeout }}"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "{{ .Values.ingress.timeout }}"
-    {{- if .Values.ingress.cloudflare }}
-    nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
-    {{- end }}
+    nginx.ingress.kubernetes.io/proxy-buffering: "on"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "{{ .Values.ingress.proxyBuffer }}"
+    nginx.ingress.kubernetes.io/proxy-max-temp-file-size: "{{ .Values.ingress.maxBodySize }}"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       {{- if .Values.ingress.cloudflare }}
       proxy_set_header X-Real-IP $http_true_client_ip;
+      proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+      {{- end }}
+    {{- end }}
+spec:
+  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if  $tlsSecretName }}
+  tls:
+    - hosts:
+        {{- range .Values.ingress.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{  $tlsSecretName }}
+  {{- end }}
+  {{- with .Values.ingress.defaultBackend }}
+  defaultBackend:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $svcPort }}
+    {{- end }}
+---
+{{- if $workers }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-longpolling
+  labels:
+    {{- include "odoo.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if eq .Values.ingress.className "nginx" }}
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "{{ .Values.ingress.timeout }}"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "{{ .Values.ingress.timeout }}"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "{{ .Values.ingress.timeout }}"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      {{- if .Values.ingress.cloudflare }}
+      proxy_set_header X-Real-IP $http_true_client_ip;
+      proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
       {{- end }}
     {{- end }}
 spec:
@@ -55,14 +115,6 @@ spec:
     - host: {{ . | quote }}
       http:
         paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ $fullName }}
-                port:
-                  number: {{ $svcPort }}
-          {{- if $workers }}
           - path: /longpolling
             pathType: Prefix
             backend:
@@ -70,6 +122,6 @@ spec:
                 name: {{ $fullName }}
                 port:
                   number: {{ $svcLongpollingPort  }}
-          {{- end }}
     {{- end }}
+{{- end }}
 {{- end }}
