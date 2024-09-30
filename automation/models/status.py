@@ -1,7 +1,7 @@
 import json
 import logging
 import requests
-from odoo import exceptions, _
+from odoo import exceptions, _, tools, api, SUPERUSER_ID
 
 _logger = logging.getLogger(__name__)
 
@@ -9,7 +9,7 @@ _logger = logging.getLogger(__name__)
 class TaskStatus(object):
     """ This class is used to log the progress of a task. """
 
-    def __init__(self, task, total=1, local=False, logger=None, log=False):
+    def __init__(self, task, total=1, local=False, logger=None, log=False, token=False):
         """ construct a new task status object
             :param task: The related task
             :param int total: The stage count
@@ -44,6 +44,16 @@ class TaskStatus(object):
         # init db
         self.db = task.env.cr.dbname
 
+        # reset vars
+        self.env = None
+        self.cr = None
+        self.log_path = ""
+        self.stage_path = ""
+        self.progress_path = ""
+        self.headers = {}
+        self.token = None
+        self.closed = False
+
         # init remote/local
         self.local = local
         if self.local:
@@ -52,32 +62,34 @@ class TaskStatus(object):
             self.log_obj.search([("task_id", "=", self.task.id)]).unlink()
             self.stage_obj.search([("task_id", "=", self.task.id)]).unlink()
 
-            self.log_path = ""
-            self.stage_path = ""
-            self.progress_path = ""
-            self.headers = {}
-            self.token = None
-
         else:
-            self.token = self.task.env["automation.task.token"].search([("task_id", "=", task.id)], limit=1).token
-            if not self.token:
-                raise exceptions.UserError(_("No token for task %(task_name)s [%(task_id)s] was generated"
-                                            ,{'task_name': self.task.name, 'task_id': self.task.id}))
+            if token:
+                self.token = token
+                baseurl = f"http://0.0.0.0:{tools.config['http_port']}" #self.task.get_base_url()
+                if not baseurl:
+                    raise exceptions.UserError(_("Cannot determine Base-Url"))
 
-            baseurl = self.task.get_base_url()
-            if not baseurl:
-                raise exceptions.UserError(_("Cannot determine Base-Url"))
+                self.log_path = f"{baseurl}/automation/log"
+                self.stage_path = f"{baseurl}/automation/stage"
+                self.progress_path = f"{baseurl}/automation/progress"
 
-            self.log_path = f"{baseurl}/automation/log"
-            self.stage_path = f"{baseurl}/automation/stage"
-            self.progress_path = f"{baseurl}/automation/progress"
+                # prepare header
+                self.headers = {
+                    'Accept': 'application/form',
+                    'X-Automation-Token': self.token,
+                    'X-Automation-DB': self.db
+                }
 
-            # prepare header
-            self.headers = {
-                'Accept': 'application/form',
-                'X-Automation-Token': self.token,
-                'X-Automation-DB': self.db
-            }
+            else:
+                # set paths
+                self.log_path = "log"
+                self.stage_path = "stage"
+                self.progress_path = "progress"
+
+                # crate a new cursor, for making logs visible
+                task_env = self.task.env
+                self.cr = task_env.registry.cursor()
+                self.env = api.Environment(self.cr, SUPERUSER_ID, {})
 
         # setup root stage
         # first call to remote
@@ -89,10 +101,30 @@ class TaskStatus(object):
         # second call to remote
         self.log(_("Started"))
 
-    def _post_data(self, url, data):
-        res = requests.post(url, data=data, headers=self.headers, timeout=120)
-        res.raise_for_status()
-        return res
+    def _post_data(self, url, data, res_fct=None):
+        if self.env is None:
+            with requests.post(url, data=data, headers=self.headers, timeout=120) as res:
+                res.raise_for_status()
+                return res_fct(res) if res_fct else None
+        elif url == "log":
+            progress = data.pop("progress", None)
+            if progress:
+                self.env["automation.task.stage"].browse(data["stage_id"]).write(
+                        {"progress": progress}
+                    )
+            log = self.env["automation.task.log"].create(data)
+            self.cr.commit()
+            return log.id
+        elif url == "stage":
+            stage = self.env["automation.task.stage"].create(data)
+            self.cr.commit()
+            return stage.id
+        elif url == "progress":
+            stage_id = data.pop("stage_id")
+            stage = self.env["automation.task.stage"].browse(stage_id)
+            stage.write(data)
+            self.cr.commit()
+            return stage_id
 
     def _post_progress(self, data):
         if self.local:
@@ -111,8 +143,7 @@ class TaskStatus(object):
         if self.local:
             return self.stage_obj.create(data).id
         else:
-            res = self._post_data(self.stage_path, data)
-            return int(res.text)
+            return self._post_data(self.stage_path, data, res_fct=lambda r: int(r.text))
 
     def _post_log(self, data):
         # check for local logging
@@ -252,7 +283,25 @@ class TaskStatus(object):
             self.parent_stage_id, self.stage_id = self.stage_stack.pop()
 
     def close(self):
-        self._post_progress({"stage_id": self.root_stage_id, "status": _("Done"), "progress": 100.0})
+        if not self.closed:
+            self.closed = True
+            self._post_progress({"stage_id": self.root_stage_id, "status": _("Done"), "progress": 100.0})
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # only close if there is no error
+        if exc_type is None:
+            self.close()
+
+        # close cursor and registry
+        try:
+            if self.cr:
+                self.cr.commit()
+                self.cr.close()
+        except:
+            _logger.exception('Unable to close cursor')
 
 
 class TaskLogger:
@@ -336,4 +385,10 @@ class TaskLogger:
         self.progress("Done", 100.0)
 
     def close(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
         pass

@@ -13,6 +13,7 @@ class TestTask(TransactionCase):
         self.assertTrue(task.cron_id, "Check if cron was set")
         self.assertTrue(task.action_id, "Check if action was set")
 
+
         task.action_cancel()
         self.assertFalse(task.cron_id.active, "Check if cron was unset")
 

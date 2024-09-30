@@ -55,7 +55,7 @@ class TaskLogController(http.Controller):
         with registry.cursor() as cr:
             env = Environment(cr, SUPERUSER_ID, {})
 
-            # check if progress passed
+            # check if progress passedl
             # .. modify progress
             if progress:
                 try:

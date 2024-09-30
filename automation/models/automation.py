@@ -221,7 +221,7 @@ class AutomationTask(models.Model):
             taskc.stage("Stage %s" % stage)
 
             for proc in range(1, 100, 10):
-                taskc.log("Processing %s", stage)
+                taskc.log("Processing %s", data={'test': 'Json is great!'}, code="TEST")
                 taskc.progress(f"Processing {stage}", proc)
                 time.sleep(1)
 
@@ -377,12 +377,12 @@ class AutomationTask(models.Model):
             (self.id, ),
         )
 
-        # (re)create token
-        token_obj = self.env["automation.task.token"]
-        token_obj.search([("task_id", "=", self.id)]).unlink()
-        token_obj.create({
-            "task_id": self.id
-        })
+        # # (re)create token
+        # token_obj = self.env["automation.task.token"]
+        # token_obj.search([("task_id", "=", self.id)]).unlink()
+        # token_obj.create({
+        #     "task_id": self.id
+        # })
 
         # set queued
         self.write({
@@ -482,16 +482,13 @@ class AutomationTask(models.Model):
                 self._commit_state()
 
                 # run task
-                taskc = TaskStatus(task, stage_count)
-                resource._run(taskc)
+                with TaskStatus(task, stage_count) as taskc:
+                    resource._run(taskc)
 
-                # check fail on errors
-                if task_options.get("fail_on_errors"):
-                    if taskc.errors:
-                        raise exceptions.UserError(_("Task finished with errors"))
-
-                # close
-                taskc.close()
+                    # check fail on errors
+                    if task_options.get("fail_on_errors"):
+                        if taskc.errors:
+                            raise exceptions.UserError(_("Task finished with errors"))
 
                 # update status and commit
                 task.write({"state_change": fields.Datetime.now(), "state": "done", "error": None})
@@ -606,12 +603,11 @@ class AutomationTaskMixin(models.AbstractModel):
         """ Test Task """
         self.ensure_one()
         for stage in range(1, 2):
-            taskc.stage(f"Stage {stage}")
+            subject = f"Stage {stage}"
+            taskc.stage(subject)
 
             for proc in range(1, 100, 10):
-                taskc.log(f"Processing {stage}", data={
-                    'progress': proc
-                })
+                taskc.log(f"Processing {stage}", data={'test': 'Json is great!', 'progress': proc}, code="TEST")
                 taskc.progress(f"Processing {stage}", proc)
                 time.sleep(1)
 

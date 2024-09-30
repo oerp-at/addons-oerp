@@ -2,7 +2,7 @@
 # pylint: disable=missing-readme
 {
     'name': 'Automation',
-    'version': '17.0.1.0.0',
+    'version': '14.0.2.0.0',
     'summary': 'Simple Automation Framework',
     'category': 'Automation',
     'author': 'martin-reisenhofer',
@@ -20,7 +20,8 @@
         'views/stage_view.xml',
         'views/cron_view.xml',
         'views/task_view.xml',
-        'views/task_example.xml'
+        'views/task_example.xml',
+        'data/example_task.xml'
     ],
     'installable': True
 }
