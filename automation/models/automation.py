@@ -602,12 +602,12 @@ class AutomationTaskMixin(models.AbstractModel):
     def _run(self, taskc):
         """ Test Task """
         self.ensure_one()
-        for stage in range(1, 2):
-            subject = f"Stage {stage}"
-            taskc.stage(subject)
+        for stage in range(1, 3):
+            stage_name = f"Stage {stage}"
+            taskc.stage(stage_name)
 
             for proc in range(1, 100, 10):
-                taskc.log(f"Processing {stage}", data={'test': 'Json is great!', 'progress': proc}, code="TEST")
+                taskc.log(f"Processing {stage}", data={'test': '"Json" is \'great\'!', 'progress': proc}, code="TEST")
                 taskc.progress(f"Processing {stage}", proc)
                 time.sleep(1)
 

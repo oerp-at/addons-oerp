@@ -1,7 +1,7 @@
 import json
 import logging
 import requests
-from odoo import exceptions, _, tools, api, SUPERUSER_ID
+from odoo import exceptions, _, tools
 
 _logger = logging.getLogger(__name__)
 
@@ -45,14 +45,14 @@ class TaskStatus(object):
         self.db = task.env.cr.dbname
 
         # reset vars
-        self.env = None
-        self.cr = None
         self.log_path = ""
         self.stage_path = ""
         self.progress_path = ""
         self.headers = {}
         self.token = None
+        self.test = tools.config.get('test_enable')
         self.closed = False
+        self.uid = task.env.uid
 
         # init remote/local
         self.local = local
@@ -86,11 +86,6 @@ class TaskStatus(object):
                 self.stage_path = "stage"
                 self.progress_path = "progress"
 
-                # crate a new cursor, for making logs visible
-                task_env = self.task.env
-                self.cr = task_env.registry.cursor()
-                self.env = api.Environment(self.cr, SUPERUSER_ID, {})
-
         # setup root stage
         # first call to remote
         self.root_stage_id = self._create_stage({"name": task.name, "total": total})
@@ -102,29 +97,74 @@ class TaskStatus(object):
         self.log(_("Started"))
 
     def _post_data(self, url, data, res_fct=None):
-        if self.env is None:
+        if self.token:
             with requests.post(url, data=data, headers=self.headers, timeout=120) as res:
                 res.raise_for_status()
                 return res_fct(res) if res_fct else None
-        elif url == "log":
-            progress = data.pop("progress", None)
-            if progress:
-                self.env["automation.task.stage"].browse(data["stage_id"]).write(
-                        {"progress": progress}
-                    )
-            log = self.env["automation.task.log"].create(data)
-            self.cr.commit()
-            return log.id
-        elif url == "stage":
-            stage = self.env["automation.task.stage"].create(data)
-            self.cr.commit()
-            return stage.id
-        elif url == "progress":
-            stage_id = data.pop("stage_id")
-            stage = self.env["automation.task.stage"].browse(stage_id)
-            stage.write(data)
-            self.cr.commit()
-            return stage_id
+        else:
+            # copy data for local push
+            data = data.copy()
+
+            # write data to database
+            def write_data(cr):
+
+                def update_progress():
+                    progress = data.pop("progress", None)
+                    status = data.pop("status", None)
+                    stage_id = data["stage_id"]
+                    if status and progress:
+                        cr.execute('UPDATE automation_task_stage SET progress = %s, status = %s WHERE id = %s', (progress, status, stage_id))
+                    elif progress:
+                        cr.execute('UPDATE automation_task_stage SET progress = %s WHERE id = %s', (progress, stage_id))
+                    elif status:
+                        cr.execute('UPDATE automation_task_stage SET status = %s WHERE id = %s', (status, stage_id))
+                    return stage_id
+
+                if url == "log":
+                    update_progress()
+                    # create log
+                    cr.execute("""
+                        INSERT INTO automation_task_log(create_date, write_date, create_uid, write_uid, task_id, stage_id, pri, message, ref, code, data)
+                        VALUES (NOW() at time zone 'UTC', NOW() at time zone 'UTC', %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID
+                    """, (self.uid,
+                        self.uid,
+                        data["task_id"],
+                        data["stage_id"],
+                        data["pri"],
+                        data.get('message') or '',
+                        data.get('ref') or '',
+                        data.get('code') or '',
+                        data.get('data') or None
+                    ))
+                    log_id = cr.fetchone()[0]
+                    return log_id
+                elif url == "stage":
+                    # create stage
+                    cr.execute("""
+                        INSERT INTO automation_task_stage(create_date, write_date, create_uid, write_uid, task_id, name, parent_id, progress, status)
+                        VALUES (NOW() at time zone 'UTC', NOW() at time zone 'UTC', %s, %s, %s, %s, %s, %s, %s) RETURNING ID
+                    """, (self.uid,
+                        self.uid,
+                        data["task_id"],
+                        data["name"],
+                        data.get("parent_id", None),
+                        data.get("progress", 0),
+                        data.get("status", '')
+                    ))
+                    stage_id = cr.fetchone()[0]
+                    return stage_id
+                elif url == "progress":
+                    return update_progress()
+
+            if not self.test:
+                # create second cursor for commit
+                with self.task.pool.cursor() as cr:
+                    return write_data(cr)
+            else:
+                # write data straight ahead for testing
+                return write_data(self.task.env.cr)
+
+
 
     def _post_progress(self, data):
         if self.local:
@@ -294,14 +334,6 @@ class TaskStatus(object):
         # only close if there is no error
         if exc_type is None:
             self.close()
-
-        # close cursor and registry
-        try:
-            if self.cr:
-                self.cr.commit()
-                self.cr.close()
-        except:
-            _logger.exception('Unable to close cursor')
 
 
 class TaskLogger:

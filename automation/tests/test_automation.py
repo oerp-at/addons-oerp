@@ -1,8 +1,8 @@
 import json
-from odoo.tests.common import HttpCase
+from odoo.tests.common import TransactionCase
 
 
-class TestAutomation(HttpCase):
+class TestAutomation(TransactionCase):
     ''' Automation Test Case especially the log '''
 
     def test_automation_lifecycle(self):
@@ -29,3 +29,4 @@ class TestAutomation(HttpCase):
         data = json.loads(log.data)
         self.assertTrue(data, 'Check if log has data')
         self.assertTrue(data.get('test'), 'Check if test property was set in jsons')
+

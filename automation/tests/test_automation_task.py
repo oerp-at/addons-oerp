@@ -4,7 +4,7 @@ from odoo.tests.common import TransactionCase
 class TestTask(TransactionCase):
     """ Test automation task """
 
-    def test_task(self):
+    def test_automation_task_queue(self):
         task = self.env["automation.task"].create({
             "name": "Test"
         })
@@ -12,7 +12,6 @@ class TestTask(TransactionCase):
 
         self.assertTrue(task.cron_id, "Check if cron was set")
         self.assertTrue(task.action_id, "Check if action was set")
-
 
         task.action_cancel()
         self.assertFalse(task.cron_id.active, "Check if cron was unset")
