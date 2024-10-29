@@ -588,6 +588,21 @@ class ConfigCommand():
         if error and self.params.exit_error:
             sys.exit(-1)
 
+    def install_module(self, env, module_name):
+        modul_obj = env['ir.module.module']
+        mod = modul_obj.search([('name','=', module_name)], limit=1)
+        if not mod:
+            _logger.error(f"Unkown module {module_name}!")
+            return False
+        elif mod.state == 'installed':
+            _logger.warning(f"Module {module_name} is already installed!")
+            return False
+
+        # install module
+        mod.button_immediate_install()
+        env.cr.commit()
+        return True
+
     def sync_files(self, src, dest, dirs=False, info="Sync", filestore=False, delete=False, local=False):
         if dirs:
             if not src.endswith(os.path.sep) and not src.endswith('/'):
@@ -1282,11 +1297,19 @@ class CleanUp(ConfigCommand, Command):
 
         self.parser.add_argument("--fix",
                                 action="store_true",
+                                name="fix",
                                 help="Do/Fix all offered cleanup(s)")
 
         self.parser.add_argument("--no-drop",
                                 action="store_true",
+                                name="nodrop",
                                 help="Do not drop columns and tables")
+
+        self.parser.add_argument("--uninstall",
+                                type=str,
+                                name="uninstall",
+                                nargs="+",
+                                help="Modules which should be uninstall during cleanup")
 
         self.clean = True
 
@@ -1474,11 +1497,11 @@ class CleanUp(ConfigCommand, Command):
         cr.execute('SELECT name, latest_version FROM ir_module_module')
         rows = cr.fetchall()
         invalid_modules = []
+        uninstall_set = set(self.params.uninstall) if self.params.uninstall else set()
         for name, latest_version in rows:
             info = odoo.modules.module.get_manifest(name)
-            # add modules which are invalid
-            # or which should not be migrated and need a fresh install
-            if not info or (not info.get('migrate', True) and version.parse(latest_version) < ADDON_API_VERSION):
+            # add modules which are not available or installable
+            if not info or not info.get('installable', True) or name in uninstall_set:
                 invalid_modules.append(name)
 
         # uninstall invalid modules
