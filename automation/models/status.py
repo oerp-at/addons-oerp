@@ -1,7 +1,7 @@
 import json
 import logging
 import requests
-from odoo import exceptions, _
+from odoo import tools, exceptions, _
 
 _logger = logging.getLogger(__name__)
 
@@ -9,7 +9,7 @@ _logger = logging.getLogger(__name__)
 class TaskStatus(object):
     """ This class is used to log the progress of a task. """
 
-    def __init__(self, task, total=1, local=False, logger=None, log=False, options=None):
+    def __init__(self, task, total=1, local=False, logger=None, log=False, options=None, token=None, test=False):
         """ construct a new task status object
             :param task: The related task
             :param int total: The stage count
@@ -20,11 +20,20 @@ class TaskStatus(object):
         # init options
         self.options = options if not options is None else {}
 
+        # if test then enable log and test
+        if tools.config.get('test_enable'):
+            test = True
+            log = True
+            local = True
+
         # init stack
+        self.token = token
         self.stage_stack = []
         self.last_status = None
         self.errors = 0
         self.warnings = 0
+        self.test = test
+        self.uid = task.env.uid
 
         # init loop
         self._loop_inc = 0.0
@@ -60,25 +69,27 @@ class TaskStatus(object):
             self.token = None
 
         else:
-            self.token = self.task.env["automation.task.token"].search([("task_id", "=", task.id)], limit=1).token
-            if not self.token:
-                raise exceptions.UserError(_("No token for task %(task_name)s [%(task_id)s] was generated"
-                                            ,{'task_name': self.task.name, 'task_id': self.task.id}))
+            if token:
+                self.token = token
+                baseurl = self.task.get_base_url()
+                if not baseurl:
+                    raise exceptions.UserError(_("Cannot determine Base-Url"))
 
-            baseurl = self.task.get_base_url()
-            if not baseurl:
-                raise exceptions.UserError(_("Cannot determine Base-Url"))
+                self.log_path = f"{baseurl}/automation/log"
+                self.stage_path = f"{baseurl}/automation/stage"
+                self.progress_path = f"{baseurl}/automation/progress"
 
-            self.log_path = f"{baseurl}/automation/log"
-            self.stage_path = f"{baseurl}/automation/stage"
-            self.progress_path = f"{baseurl}/automation/progress"
-
-            # prepare header
-            self.headers = {
-                'Accept': 'application/form',
-                'X-Automation-Token': self.token,
-                'X-Automation-DB': self.db
-            }
+                # prepare header
+                self.headers = {
+                    'Accept': 'application/form',
+                    'X-Automation-Token': self.token,
+                    'X-Automation-DB': self.db
+                }
+            else:
+                # set paths
+                self.log_path = "log"
+                self.stage_path = "stage"
+                self.progress_path = "progress"
 
         # setup root stage
         # first call to remote
@@ -92,9 +103,73 @@ class TaskStatus(object):
 
 
     def _post_data(self, url, data, result_parser=lambda res: None):
-        with requests.post(url, data=data, headers=self.headers, timeout=120) as res:
-            res.raise_for_status()
-            return result_parser(res)
+        if self.token:
+            with requests.post(url, data=data, headers=self.headers, timeout=120) as res:
+                res.raise_for_status()
+                return result_parser(res)
+        else:
+            # copy data for local push
+            data = data.copy()
+
+            # write data to database
+            def write_data(cr):
+
+                def update_progress():
+                    progress = data.pop("progress", None)
+                    status = data.pop("status", None)
+                    stage_id = data["stage_id"]
+                    if status and progress:
+                        cr.execute('UPDATE automation_task_stage SET progress = %s, status = %s WHERE id = %s', (progress, status, stage_id))
+                    elif progress:
+                        cr.execute('UPDATE automation_task_stage SET progress = %s WHERE id = %s', (progress, stage_id))
+                    elif status:
+                        cr.execute('UPDATE automation_task_stage SET status = %s WHERE id = %s', (status, stage_id))
+                    return stage_id
+
+                if url == "log":
+                    update_progress()
+                    # create log
+                    cr.execute("""
+                        INSERT INTO automation_task_log(create_date, write_date, create_uid, write_uid, task_id, stage_id, pri, message, ref, code, data)
+                        VALUES (NOW() at time zone 'UTC', NOW() at time zone 'UTC', %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID
+                    """, (self.uid,
+                        self.uid,
+                        data["task_id"],
+                        data["stage_id"],
+                        data["pri"],
+                        data.get('message') or '',
+                        data.get('ref') or '',
+                        data.get('code') or '',
+                        data.get('data') or None
+                    ))
+                    log_id = cr.fetchone()[0]
+                    return log_id
+                elif url == "stage":
+                    # create stage
+                    cr.execute("""
+                        INSERT INTO automation_task_stage(create_date, write_date, create_uid, write_uid, task_id, name, parent_id, progress, status, total)
+                        VALUES (NOW() at time zone 'UTC', NOW() at time zone 'UTC', %s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID
+                    """, (self.uid,
+                        self.uid,
+                        data["task_id"],
+                        data["name"],
+                        data.get('parent_id', None),
+                        data.get('progress', 0),
+                        data.get('status', ''),
+                        data.get('total', None)
+                    ))
+                    stage_id = cr.fetchone()[0]
+                    return stage_id
+                elif url == "progress":
+                    return update_progress()
+
+            if not self.test:
+                # create second cursor for commit
+                with self.task.pool.cursor() as cr:
+                    return write_data(cr)
+            else:
+                # write data straight ahead for testing
+                return write_data(self.task.env.cr)
 
     def _post_progress(self, data):
         if self.local:
@@ -256,6 +331,14 @@ class TaskStatus(object):
 
     def close(self):
         self._post_progress({"stage_id": self.root_stage_id, "status": _("Done"), "progress": 100.0})
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # only close if there is no error
+        if exc_type is None:
+            self.close()
 
 
 class TaskLogger:

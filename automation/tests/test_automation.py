@@ -1,7 +1,7 @@
-from odoo.tests.common import HttpCase
+from odoo.tests.common import TransactionCase
 
 
-class TestAutomation(HttpCase):
+class TestAutomation(TransactionCase):
     ''' Automation Test Case especially the log '''
 
     def test_automation_lifecycle(self):

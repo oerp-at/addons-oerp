@@ -112,22 +112,18 @@ class AutomationTask(models.Model):
             self.progress = 0.0
             return
 
+        #  get progress from stages
         res = dict.fromkeys(self.ids, 0.0)
-
-        # search stages
         self._cr.execute(
             "SELECT id FROM automation_task_stage WHERE task_id IN %s AND parent_id IS NULL",
             (tuple(self.ids), ),
         )
-
-        # get progress
         stage_ids = [r[0] for r in self._cr.fetchall()]
         for stage in self.env["automation.task.stage"].browse(stage_ids):
-            res[stage.task_id.id] = stage.complete_progress
-
+            res[stage.task_id.id] = stage._get_progress()
         # assign
         for obj in self:
-            obj.progress = res[obj.id]
+            obj.progress = res.get(obj.id, 0.0)
 
     def _compute_res_ref(self):
         if not self.ids:
@@ -377,13 +373,6 @@ class AutomationTask(models.Model):
             (self.id, ),
         )
 
-        # (re)create token
-        token_obj = self.env["automation.task.token"]
-        token_obj.search([("task_id", "=", self.id)]).unlink()
-        token_obj.create({
-            "task_id": self.id
-        })
-
         # set queued
         self.write({
             "state": "queued",
@@ -484,24 +473,26 @@ class AutomationTask(models.Model):
                 self._commit_state()
 
                 # run task
-                taskc_test = tools.config.get('test_enable')
-                taskc = TaskStatus(task, stage_count, options=task_options, local=taskc_test, log=taskc_test)
-                resource._run(taskc)
+                error_count = 0
+                warning_count = 0
+                with TaskStatus(task, stage_count, options=task_options) as taskc:
+                    try:
+                        resource._run(taskc)
+                    finally:
+                        error_count = taskc.errors
+                        warning_count = taskc.warnings
 
-                # check fail on errors
-                if task_options.get("fail_on_errors"):
-                    if taskc.errors:
-                        raise exceptions.UserError(_("Task finished with errors"))
-
-                # close
-                taskc.close()
+                    # check fail on errors
+                    if task_options.get("fail_on_errors"):
+                        if error_count:
+                            raise exceptions.UserError(_("Task finished with errors"))
 
                 # update status and commit
                 task.write({"state_change": fields.Datetime.now(),
                             "state": "done",
                             "error": None,
-                            "error_count": taskc.errors,
-                            "warning_count": taskc.warnings
+                            "error_count": error_count,
+                            "warning_count": warning_count
                     })
 
                 # pylint: disable=invalid-commit
@@ -532,8 +523,8 @@ class AutomationTask(models.Model):
                     "state_change": fields.Datetime.now(),
                     "state": "failed",
                     "error": error,
-                    "error_count": taskc.errors,
-                    "warning_count": taskc.warnings
+                    "error_count": error_count,
+                    "warning_count": warning_count
                 })
 
                 # finally commit current state after
@@ -606,15 +597,18 @@ class AutomationTaskMixin(models.AbstractModel):
     def _run(self, taskc):
         """ Test Task """
         self.ensure_one()
-        for stage in range(1, 2):
-            taskc.stage(f"Stage {stage}")
+        taskc.substage('Test', total=2)
+        for stage in range(1, 3):
+            stage_name = f"Stage {stage}"
+            taskc.substage(stage_name)
 
             for proc in range(1, 100, 10):
-                taskc.log(f"Processing {stage}")
+                taskc.log(f"Processing {stage}", data={'test': '"Json" is \'great\'!', 'progress': proc}, code="TEST")
                 taskc.progress(f"Processing {stage}", proc)
                 time.sleep(1)
 
             taskc.done()
+        taskc.done()
 
 
 class AutomationTaskStage(models.Model):
@@ -655,23 +649,26 @@ class AutomationTaskStage(models.Model):
             complete_name = " / ".join(reversed(name)) or '/'
             obj.complete_name = complete_name
 
-    def _calc_progress(self):
+    def _get_progress(self):
         self.ensure_one()
         progress = self.progress
-        if progress >= 100.0:
-            return progress
 
+        # if there is a progress
+        # return the progress
+        if progress > 0:
+            return min(progress, 100.0)
+
+        # otherwise return the overall progress
+        # for the childs
         childs = self.child_ids
-        total = max(self.total, len(childs)) or 1
-
+        total = 1.0 / (max(self.total, len(childs)) or 1)
         for child in childs:
-            progress += child._calc_progress() / total
-
+            progress += (child._get_progress() * total)
         return min(round(progress), 100.0)
 
     def _compute_progress(self):
         for obj in self:
-            obj.complete_progress = obj._calc_progress()
+            obj.complete_progress = obj._get_progress()
 
 
 class AutomationTaskLog(models.Model):
