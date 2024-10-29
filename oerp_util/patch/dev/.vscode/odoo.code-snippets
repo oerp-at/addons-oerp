@@ -89,5 +89,16 @@
             "</odoo>"
         ],
         "description": "Odoo Data File"
+    },
+    "odoo_migration": {
+        "prefix": "omig",
+        "body": [
+            "from odoo import SUPERUSER_ID, api",
+            "",
+            "",
+            "def migrate(cr, version):",
+            "    env = api.Environment(cr, SUPERUSER_ID, {})"
+        ],
+        "description": "Odoo Migration"
     }
 }
