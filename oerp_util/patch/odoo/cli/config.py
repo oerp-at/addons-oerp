@@ -1343,6 +1343,8 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
                                 name="raw",
                                 help="Only raw fixes without module update")
 
+        self.addons_paths = None
+
 
 
     def _module_data_uninstall_no_drop(self, env, modules_to_remove):
@@ -1589,27 +1591,46 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
                 _logger.warning("[FOUND] unreferenced modul data: %s", ', '.join(unref_modules))
 
     def run_config(self):
+        self.addons_paths = self.get_addons_paths()
         self.call_with_cr(self.pre_cleanup)
         if not self.params.only_raw:
             self.setup_env()
 
+    def get_file_path(self, relative_file_path):
+        for addon_path in self.addons_paths:
+            file_path = os.path.join(addon_path, relative_file_path)
+            if os.path.exists(file_path):
+                return file_path
+        return None
+
     def pre_cleanup(self, cr):
+        self.pre_cleanup_assets(cr)
+        self.pre_cleanup_views(cr)
+
+    def pre_cleanup_assets(self, cr):
+        cr.execute('SELECT id, path FROM ir_asset WHERE active')
+        commit = False
+        for asset_id, asset_path in cr.fetchall():
+            if not self.get_file_path(asset_path):
+                if self.params.fix:
+                    _logger.info('[FIX] delete invalid asset %s', asset_path)
+                    cr.execute('DELETE FROM ir_asset WHERE id = %s', (asset_id,))
+                    commit = True
+                else:
+                    _logger.info("[FOUND] Invalid asset %s", asset_path)
+
+        if commit:
+            cr.execute('COMMIT')
+
+    def pre_cleanup_views(self, cr):
         # cleanup not available views
         cr.execute("SELECT id, arch_fs, inherit_id FROM ir_ui_view WHERE arch_prev IS NOT NULL AND arch_fs IS NOT NULL AND active")
 
-        addons_paths = self.get_addons_paths()
         delete_view_ids = {}
-
-        def get_file_path(relative_file_path):
-            for addon_path in addons_paths:
-                file_path = os.path.join(addon_path, relative_file_path)
-                if os.path.exists(file_path):
-                    return file_path
-            return None
-
         commit = False
+
         for view_id, arch_fs, inherit_id in cr.fetchall():
-            if not get_file_path(arch_fs):
+            if not self.get_file_path(arch_fs):
                 if self.params.fix:
                     delete_view_ids[view_id] = (inherit_id, arch_fs)
                     commit = True
