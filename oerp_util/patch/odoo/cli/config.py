@@ -372,6 +372,19 @@ class DatabaseMixin(object):
         params = " ".join(params)
         return psycopg2.connect(params)
 
+    def call_with_cr(self, fct):
+        """ call function with cr """
+        con = self.connect_database()
+        try:
+            cr = con.cursor()
+            try:
+                cr = con.cursor()
+                fct(cr)
+            finally:
+                cr.close()
+        finally:
+            con.close()
+
     def is_database_ready(self):
         try:
             con = self.connect_database()
@@ -647,6 +660,20 @@ class ConfigCommand():
 
         _logger.info('%s from %s to %s done!', info, src, dest)
         return res
+
+    def get_addons_paths(self):
+        addons_paths = config.get('addons_path')
+        if addons_paths:
+            addons_paths = addons_paths.split(',')
+        else:
+            addons_paths = []
+
+        server_path =  get_server_dir()
+        addons_path = os.path.join(server_path, "addons")
+        base_addons_path = os.path.join(server_path, "odoo/addons")
+        addons_paths.append(addons_path)
+        addons_paths.append(base_addons_path)
+        return addons_paths
 
 
 class Update(ConfigCommand, Command):
@@ -1290,7 +1317,7 @@ class Test(ConfigCommand, Command):
                 raise Exception(f'{len(failed)}/{len(results)} Test(s) failed!')
 
 
-class CleanUp(ConfigCommand, Command):
+class CleanUp(ConfigCommand, Command, DatabaseMixin):
     """ CleanUp Database """
     def __init__(self):
         super(CleanUp, self).__init__()
@@ -1311,7 +1338,11 @@ class CleanUp(ConfigCommand, Command):
                                 nargs="+",
                                 help="Modules which should be uninstall during cleanup")
 
-        self.clean = True
+        self.parser.add_argument("--only-raw",
+                                action="store_true",
+                                name="raw",
+                                help="Only raw fixes without module update")
+
 
 
     def _module_data_uninstall_no_drop(self, env, modules_to_remove):
@@ -1558,8 +1589,54 @@ class CleanUp(ConfigCommand, Command):
                 _logger.warning("[FOUND] unreferenced modul data: %s", ', '.join(unref_modules))
 
     def run_config(self):
-        # run with env
-        self.setup_env()
+        self.call_with_cr(self.pre_cleanup)
+        if not self.params.only_raw:
+            self.setup_env()
+
+    def pre_cleanup(self, cr):
+        # cleanup not available views
+        cr.execute("SELECT id, arch_fs, inherit_id FROM ir_ui_view WHERE arch_prev IS NOT NULL AND arch_fs IS NOT NULL AND active")
+
+        addons_paths = self.get_addons_paths()
+        delete_view_ids = {}
+
+        def get_file_path(relative_file_path):
+            for addon_path in addons_paths:
+                file_path = os.path.join(addon_path, relative_file_path)
+                if os.path.exists(file_path):
+                    return file_path
+            return None
+
+        commit = False
+        for view_id, arch_fs, inherit_id in cr.fetchall():
+            if not get_file_path(arch_fs):
+                if self.params.fix:
+                    delete_view_ids[view_id] = (inherit_id, arch_fs)
+                    commit = True
+                else:
+                    _logger.warning('[FOUND] invalid view %s', arch_fs)
+
+        while delete_view_ids:
+            # delete views which have not dependency
+            deleted_views = []
+            for view_id, (inherit_id, arch_fs) in delete_view_ids.items():
+                _logger.warning('[FIX] Removing invalid view %s', arch_fs)
+                child_views = [k for k, (child_inherit_id, child_arch_fs) in delete_view_ids.items() if child_inherit_id == view_id]
+                if not child_views:
+                    cr.execute("DELETE FROM ir_ui_view WHERE id = %s", (view_id,))
+                    deleted_views.append(view_id)
+
+            # remove view from dict
+            for view_id in deleted_views:
+                delete_view_ids.pop(view_id)
+
+            # check if there wehre something to delete
+            if not deleted_views and delete_view_ids:
+                _logger.error('Unable to delete views with IDs %s', delete_view_ids.keys())
+                break
+
+        if commit:
+            cr.execute("COMMIT")
 
     def run_config_env(self, env):
         # check full cleanup
