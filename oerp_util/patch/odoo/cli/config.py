@@ -2271,6 +2271,8 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
             cr.execute("""INSERT INTO ir_config_parameter (key, value)
                     VALUES ('database.development', 'True')
                     ON CONFLICT (key) DO UPDATE SET value = 'True';""")
+            # disable cron jobs
+            cr.execute("UPDATE ir_cron SET active = FALSE")
 
     def download_database(self, url):
         if url.netloc:
