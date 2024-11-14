@@ -2254,8 +2254,8 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
             else:
                 _logger.warning('Database %s is already neutralized', self.params.database)
 
-    def prepare_local_development(self):
-        _logger.info("Prepare database %s for local development", self.params.database)
+    def prepare_local_development_before(self):
+        _logger.info("Prepare database %s for local development before update", self.params.database)
         with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
             # reset password to admin
             cr.execute("""UPDATE res_users
@@ -2271,6 +2271,10 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
             cr.execute("""INSERT INTO ir_config_parameter (key, value)
                     VALUES ('database.development', 'True')
                     ON CONFLICT (key) DO UPDATE SET value = 'True';""")
+
+    def prepare_local_development_after(self):
+        _logger.info("Prepare database %s for local development after update", self.params.database)
+        with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
             # disable cron jobs
             cr.execute("UPDATE ir_cron SET active = FALSE")
 
@@ -2418,13 +2422,18 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
             if self.params.neutralize or self.params.development:
                 self.neutralize()
             if self.params.development:
-                self.prepare_local_development()
+                self.prepare_local_development_before()
 
             # update database
             if self.params.update:
                 config["update"]["all"] = 1
                 update_database(self.params.database)
 
+            # after update
+            if self.params.development:
+                self.prepare_local_development_after()
+
+            # final tasks
             self.setup_env()
 
     def run_config(self):
