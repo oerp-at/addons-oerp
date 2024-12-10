@@ -1624,13 +1624,18 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
 
     def pre_cleanup_views(self, cr):
         # cleanup not available views
-        cr.execute("SELECT id, arch_fs, inherit_id FROM ir_ui_view WHERE arch_prev IS NOT NULL AND arch_fs IS NOT NULL AND active")
+        cr.execute("""SELECT v.id, v.arch_fs, v.inherit_id, m.latest_version FROM ir_ui_view v
+            LEFT JOIN ir_model_data d ON d.res_id = v.id AND d.model = 'ir.ui.view'
+            LEFT JOIN ir_module_module m ON m.name = d.module
+            WHERE v.arch_prev IS NOT NULL
+            AND v.arch_fs IS NOT NULL
+            AND v.active""")
 
         delete_view_ids = {}
         commit = False
 
-        for view_id, arch_fs, inherit_id in cr.fetchall():
-            if not self.get_file_path(arch_fs):
+        for view_id, arch_fs, inherit_id, module_version in cr.fetchall():
+            if not self.get_file_path(arch_fs) or (module_version and module_version < ADDON_API):
                 if self.params.fix:
                     delete_view_ids[view_id] = (inherit_id, arch_fs)
                     commit = True
@@ -1644,6 +1649,7 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
                 _logger.warning('[FIX] Removing invalid view %s', arch_fs)
                 child_views = [k for k, (child_inherit_id, child_arch_fs) in delete_view_ids.items() if child_inherit_id == view_id]
                 if not child_views:
+                    cr.execute("DELETE FROM ir_ui_view WHERE inherit_id = %s AND NOT active", (view_id,))
                     cr.execute("DELETE FROM ir_ui_view WHERE id = %s", (view_id,))
                     deleted_views.append(view_id)
 
