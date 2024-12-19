@@ -1241,6 +1241,7 @@ class Test(ConfigCommand, Command):
         # important to be here, that it not conflicts
         # with tag parsing
         config["test_enable"] = True
+        config["stop_after_init"] = True
         config["test_server"] = config.get("test_server", self.params.test_server)
 
         module_name = self.params.module
@@ -1277,6 +1278,7 @@ class Test(ConfigCommand, Command):
             # start test server for http tests
             server = self._get_server() if config.get("test_server") else None
             if server:
+                _logger.info('Start test server')
                 server.start()
 
             # run tests
