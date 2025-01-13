@@ -3,7 +3,7 @@
 # pylint: disable=license-allowed
 {
     'name': 'Utils',
-    'version': '17.0.1.0.0',
+    'version': '18.0.1.0.0',
     'summary': 'Base Utils for Testing, Development and Deployment',
     'category': 'Base',
     'author': 'martin-reisenhofer',
@@ -13,10 +13,6 @@
     'depends': ['base',
                 'mail'],
     'data': [
-    ],
-    'python': [
-        'azure-core',
-        'azure-ai-formrecognizer'
     ],
     'installable': True
 }

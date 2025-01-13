@@ -9,9 +9,21 @@ For linking/including the additional modules, git subtree is used. Therefore, it
 
 For the package management **pipenv** is used. Therefore, all dependencies (also for development) are tracked in the `Pipfile` and the resulting `Pipfile.lock`.
 
-But some Python packages also have native dependencies, here the packagelist for Ubuntu 22.04:
+But some Python packages also have native dependencies, here the packagelist for Ubuntu >= 22.04:
 
-    apt install --no-install-recommends build-essential git virtualenv pipenv poppler-utils bzip2 curl fonts-freefont-ttf fonts-ubuntu fontconfig python3-dev libcairo2-dev libcups2-dev libffi-dev libfontconfig-dev libfreetype6-dev libssl-dev libldap2-dev libxml2-dev libxslt1-dev libpq-dev libhttp-parser-dev libsasl2-dev libmagickwand-dev xfonts-75dpi xfonts-base xfonts-encodings xfonts-utils wkhtmltopdf
+    sudo apt install --no-install-recommends build-essential git virtualenv poppler-utils bzip2 curl fonts-freefont-ttf fonts-ubuntu fontconfig python3-dev libcairo2-dev libcups2-dev libffi-dev libfontconfig-dev libfreetype6-dev libssl-dev libldap2-dev libxml2-dev libxslt1-dev libpq-dev libhttp-parser-dev libsasl2-dev libmagickwand-dev xfonts-75dpi xfonts-base xfonts-encodings xfonts-utils
+
+If you use python 3.10 or ubuntu < 24.04 LTS:
+
+    pip3 install pipenv==2024.0.1
+
+Otherwise please use:
+
+    sudo apt install pipenv
+
+Finally install the Wkhtml package for report generation
+
+    sudo dpkg -i ./docker/install/wkhtmltox_0.12.6.1-2.jammy_amd64.deb ; sudo apt-get install -f -y
 
 
 # Development
