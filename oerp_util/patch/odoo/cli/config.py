@@ -29,15 +29,11 @@ import psycopg2
 from tabulate import tabulate
 
 import odoo
-import odoo.tests.loader
 from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 from odoo.models import LOG_ACCESS_COLUMNS
 from odoo.modules.module import MANIFEST_NAMES
 from odoo.modules.registry import Registry
 from odoo.service.server import ThreadedServer
-from odoo.tests.loader import unwrap_suite
-from odoo.tests.result import OdooTestResult
-from odoo.tests.suite import OdooSuite
 from odoo.tools import misc, unique
 from odoo.tools.config import config
 from odoo.tools.translate import (PoFileReader, PoFileWriter,
@@ -1087,20 +1083,6 @@ class Po_Import(ConfigCommand, Command):
         cr.commit()
 
 
-class OdooTestRunner(object):
-    """A test runner class that displays results in in logger.
-    Simplified verison of TextTestRunner(
-    """
-
-    def run(self, test):
-        result = OdooTestResult()
-        start_time = time.perf_counter()
-        test(result)
-        time_taken = time.perf_counter() - start_time
-        run = result.testsRun
-        _logger.info("Ran %d test%s in %.3fs", run, run != 1 and "s" or "", time_taken)
-        return result
-
 
 class Test(ConfigCommand, Command):
     """ Run Tests """
@@ -1165,6 +1147,21 @@ class Test(ConfigCommand, Command):
         self.setup_env()
 
     def _get_test_runner(self):
+
+        class OdooTestRunner(object):
+            """A test runner class that displays results in in logger.
+            Simplified verison of TextTestRunner(
+            """
+
+            def run(self, test):
+                result = odoo.tests.result.OdooTestResult()
+                start_time = time.perf_counter()
+                test(result)
+                time_taken = time.perf_counter() - start_time
+                run = result.testsRun
+                _logger.info("Ran %d test%s in %.3fs", run, run != 1 and "s" or "", time_taken)
+                return result
+
         if self.params.xml_report:
             if self.xml_runner is None:
                 from xmlrunner import XMLTestRunner
@@ -1184,6 +1181,11 @@ class Test(ConfigCommand, Command):
                  test_tags=None,
                  test_position=None):
 
+        # before running tests ensure all imports
+        import odoo.tests.loader
+        import odoo.tests.result
+        from odoo.tests.suite import OdooSuite
+        from odoo.tests.loader import get_module_test_cases
         from odoo.tests.tag_selector import TagsSelector  # Avoid import loop
         from ..modules import module
 
@@ -1207,7 +1209,7 @@ class Test(ConfigCommand, Command):
         test_server_enabled = config.get('test_server', False)
         results = []
         for m in mods:
-            tests = unwrap_suite(unittest.TestLoader().loadTestsFromModule(m))
+            tests = get_module_test_cases(unittest.TestLoader().loadTestsFromModule(m))
             suite = OdooSuite(
                 t for t in tests
                 if (not position_tag or position_tag.check(t))
