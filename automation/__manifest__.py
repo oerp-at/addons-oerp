@@ -15,11 +15,10 @@
         'security/security.xml',
         'security/ir.model.access.csv',
         'data/example_task.xml',
+        'data/ir_cron.xml',
         'views/automation_menu.xml',
-        'views/task_log.xml',
-        'views/stage_view.xml',
-        'views/cron_view.xml',
-        'views/task_view.xml',
+        'views/task_log_views.xml',
+        'views/task_views.xml',
         'views/task_example.xml'
     ],
     'installable': True

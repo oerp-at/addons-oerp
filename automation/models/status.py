@@ -41,6 +41,7 @@ class TaskStatus(object):
 
         # init task
         self.task = task
+        self.env = task.env
 
         # init stage name
         self.parent_stage_name = ""

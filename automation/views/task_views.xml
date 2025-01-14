@@ -62,9 +62,6 @@
               </group>
               <group name="task_progress">
                 <field name="progress" widget="progressbar"/>
-                <field name="cron_id" invisible="not cron_id" groups="base.group_system"/>
-                <field name="start_after_task_id" invisible="not start_after_task_id"/>
-                <field name="start_after" invisible="not start_after"/>
                 <field name="state_change"/>
               </group>
             </group>
@@ -82,7 +79,7 @@
       <field name="name">automation.tree_automation_task</field>
       <field name="model">automation.task</field>
       <field name="arch" type="xml">
-        <tree string="Tasks" create="false"
+        <list string="Tasks" create="false"
           decoration-muted="state=='cancel'"
           decoration-info="state=='draft'"
           decoration-bf="state=='queued'"
@@ -97,8 +94,7 @@
           <field name="state"/>
           <field name="warning_count" string="Warnings" optional="hide"/>
           <field name="error_count" string="Errors" optional="hide"/>
-
-        </tree>
+        </list>
       </field>
     </record>
 
@@ -128,7 +124,7 @@
     <record id="action_automation_task" model="ir.actions.act_window">
       <field name="name">Automation Task</field>
       <field name="res_model">automation.task</field>
-      <field name="view_mode">tree,form</field>
+      <field name="view_mode">list,form</field>
     </record>
 
     <menuitem id="menu_automation_task" name="Automation Task" parent="base.menu_automation"

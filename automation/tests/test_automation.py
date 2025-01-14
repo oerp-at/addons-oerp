@@ -1,6 +1,8 @@
 from odoo.tests.common import TransactionCase
+from odoo.tests import tagged
 
 
+@tagged('post_install', '-at_install')
 class TestAutomation(TransactionCase):
     ''' Automation Test Case especially the log '''
 
@@ -23,8 +25,4 @@ class TestAutomation(TransactionCase):
         self.assertTrue(task.total_logs, 'Check if logs are created')
 
         # delete task
-        cron = task.cron_id
-        action = task.action_id
         task.unlink()
-        self.assertFalse(cron.exists(), "Check if cron was deleted")
-        self.assertFalse(action.exists(), "Check if action was deleted")

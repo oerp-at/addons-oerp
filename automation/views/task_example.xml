@@ -14,7 +14,7 @@
             </field>
         </record>
 
-        <!-- automation.task.example inherit tree view -->
+        <!-- automation.task.example inherit list view -->
         <record id="automation_task_example_tree" model="ir.ui.view">
             <field name="name">automation.task.example.tree</field>
             <field name="model">automation.task.example</field>
@@ -43,7 +43,7 @@
             <field name="name">Automation Task Sample</field>
             <field name="type">ir.actions.act_window</field>
             <field name="res_model">automation.task.example</field>
-            <field name="view_mode">tree,form</field>
+            <field name="view_mode">list,form</field>
         </record>
 
     </data>

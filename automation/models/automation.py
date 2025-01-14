@@ -1,7 +1,8 @@
 import time
 import uuid
 import logging
-from odoo import api, fields, models, SUPERUSER_ID, _, exceptions, tools
+import psycopg2
+from odoo import api, fields, models, _, exceptions, tools
 from .status import TaskStatus
 
 _logger = logging.getLogger(__name__)
@@ -50,14 +51,6 @@ class AutomationTask(models.Model):
     res_model = fields.Char("Resource Model", index=True, readonly=True)
     res_id = fields.Integer("Resource ID", index=True, readonly=True)
     res_ref = fields.Reference(_list_all_models, string="Resource", compute="_compute_res_ref", readonly=True)
-    cron_id = fields.Many2one(
-        "ir.cron",
-        "Scheduled Job",
-        index=True,
-        ondelete="set null",
-        copy=False,
-        readonly=True,
-    )
 
     total_logs = fields.Integer(compute="_compute_total_logs")
     total_stages = fields.Integer(compute="_compute_total_stages")
@@ -65,39 +58,6 @@ class AutomationTask(models.Model):
     total_errors = fields.Integer(compute="_compute_total_errors")
 
     task_id = fields.Many2one("automation.task", "Task", compute="_compute_task_id")
-
-    start_after_task_id = fields.Many2one(
-        "automation.task",
-        "Start after task",
-        readonly=True,
-        index=True,
-        ondelete="restrict",
-        help="Start *this* task after the specified task, was set to null after run state is set.")
-    start_after = fields.Datetime(help="Start *this* task after the specified date/time.")
-
-    parent_id = fields.Many2one("automation.task",
-                                "Parent",
-                                readonly=True,
-                                index=True,
-                                ondelete="set null",
-                                help="The parent task, after *this* task was started")
-
-    post_task_ids = fields.One2many("automation.task",
-                                    "start_after_task_id",
-                                    "Post Tasks",
-                                    help="Tasks which are started after this task.",
-                                    readonly=True,
-                                    copy=False)
-
-    child_task_ids = fields.One2many("automation.task",
-                                     "parent_id",
-                                     "Child Tasks",
-                                     help="Tasks which already started after this task.",
-                                     readonly=True,
-                                     copy=False)
-
-    action_id = fields.Many2one("ir.actions.server", "Server Action", ondelete="set null",
-                                index=True, readonly=True, copy=False)
 
     error_count = fields.Integer(readonly=True)
     warning_count = fields.Integer(readonly=True)
@@ -282,8 +242,7 @@ class AutomationTask(models.Model):
             task._check_execution_rights()
             if task.state == "queued":
                 task.state = "cancel"
-                if task.cron_id:
-                    task.cron_id.unlink()
+
         return True
 
     def action_stage(self):
@@ -291,7 +250,7 @@ class AutomationTask(models.Model):
             "display_name": _("Stages"),
             "res_model": "automation.task.stage",
             "type": "ir.actions.act_window",
-            "view_mode": "tree,form",
+            "view_mode": "list,form",
             "domain": [("task_id", "=", self.id)],
             "context": {'display_exclude_root':True}
         }
@@ -301,7 +260,7 @@ class AutomationTask(models.Model):
             "display_name": _("Logs"),
             "res_model": "automation.task.log",
             "type": "ir.actions.act_window",
-            "view_mode": "tree,form",
+            "view_mode": "list,form",
             "domain": [("task_id", "=", self.id)],
             "context": {'display_exclude_root':True}
         }
@@ -311,7 +270,7 @@ class AutomationTask(models.Model):
             "display_name": _("Logs"),
             "res_model": "automation.task.log",
             "type": "ir.actions.act_window",
-            "view_mode": "tree,form",
+            "view_mode": "list,form",
             "domain": [("task_id", "=", self.id), ("pri", "=", "w")],
             "context": {'display_exclude_root':True}
         }
@@ -321,7 +280,7 @@ class AutomationTask(models.Model):
             "display_name": _("Logs"),
             "res_model": "automation.task.log",
             "type": "ir.actions.act_window",
-            "view_mode": "tree,form",
+            "view_mode": "list,form",
             "domain": [("task_id", "=", self.id), ("pri", "in", ("e", "a", "x"))],
             "context": {'display_exclude_root':True}
         }
@@ -331,38 +290,6 @@ class AutomationTask(models.Model):
 
     def action_reset(self):
         return True
-
-    def _get_cron_values(self):
-        self.ensure_one()
-
-        # setup next call
-        nextcall = fields.Datetime.now()
-        if self.start_after and nextcall < self.start_after:
-            nextcall = self.start_after
-
-        # new cron entry
-        return {
-            "name": f"Task: {self.name}",
-            "user_id": SUPERUSER_ID,
-            "interval_type": "minutes",
-            "interval_number": 1,
-            "nextcall": nextcall,
-            "numbercall": 1,
-            "active": True,
-            "priority": 100000 + self.id,
-            "ir_actions_server_id": self.action_id.id
-        }
-
-    def _get_task_values(self):
-        self.ensure_one()
-        return {
-            "name": f"Automation Action ({self.id})",
-            "state": "task",
-            "sequence": 100000 + self.id,
-            "model_id": self.env["ir.model"].search([("model", "=", "automation.task")], limit=1).id,
-            "usage": "ir_cron",
-            "task_id": self.id
-        }
 
     def _task_enqueue(self):
         """ queue task """
@@ -375,21 +302,8 @@ class AutomationTask(models.Model):
 
         # set queued
         self.write({
-            "state": "queued",
-            "parent_id": self.start_after_task_id.id,
-            "start_after_task_id": None,
-            "start_after": None,
+            "state": "queued"
         })
-
-        # create action on the fly
-        if not self.action_id:
-            self.action_id = self.env["ir.actions.server"].create(self._get_task_values())
-
-        # (re)create cron entry
-        old_cron = self.cron_id
-        self.cron_id = self.env["ir.cron"].create(self._get_cron_values())
-        # cleanup old cron entry
-        old_cron.unlink()
 
     def action_queue(self):
         for task in self:
@@ -397,9 +311,7 @@ class AutomationTask(models.Model):
             task._check_execution_rights()
             if task.state in ("draft", "cancel", "failed", "done"):
                 # sudo task, and check if it is not active already
-                sudo_task = task.sudo()
-                if not sudo_task.cron_id or not sudo_task.cron_id.active:
-                    task.sudo()._task_enqueue()
+                task.sudo()._task_enqueue()
         return True
 
     def _task_options(self):
@@ -437,6 +349,8 @@ class AutomationTask(models.Model):
         task = self
 
         if task and task.state == "queued":
+            error_count = 0
+            warning_count = 0
             try:
                 task_options = task._task_options()
                 stage_count = task_options["stages"]
@@ -464,17 +378,13 @@ class AutomationTask(models.Model):
                     "state_change": fields.Datetime.now(),
                     "state": "run",
                     "error": None,
-                    "start_after_task_id": None,
                     "error_count": 0,
                     "warning_count": 0,
-                    "parent_id": task.start_after_task_id.id
                 })
                 # commit after start
                 self._commit_state()
 
                 # run task
-                error_count = 0
-                warning_count = 0
                 with TaskStatus(task, stage_count, options=task_options) as taskc:
                     try:
                         resource._run(taskc)
@@ -532,16 +442,6 @@ class AutomationTask(models.Model):
                 self._commit_state()
 
         return True
-
-    def unlink(self):
-        """ unlink dependend objects crons and actions """
-        crons = self.cron_id
-        actions = self.action_id
-        if crons:
-            crons.unlink()
-        if actions:
-            actions.unlink()
-        return super().unlink()
 
 
 class AutomationTaskMixin(models.AbstractModel):
@@ -609,6 +509,24 @@ class AutomationTaskMixin(models.AbstractModel):
 
             taskc.done()
         taskc.done()
+
+    def _cron_run(self):
+        # get available tasks
+        ids = None
+        try:
+            self._cr.execute("""SELECT id FROM automation_task WHERE state = 'queued' FOR UPDATE NOWAIT LIMIT 1""")
+            ids = [r[0] for r in self._cr.fetchall()]
+        except psycopg2.OperationalError:
+            # return if there is a concurrency error
+            self._cr.rollback()
+            return
+
+        # return if no tasks available
+        if not ids:
+            return
+
+        # process task
+        self.env["automation.task"].browse(ids[0])._process_task()
 
 
 class AutomationTaskStage(models.Model):

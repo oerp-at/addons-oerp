@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
   <data>
-  
+
     <record id="form_task_stage" model="ir.ui.view">
       <field name="name">automation.form_task_stage</field>
       <field name="model">automation.task.stage</field>
@@ -11,7 +11,7 @@
             <group>
               <field name="name"/>
               <field name="parent_id"/>
-              <field name="task_id"/>                  
+              <field name="task_id"/>
             </group>
             <group>
               <field name="complete_progress" widget="progressbar"/>
@@ -25,12 +25,12 @@
       <field name="name">automation.tree_task_stage</field>
       <field name="model">automation.task.stage</field>
       <field name="arch" type="xml">
-        <tree string="Stages" create="false" delete="false">
+        <list string="Stages" create="false" delete="false">
           <field name="complete_name"/>
           <field name="task_id"/>
           <field name="status"/>
           <field name="complete_progress" widget="progressbar"/>
-        </tree>
+        </list>
       </field>
     </record>
 
@@ -50,9 +50,9 @@
     </record>
 
     <record id="action_task_stage" model="ir.actions.act_window">
-      <field name="name">Stage</field>      
-      <field name="res_model">automation.task.stage</field>      
-      <field name="view_mode">tree,form</field>
+      <field name="name">Stage</field>
+      <field name="res_model">automation.task.stage</field>
+      <field name="view_mode">list,form</field>
     </record>
 
   </data>
