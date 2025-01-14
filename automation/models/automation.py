@@ -232,7 +232,7 @@ class AutomationTask(models.Model):
 
     def _check_execution_rights(self):
         # check rights
-        if self.owner_id.id != self._uid and not self.user_has_groups(
+        if self.owner_id.id != self._uid and not self.env.user.has_groups(
                 "automation.group_automation_manager,base.group_system"):
             raise exceptions.UserError(_("Not allowed. You have to be the owner or an automation manager"))
 
@@ -300,10 +300,11 @@ class AutomationTask(models.Model):
             (self.id, ),
         )
 
-        # set queued
+        # set queued and trigger cron
         self.write({
             "state": "queued"
         })
+        self.env.ref('automation.ir_cron_automation_task')._trigger()
 
     def action_queue(self):
         for task in self:
@@ -444,6 +445,27 @@ class AutomationTask(models.Model):
         return True
 
 
+    @api.model
+    def _cron_run(self):
+        # get available tasks
+        ids = None
+        try:
+            self._cr.execute("""SELECT id FROM automation_task WHERE state = 'queued' FOR UPDATE NOWAIT LIMIT 1""")
+            ids = [r[0] for r in self._cr.fetchall()]
+        except psycopg2.OperationalError:
+            # return if there is a concurrency error
+            self._cr.rollback()
+            return
+
+        # return if no tasks available
+        if not ids:
+            return
+
+        # process task
+        self.env["automation.task"].browse(ids[0])._process_task()
+
+
+
 class AutomationTaskMixin(models.AbstractModel):
     _name = "automation.task.mixin"
     _description = "Automation Task Proxy"
@@ -509,24 +531,6 @@ class AutomationTaskMixin(models.AbstractModel):
 
             taskc.done()
         taskc.done()
-
-    def _cron_run(self):
-        # get available tasks
-        ids = None
-        try:
-            self._cr.execute("""SELECT id FROM automation_task WHERE state = 'queued' FOR UPDATE NOWAIT LIMIT 1""")
-            ids = [r[0] for r in self._cr.fetchall()]
-        except psycopg2.OperationalError:
-            # return if there is a concurrency error
-            self._cr.rollback()
-            return
-
-        # return if no tasks available
-        if not ids:
-            return
-
-        # process task
-        self.env["automation.task"].browse(ids[0])._process_task()
 
 
 class AutomationTaskStage(models.Model):
