@@ -1,5 +1,6 @@
 # © 2007 Martin Reisenhofer <martin@reisenhofer.biz>
 # License BSD-2-Clause or later (https://opensource.org/license/bsd-2-clause/).
+import re
 import uuid
 import io
 import argparse
@@ -23,6 +24,7 @@ import zipfile
 from urllib.parse import urlparse
 import polib
 import yaml
+import json5
 import requests
 
 import psycopg2
@@ -32,7 +34,6 @@ import odoo
 from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 from odoo.models import LOG_ACCESS_COLUMNS
 from odoo.modules.module import MANIFEST_NAMES
-from odoo.modules.registry import Registry
 from odoo.service.server import ThreadedServer
 from odoo.tools import misc, unique
 from odoo.tools.config import config
@@ -48,6 +49,7 @@ ODOO_RELEASE = odoo.release
 ADDON_API = ODOO_RELEASE.version
 ADDONS_PATTERN = 'addons*'
 ADDONS_CUSTOM = 'custom-addons'
+ADDONS_CUSTOM_PATTERN = r'^(.*/(custom-addons-(.*)))/.*$'
 
 RESTORED_FILE_NAME = 'restored'
 DEFAULT_SLEEP = 5
@@ -64,7 +66,7 @@ def get_server_dir():
 
 def update_database(database):
     """ Odoo Database Update """
-    registry = Registry.new(database, update_module=True)
+    registry = odoo.modules.registry.Registry.new(database, update_module=True)
 
     # refresh
     try:
@@ -81,6 +83,24 @@ def update_database(database):
     except KeyError:
         pass
 
+def get_custom_addons():
+    working_dir = os.getcwd()
+    if not working_dir.endswith('/'):
+        working_dir += '/'
+    m = re.match(ADDONS_CUSTOM_PATTERN, working_dir)
+    if m:
+        return {
+            'name': m.group(3),
+            'dir': m.group(2),
+            'path': m.group(1)
+        }
+    return None
+
+def get_custom_addons_path():
+    custom_addons = get_custom_addons()
+    if custom_addons:
+        return custom_addons['path']
+    return os.path.join(get_base_dir(), ADDONS_CUSTOM)
 
 
 class ConfigException(Exception):
@@ -96,7 +116,12 @@ class Profile(argparse.ArgumentParser):
         self.defaults = {}
         self.base_dir = get_base_dir()
         self.server_dir = get_server_dir()
+
+        # get profile name
         self.profile = os.path.basename(self.base_dir)
+        custom_addons = get_custom_addons()
+        if custom_addons:
+            self.profile = f"{self.profile}-{custom_addons['name']}"
 
         # ensure that config dir exist
         self.config_dir = os.path.join(self.base_dir, ".config")
@@ -178,7 +203,7 @@ class Profile(argparse.ArgumentParser):
     def get_default_addon_path(self):
         addon_pattern = [f"{self.base_dir}/{ADDONS_PATTERN}/"]
         # add addons collections
-        dir_custom_addons =  os.path.join(self.base_dir, ADDONS_CUSTOM)
+        dir_custom_addons = get_custom_addons_path()
         if os.path.exists(dir_custom_addons) and self.is_addon_repository(dir_custom_addons):
             addon_pattern.append(f"{dir_custom_addons}/{ADDONS_PATTERN}/")
         # build package paths
@@ -573,7 +598,7 @@ class ConfigCommand():
         error = False
         if database:
             error = True
-            registry = odoo.registry(database)
+            registry = odoo.modules.registry.Registry(database)
             with registry.cursor() as cr:
                 uid = odoo.SUPERUSER_ID
                 ctx = odoo.api.Environment(cr, uid,
@@ -1209,7 +1234,7 @@ class Test(ConfigCommand, Command):
         test_server_enabled = config.get('test_server', False)
         results = []
         for m in mods:
-            tests = get_module_test_cases(unittest.TestLoader().loadTestsFromModule(m))
+            tests = get_module_test_cases(m)
             suite = OdooSuite(
                 t for t in tests
                 if (not position_tag or position_tag.check(t))
@@ -1856,10 +1881,14 @@ class Assemble(Command):
                 f"{dir_workspace}/{ADDONS_PATTERN}"
             ]
 
-            # add collections dir
-            dir_custom_addons =  os.path.join(dir_workspace, ADDONS_CUSTOM)
+            # add custom addons
+
+            dir_custom_addons = get_custom_addons_path()
             if os.path.exists(dir_custom_addons):
-                addon_pattern.append( f"{dir_custom_addons}/{ADDONS_PATTERN}")
+                addon_pattern.append(f"{dir_custom_addons}/{ADDONS_PATTERN}")
+
+
+            # assemble
 
             merged = []
             update_failed = []
@@ -1938,9 +1967,41 @@ class Assemble(Command):
 
             _logger.info("Removed links: %s" % len(addons_removed))
             _logger.info("Added links: %s" % len(addons_added))
-            _logger.info("Finished!")
+
+
+        def switch_odoo_env():
+            custom_addons = get_custom_addons()
+            if not custom_addons:
+                return
+
+            base_dir = get_base_dir()
+            launch_file = os.path.join(base_dir, '.vscode/launch.json')
+            if not os.path.exists(launch_file):
+                return
+
+            _logger.info("Switch environment to %s", custom_addons['name'])
+
+            with open(launch_file, 'r') as f:
+                vscode_launch_cfg = json5.load(f)
+
+            # change cwd
+            launch_cfgs = vscode_launch_cfg.get('configurations')
+            for launch_cfg in launch_cfgs:
+                if launch_cfg.get('program') == '${workspaceFolder}/odoo/odoo-bin':
+                    old_cwd = launch_cfg.get('cwd', '')
+                    new_cwd = '${workspaceFolder}/' + custom_addons['dir']
+                    if old_cwd != new_cwd:
+                        _logger.info("Change cwd for config %s: %s -> %s", launch_cfg['name'], old_cwd, new_cwd)
+                        launch_cfg['cwd'] = new_cwd
+
+            with open(launch_file, 'w') as f:
+                json5.dump(vscode_launch_cfg, f, indent=4, quote_keys=True)
+
 
         setup_addons(only_links=not params.cleanup)
+        switch_odoo_env()
+
+        _logger.info("Finished!")
 
 
 
