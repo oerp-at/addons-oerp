@@ -235,8 +235,10 @@ class TaskStatus(object):
             elif pri == "d":
                 self.logger.debug(message)
             elif pri == "x":
+                self.errors += 1
                 self.logger.fatal(message)
             elif pri == "a":
+                self.errors += 1
                 self.logger.critical(message)
 
     def log(self, message, pri="i", obj=None, ref=None, progress=None, code=None, data=None):

@@ -20,11 +20,12 @@
     "odoo_test": {
         "scope": "python",
         "prefix": "otest",
-        "body": [
-            "from odoo import tools",
+        "body": [            
+            "from odoo.tests import tagged",
             "from odoo.tests.common import TransactionCase",
             "",
             "",
+            "@tagged('custom_addons', 'post_install', '-at_install')",
             "class Test${1}(TransactionCase):",
             "\t''' ${2} '''",
             "",

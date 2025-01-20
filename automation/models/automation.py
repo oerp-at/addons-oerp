@@ -171,17 +171,7 @@ class AutomationTask(models.Model):
             r.total_stages = res[r.id]
 
     def _run(self, taskc):
-        """ Test Task """
-        self.ensure_one()
-        for stage in range(1, 10):
-            taskc.stage("Stage %s" % stage)
-
-            for proc in range(1, 100, 10):
-                taskc.log("Processing %s", stage)
-                taskc.progress(f"Processing {stage}", proc)
-                time.sleep(1)
-
-            taskc.done()
+        pass
 
     def _stage_count(self):
         self.ensure_one()
