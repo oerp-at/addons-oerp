@@ -335,6 +335,12 @@ class AutomationTask(models.Model):
         if not tools.config.get('test_enable'):
             self._cr.rollback()
 
+    def _test_task(self):
+        self.ensure_one()
+        if tools.config.get('test_enable'):
+            self.action_queue()
+            self._process_task()
+
     def _process_task(self):
         self.ensure_one()
         task = self
@@ -506,21 +512,12 @@ class AutomationTaskMixin(models.AbstractModel):
     def action_error(self):
         return self.task_id.action_error()
 
+    def _test_task(self):
+        return self.task_id._test_task()
+
     def _run(self, taskc):
         """ Test Task """
-        self.ensure_one()
-        taskc.substage('Test', total=2)
-        for stage in range(1, 3):
-            stage_name = f"Stage {stage}"
-            taskc.substage(stage_name)
-
-            for proc in range(1, 100, 10):
-                taskc.log(f"Processing {stage}", data={'test': '"Json" is \'great\'!', 'progress': proc}, code="TEST")
-                taskc.progress(f"Processing {stage}", proc)
-                time.sleep(1)
-
-            taskc.done()
-        taskc.done()
+        pass
 
 
 class AutomationTaskStage(models.Model):
