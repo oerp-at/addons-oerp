@@ -26,3 +26,5 @@ class TestAutomation(TransactionCase):
 
         # delete task
         task.unlink()
+        # check delete of empty set
+        self.env['automation.task.example'].unlink()

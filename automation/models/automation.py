@@ -472,20 +472,27 @@ class AutomationTaskMixin(models.AbstractModel):
     @api.model_create_multi
     @api.returns('self', lambda value: value.id)
     def create(self, vals_list):
-        res = super(AutomationTaskMixin, self).create(vals_list)
-        res.res_model = self._name
-        res.res_id = res.id
-        return res
+        tasks = super(AutomationTaskMixin, self).create(vals_list)
+        for task in tasks:
+            task.res_model = self._name
+            task.res_id = task.id
+        return tasks
 
     def unlink(self):
         # search inherited
         ids = self.ids
-        self._cr.execute("SELECT task_id FROM %s WHERE id IN %%s AND task_id IS NOT NULL" % self._table, (tuple(ids),))
-        task_ids = [r[0] for r in self._cr.fetchall()]
-        # unlink task
+        task_ids = None
+        if ids:
+            self._cr.execute(f"SELECT task_id FROM {self._table} WHERE id IN %s AND task_id IS NOT NULL", (tuple(ids),))
+            task_ids = [r[0] for r in self._cr.fetchall()]
+
+        # unlink self
         res = super(AutomationTaskMixin, self).unlink()
+
         # unlink inherited
-        self.env["automation.task"].browse(task_ids).unlink()
+        if ids and task_ids:
+            self.env["automation.task"].browse(task_ids).unlink()
+
         return res
 
     def action_queue(self):
