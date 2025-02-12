@@ -343,7 +343,9 @@ class AutomationTask(models.Model):
         self.ensure_one()
         if tools.config.get('test_enable'):
             self.action_queue()
-            self._process_task()
+            # if queued run task
+            if self.state == 'queued':
+                self._process_task()
 
     def _process_task(self):
         self.ensure_one()
