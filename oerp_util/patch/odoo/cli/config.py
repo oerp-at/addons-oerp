@@ -1275,6 +1275,8 @@ class Test(ConfigCommand, Command):
 
         results = []
         if modules:
+            import gc
+
             # start test server for http tests
             server = self._get_server() if config.get("test_server") else None
             if server:
@@ -1285,6 +1287,12 @@ class Test(ConfigCommand, Command):
             for module_name in modules:
                 results.extend(self.run_test(module_name, test_prefix, test_case,
                                    test_tags, test_position))
+
+                # clear cache
+                _logger.info('Clear cache after tests for %s', module_name)
+                env.clear()
+                cr.rollback()
+                gc.collect()
 
 
         if not results:
