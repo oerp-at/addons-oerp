@@ -12,6 +12,7 @@ import shutil
 import sys
 import threading
 import time
+import json
 import itertools
 from operator import itemgetter
 import subprocess
@@ -1147,11 +1148,31 @@ class Test(ConfigCommand, Command):
             required=False
         )
 
-
         self.parser.add_argument(
             "--xml-report",
             help="Generate standard XML unit test report",
             metavar="XML_REPORT"
+        )
+
+        self.parser.add_argument(
+            "--test-plan-export",
+            help="Export a test plan",
+            metavar="TEST_PLAN_EXPORT",
+            required=False
+        )
+
+        self.parser.add_argument(
+            "--test-plan",
+            help="Execute a test plan",
+            metavar="TEST_PLAN",
+            required=False
+        )
+
+        self.parser.add_argument(
+            "--test-result",
+            help="Export test result",
+            metavar="TEST_RESULT",
+            required=False
         )
 
         self.xml_runner = None
@@ -1161,8 +1182,66 @@ class Test(ConfigCommand, Command):
         if self.params.test_download:
             config["test_download"] = self.params.test_download
 
-        # run with env
-        self.setup_env()
+        if self.params.test_plan:
+            with open(self.params.test_plan, 'r', encoding='utf-8') as f:
+                test_plan = json.load(f)
+
+            test_plan_path, test_plan_ext = os.path.splitext(self.params.test_plan)
+            test_prefix = test_plan['test_prefix']
+            test_case = test_plan['test_case']
+            test_tags = test_plan['test_tags']
+            test_position = test_plan['test_position']
+            test_config = self.params.config
+            test_download = self.params.test_download or config.get('test_download') or ''
+
+            odoo_bin = os.path.abspath(sys.argv[0])
+            results = []
+
+            for module in test_plan['modules']:
+                # execute test command and print output
+                cmd = [odoo_bin, 'test', f'--module={module}']
+                if test_prefix:
+                    cmd.append(f'--test-prefix={test_prefix}')
+                if test_case:
+                    cmd.append(f'--test-case={test_case}')
+                if test_tags:
+                    cmd.append(f'--test-tags={test_tags}')
+                if test_position:
+                    cmd.append(f'--test-position={test_position}')
+                if test_config:
+                    cmd.append(f'--config={test_config}')
+                if test_download:
+                    cmd.append(f'--test-download={test_download}')
+
+                # add test result path
+                test_result_path = f"{test_plan_path}_result_{module}{test_plan_ext}"
+                _logger.info("Test result path %s", test_plan_path)
+                if os.path.exists(test_result_path):
+                    _logger.info("Remove existing test result %s", test_result_path)
+                    os.remove(test_result_path)
+
+                cmd.append(f'--test-result={test_result_path}')
+                cmd = ' '.join(cmd)
+
+                # run test
+                subprocess.run(cmd, shell=True)
+
+                # read result
+                with open(test_result_path, 'r', encoding='utf-8') as f:
+                    test_results = json.load(f)
+                    results.extend(test_results)
+
+            # export results
+            try:
+                self.export_results(results)
+            except Exception as e:
+                _logger.error(e)
+                if self.params.exit_error:
+                    sys.exit(-1)
+
+        else:
+            # run with env
+            self.setup_env()
 
     def _get_test_runner(self):
         if self.params.xml_report:
@@ -1182,7 +1261,8 @@ class Test(ConfigCommand, Command):
                  test_prefix=None,
                  test_case=None,
                  test_tags=None,
-                 test_position=None):
+                 test_position=None,
+                 count_tests=False):
 
         from odoo.tests.tag_selector import TagsSelector  # Avoid import loop
         from ..modules import module
@@ -1206,8 +1286,13 @@ class Test(ConfigCommand, Command):
         position_tag = TagsSelector(test_position) if test_position else None
         test_server_enabled = config.get('test_server', False)
         results = []
+        test_count = 0
         for m in mods:
             tests = unwrap_suite(unittest.TestLoader().loadTestsFromModule(m))
+            if count_tests:
+                test_count += len(list(tests))
+                continue
+
             suite = OdooSuite(
                 t for t in tests
                 if (not position_tag or position_tag.check(t))
@@ -1235,7 +1320,54 @@ class Test(ConfigCommand, Command):
         module.current_test = None
         threading.current_thread().testing = False
 
+        if count_tests:
+            return test_count
+
         return results
+
+    def export_results(self, results):
+        if not results:
+            _logger.warning("No tests!")
+        else:
+            # write test result
+            if self.params.test_result:
+                serializeable_results = [{
+                    'module': r['module'],
+                    'name': r['name'],
+                    'time': r['time'],
+                    'queries': r['queries'],
+                    'ok': r['ok']
+                } for r in results]
+                with open(self.params.test_result, 'w', encoding='utf-8') as f:
+                    json.dump(serializeable_results, f, indent=4)
+
+            # write xml report if used
+            if self.params.xml_report:
+                from xmlrunner.extra.xunit_plugin import transform
+                with open(self.params.xml_report, 'wb') as f:
+                    f.write(transform(self.xml_report_data.getvalue()))
+
+            failed = list(filter(lambda r: not r["ok"], results))
+            successful = list(filter(lambda r: r["ok"], results))
+            result_txt = tabulate(
+                [
+                    [
+                        r["module"],
+                        r["name"],
+                        f"{r['time']:.2f}s",
+                        str(r["queries"]),
+                        r["ok"] and "OK" or "FAILED"
+                    ] for r in successful + failed
+                ],
+                tablefmt="github",
+                headers=['Module','Test','Time','Queries','Status'])
+
+            if not failed:
+                _logger.info(f"\n\n{result_txt}\n\n")
+                _logger.info("%s Test(s) successful!", len(results))
+            else:
+                _logger.warning(f"\n\n{result_txt}\n\n")
+                raise Exception(f'{len(failed)}/{len(results)} Test(s) failed!')
 
     def run_config_env(self, env):
         # important to be here, that it not conflicts
@@ -1275,56 +1407,41 @@ class Test(ConfigCommand, Command):
 
         results = []
         if modules:
-            import gc
+            if self.params.test_plan_export:
+                # check for tests in module
+                modules_with_tests = []
+                for module_name in modules:
+                    test_count = self.run_test(module_name, test_prefix, test_case,
+                                    test_tags, test_position, count_tests=True)
+                    if test_count > 0:
+                        modules_with_tests.append(module_name)
 
-            # start test server for http tests
-            server = self._get_server() if config.get("test_server") else None
-            if server:
-                _logger.info('Start test server')
-                server.start()
+                # export test plan
+                _logger.info('Exporting test plan to %s', self.params.test_plan_export)
+                test_plan = {
+                    'modules': modules_with_tests,
+                    'test_prefix': test_prefix or '',
+                    'test_case': test_case or '',
+                    'test_tags': test_tags or '',
+                    'test_position': test_position or ''
+                }
+                with open(self.params.test_plan_export, 'w', encoding='utf-8') as f:
+                    json.dump(test_plan, f, indent=4)
 
-            # run tests
-            for module_name in modules:
-                results.extend(self.run_test(module_name, test_prefix, test_case,
-                                   test_tags, test_position))
-
-                # clear cache
-                _logger.info('Clear cache after tests for %s', module_name)
-                env.clear()
-                cr.rollback()
-                gc.collect()
-
-
-        if not results:
-            _logger.warning("No tests!")
-        else:
-            # write xml report if used
-            if self.params.xml_report:
-                from xmlrunner.extra.xunit_plugin import transform
-                with open(self.params.xml_report, 'wb') as f:
-                    f.write(transform(self.xml_report_data.getvalue()))
-
-            failed = list(filter(lambda r: not r["ok"], results))
-            successful = list(filter(lambda r: r["ok"], results))
-            result_txt = tabulate(
-                [
-                    [
-                        r["module"],
-                        r["name"],
-                        f"{r['time']:.2f}s",
-                        str(r["queries"]),
-                        r["ok"] and "OK" or "FAILED"
-                    ] for r in successful + failed
-                ],
-                tablefmt="github",
-                headers=['Module','Test','Time','Queries','Status'])
-
-            if not failed:
-                _logger.info(f"\n\n{result_txt}\n\n")
-                _logger.info("%s Test(s) successful!", len(results))
             else:
-                _logger.warning(f"\n\n{result_txt}\n\n")
-                raise Exception(f'{len(failed)}/{len(results)} Test(s) failed!')
+                # start test server for http tests
+                server = self._get_server() if config.get("test_server") else None
+                if server:
+                    _logger.info('Start test server')
+                    server.start()
+
+                # run tests
+                for module_name in modules:
+                    results.extend(self.run_test(module_name, test_prefix, test_case,
+                                    test_tags, test_position))
+
+                # export results
+                self.export_results(results)
 
 
 class CleanUp(ConfigCommand, Command, DatabaseMixin):
@@ -1644,6 +1761,11 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
         delete_view_ids = {}
         commit = False
 
+        # Clear all view caches before starting cleanup
+        cr.execute("DELETE FROM ir_ui_view_config")
+        # Reset all view arch to force recomputation
+        cr.execute("UPDATE ir_ui_view SET arch_db = NULL WHERE arch_fs IS NOT NULL")
+
         for view_id, arch_fs, inherit_id, module_version in cr.fetchall():
             if not self.get_file_path(arch_fs) or (module_version and module_version < ADDON_API):
                 if self.params.fix:
@@ -1659,6 +1781,8 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
                 _logger.warning('[FIX] Removing invalid view %s', arch_fs)
                 child_views = [k for k, (child_inherit_id, child_arch_fs) in delete_view_ids.items() if child_inherit_id == view_id]
                 if not child_views:
+                    # Clear view caches before deletion
+                    cr.execute("DELETE FROM ir_ui_view_config WHERE view_id = %s", (view_id,))
                     cr.execute("DELETE FROM ir_ui_view WHERE inherit_id = %s AND NOT active", (view_id,))
                     cr.execute("DELETE FROM ir_ui_view WHERE id = %s", (view_id,))
                     deleted_views.append(view_id)
@@ -1673,6 +1797,10 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
                 break
 
         if commit:
+            # Clear all view caches after cleanup
+            cr.execute("DELETE FROM ir_ui_view_config")
+            # Reset remaining views to force recomputation
+            cr.execute("UPDATE ir_ui_view SET arch_db = NULL WHERE arch_fs IS NOT NULL")
             cr.execute("COMMIT")
 
     def run_config_env(self, env):
