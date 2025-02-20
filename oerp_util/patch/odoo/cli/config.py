@@ -205,7 +205,7 @@ class Profile(argparse.ArgumentParser):
         # add addons collections
         dir_custom_addons = get_custom_addons_path()
         if os.path.exists(dir_custom_addons) and self.is_addon_repository(dir_custom_addons):
-            addon_pattern.append(f"{dir_custom_addons}/{ADDONS_PATTERN}/")
+            addon_pattern.append(f"{dir_custom_addons}/*/")
         # build package paths
         package_paths = set()
         for cur_pattern in addon_pattern:
@@ -1885,7 +1885,7 @@ class Assemble(Command):
 
             dir_custom_addons = get_custom_addons_path()
             if os.path.exists(dir_custom_addons):
-                addon_pattern.append(f"{dir_custom_addons}/{ADDONS_PATTERN}")
+                addon_pattern.append(f"{dir_custom_addons}/*/")
 
 
             # assemble
