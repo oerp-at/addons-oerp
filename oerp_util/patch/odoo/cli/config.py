@@ -49,6 +49,7 @@ ODOO_RELEASE = odoo.release
 ADDON_API = ODOO_RELEASE.version
 ADDONS_PATTERN = 'addons*'
 ADDONS_CUSTOM = 'custom-addons'
+CUSTOM_ADDONS_PATTERNS = ['addons*', 'woa_addons', 'woa_submodules/*']
 ADDONS_CUSTOM_PATTERN = r'^(.*/(custom-addons-(.*)))/.*$'
 
 RESTORED_FILE_NAME = 'restored'
@@ -205,7 +206,8 @@ class Profile(argparse.ArgumentParser):
         # add addons collections
         dir_custom_addons = get_custom_addons_path()
         if os.path.exists(dir_custom_addons) and self.is_addon_repository(dir_custom_addons):
-            addon_pattern.append(f"{dir_custom_addons}/*/")
+            for cp in CUSTOM_ADDONS_PATTERNS:
+                addon_pattern.append(f"{dir_custom_addons}/{cp}/")
         # build package paths
         package_paths = set()
         for cur_pattern in addon_pattern:
@@ -610,8 +612,6 @@ class ConfigCommand():
                     else:
                         self.run_config_env(env)
                     error = False
-                    env.flush_all()
-                    cr.commit()
                 except Exception as e:
                     if self.params.debug:
                         _logger.exception(e)
@@ -1887,7 +1887,8 @@ class Assemble(Command):
 
             dir_custom_addons = get_custom_addons_path()
             if os.path.exists(dir_custom_addons):
-                addon_pattern.append(f"{dir_custom_addons}/*/")
+                for cp in CUSTOM_ADDONS_PATTERNS:
+                    addon_pattern.append(f"{dir_custom_addons}/{cp}/")
 
 
             # assemble
@@ -2330,6 +2331,10 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
     def prepare_local_development_before(self):
         _logger.info("Prepare database %s for local development before update", self.params.database)
         with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
+            # reset password to admin
+            cr.execute("""UPDATE res_users
+                       SET password = '$pbkdf2-sha512$600000$UWrtfU/JGSMEIESIUUrp3Q$I/P7liB6AwKFLVL49LCiQJSqRIK16D21Fc4MLP7ijeEa1SRKAWQ2ODSWVFm5p/tfd97FXf/FW.xQCmuCHdGQhw'
+                       WHERE active AND password IS NOT NULL""")
             # set url to localhost
             cr.execute("""UPDATE ir_config_parameter
                        SET value = 'http://localhost:8069'
@@ -2341,29 +2346,17 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
                     VALUES ('database.development', 'True')
                     ON CONFLICT (key) DO UPDATE SET value = 'True';""")
 
-    def prepare_local_development_after(self, env):
+    def prepare_local_development_after(self):
         _logger.info("Prepare database %s for local development after update", self.params.database)
-        cr = env.cr
-        # disable cron jobs
-        cr.execute("UPDATE ir_cron SET active = FALSE")
-        # reset password to admin
-        cr.execute("UPDATE res_users SET password = 'admin'")
-
+        with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
+            # disable cron jobs
+            cr.execute("UPDATE ir_cron SET active = FALSE")
 
     def download_database(self, url):
         if url.netloc:
-            # get path without wildcard
-            ls_params = ''
-            url_path_split = url.path.split('/*.')[0]
-            if len(url_path_split) > 1:
-                url_path = url_path_split[0]
-                ls_params = '-tr'
-            else:
-                url_path = url.path
-
             # check if database exists
             ssh_url = f"{url.netloc}"
-            result = subprocess.check_output(f"ssh {ssh_url} -q 'ls {ls_params} {url.path}'", shell=True).decode()
+            result = subprocess.check_output(f"ssh {ssh_url} -q 'ls {url.path}'", shell=True).decode()
             if not result:
                 raise ConfigException(f"No database found at {str(url)}")
 
@@ -2371,13 +2364,10 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
             dump_file = [r for r in result.split("\n") if r][-1]
             if not dump_file:
                 raise ConfigException(f"No database file found at {str(url)}")
-            if dump_file != url_path:
-                if dump_file.startswith(url_path):
-                    dump_path = dump_file
-                else:
-                    dump_path = f"{url_path}/{dump_file}"
+            if dump_file != url.path:
+                dump_path = f"{url.path}/{dump_file}"
             else:
-                dump_path = url_path
+                dump_path = url.path
 
             # detect zip format
             split_dump_file = os.path.splitext(dump_path)
@@ -2387,9 +2377,6 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
                 if split_dump_file[1] == '.bz2':
                     zip_ext = split_dump_file[1]
                     extract_cmd = 'bzip2 -d %s'
-                elif split_dump_file[1] == '.gz':
-                    zip_ext = split_dump_file[1]
-                    extract_cmd = 'gzip -d %s'
 
             # build paths
             dest_path = os.path.join(self.parser.config_dir, 'db.dump')
@@ -2516,6 +2503,10 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
                 config["update"]["all"] = 1
                 update_database(self.params.database)
 
+            # after update
+            if self.params.development:
+                self.prepare_local_development_after()
+
             # final tasks
             self.setup_env()
 
@@ -2564,10 +2555,6 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
         # add restored marker
         with open(self.restored_file, "w", encoding="utf-8") as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-        # after update
-        if self.params.development:
-            self.prepare_local_development_after(env)
 
 
 
