@@ -294,7 +294,11 @@ class AutomationTask(models.Model):
         self.write({
             "state": "queued"
         })
-        self.env.ref('automation.ir_cron_automation_task')._trigger()
+        # if the task is run here, process it immediately
+        if self.env.context.get('task_direct_run'):
+            self._process_task()
+        else:
+            self.env.ref('automation.ir_cron_automation_task')._trigger()
 
     def action_queue(self):
         for task in self:
@@ -339,7 +343,9 @@ class AutomationTask(models.Model):
         self.ensure_one()
         if tools.config.get('test_enable'):
             self.action_queue()
-            self._process_task()
+            # if queued run task
+            if self.state == 'queued':
+                self._process_task()
 
     def _process_task(self):
         self.ensure_one()

@@ -61,7 +61,7 @@ xlwt = "==1.3.*"
 zeep = "==4.2.1"
 decorator = "*"
 json5 = "*"
-
+phonenumbers = "*"
 
 [requires]
 python_version = "3.12"
