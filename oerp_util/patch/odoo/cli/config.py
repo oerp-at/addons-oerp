@@ -1760,12 +1760,6 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
 
         delete_view_ids = {}
         commit = False
-
-        # Clear all view caches before starting cleanup
-        cr.execute("DELETE FROM ir_ui_view_config")
-        # Reset all view arch to force recomputation
-        cr.execute("UPDATE ir_ui_view SET arch_db = NULL WHERE arch_fs IS NOT NULL")
-
         for view_id, arch_fs, inherit_id, module_version in cr.fetchall():
             if not self.get_file_path(arch_fs) or (module_version and module_version < ADDON_API):
                 if self.params.fix:
@@ -1782,7 +1776,6 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
                 child_views = [k for k, (child_inherit_id, child_arch_fs) in delete_view_ids.items() if child_inherit_id == view_id]
                 if not child_views:
                     # Clear view caches before deletion
-                    cr.execute("DELETE FROM ir_ui_view_config WHERE view_id = %s", (view_id,))
                     cr.execute("DELETE FROM ir_ui_view WHERE inherit_id = %s AND NOT active", (view_id,))
                     cr.execute("DELETE FROM ir_ui_view WHERE id = %s", (view_id,))
                     deleted_views.append(view_id)
@@ -1797,10 +1790,6 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
                 break
 
         if commit:
-            # Clear all view caches after cleanup
-            cr.execute("DELETE FROM ir_ui_view_config")
-            # Reset remaining views to force recomputation
-            cr.execute("UPDATE ir_ui_view SET arch_db = NULL WHERE arch_fs IS NOT NULL")
             cr.execute("COMMIT")
 
     def run_config_env(self, env):
