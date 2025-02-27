@@ -1305,10 +1305,13 @@ class Test(ConfigCommand, Command):
         results = []
         if modules:
             # start test server for http tests
-            server = self._get_server() if config.get("test_server") else None
-            if server:
-                _logger.info('Start test server')
-                server.start()
+            if not odoo.service.server.server:
+                server = self._get_server() if config.get("test_server") else None
+                if server:
+                    _logger.info('Start test server')
+                    server.start()
+                    # assign running server
+                    odoo.service.server.server = server
 
             # run tests
             for module_name in modules:
