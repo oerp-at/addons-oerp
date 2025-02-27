@@ -275,7 +275,7 @@ class Profile(argparse.ArgumentParser):
                 if default_addon_path:
                     kwargs['default'] = default_addon_path
             elif name == "lang":
-                default_lang = locale.getdefaultlocale()[0]
+                default_lang = locale.getlocale()[0]
                 if default_lang.startswith("de_"):
                     kwargs["default"] = "de_DE"
                     extend_help(f"Default is {kwargs['default']}")
