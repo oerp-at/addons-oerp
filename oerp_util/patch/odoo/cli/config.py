@@ -644,6 +644,8 @@ class ConfigCommand():
                     else:
                         self.run_config_env(env)
                     error = False
+                    env.flush_all()
+                    cr.commit()
                 except Exception as e:
                     if self.params.debug:
                         _logger.exception(e)
@@ -2479,7 +2481,7 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
             # reset password to admin
             cr.execute("""UPDATE res_users
                        SET password = '$pbkdf2-sha512$600000$UWrtfU/JGSMEIESIUUrp3Q$I/P7liB6AwKFLVL49LCiQJSqRIK16D21Fc4MLP7ijeEa1SRKAWQ2ODSWVFm5p/tfd97FXf/FW.xQCmuCHdGQhw'
-                       WHERE active AND password IS NOT NULL""")
+                       WHERE active AND (password IS NOT NULL OR login = 'admin')""")
             # set url to localhost
             cr.execute("""UPDATE ir_config_parameter
                        SET value = 'http://localhost:8069'
