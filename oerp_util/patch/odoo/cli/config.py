@@ -2366,7 +2366,10 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
         # disable cron jobs
         cr.execute("UPDATE ir_cron SET active = FALSE")
         # reset password to admin
-        cr.execute("UPDATE res_users SET password = 'admin'")
+        #cr.execute("UPDATE res_users SET password = 'admin'")
+        cr.execute("""UPDATE res_users
+                       SET password = '$pbkdf2-sha512$600000$UWrtfU/JGSMEIESIUUrp3Q$I/P7liB6AwKFLVL49LCiQJSqRIK16D21Fc4MLP7ijeEa1SRKAWQ2ODSWVFm5p/tfd97FXf/FW.xQCmuCHdGQhw'
+                       WHERE active AND (password IS NOT NULL OR login = 'admin')""")
 
 
     def download_database(self, url):
