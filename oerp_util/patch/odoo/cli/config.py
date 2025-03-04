@@ -672,10 +672,10 @@ class ConfigCommand():
                     _logger.warning('Create directory %s', dest)
                     os.makedirs(dest, exist_ok=True)
                 # tree copy or update /*
-                cmd = f"cp -ru {src}* {dest}"
+                cmd = f'cp -ru "{src}"* "{dest}"'
             else:
                 # simple file copy
-                cmd = f"cp {src} {dest}"
+                cmd = f'cp "{src}" "{dest}"'
         else:
             # rsync
             cmd = ["rsync",
@@ -686,8 +686,8 @@ class ConfigCommand():
             if filestore:
                 cmd.append(f'--exclude /{RESTORED_FILE_NAME}')
 
-            cmd.append(src)
-            cmd.append(dest)
+            cmd.append(f'"{src}"')
+            cmd.append(f'"{dest}"')
             cmd = " ".join(cmd)
 
         # copy
@@ -697,7 +697,7 @@ class ConfigCommand():
         # sync deletes if local copy is used
         # errors are not handled
         if local and dirs:
-            subprocess.run(f"rsync -vr --delete --ignore-existing {src} {dest}", check=False, shell=True)
+            subprocess.run(f'rsync -vr --delete --ignore-existing "{src}" "{dest}"', check=False, shell=True)
 
         _logger.info('%s from %s to %s done!', info, src, dest)
         return res
