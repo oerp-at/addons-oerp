@@ -291,7 +291,7 @@ class Profile(argparse.ArgumentParser):
                 if default_addon_path:
                     kwargs['default'] = default_addon_path
             elif name == "lang":
-                default_lang = locale.getdefaultlocale()[0]
+                default_lang = locale.getlocale()[0]
                 if default_lang.startswith("de_"):
                     kwargs["default"] = "de_DE"
                     extend_help(f"Default is {kwargs['default']}")
@@ -1323,10 +1323,13 @@ class Test(ConfigCommand, Command):
         results = []
         if modules:
             # start test server for http tests
-            server = self._get_server() if config.get("test_server") else None
-            if server:
-                _logger.info('Start test server')
-                server.start()
+            if not odoo.service.server.server:
+                server = self._get_server() if config.get("test_server") else None
+                if server:
+                    _logger.info('Start test server')
+                    server.start()
+                    # assign running server
+                    odoo.service.server.server = server
 
             # run tests
             for module_name in modules:
