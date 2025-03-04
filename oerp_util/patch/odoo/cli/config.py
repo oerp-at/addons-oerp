@@ -1,6 +1,7 @@
 # © 2007 Martin Reisenhofer <martin@reisenhofer.biz>
 # License BSD-2-Clause or later (https://opensource.org/license/bsd-2-clause/).
 import uuid
+import re
 import io
 import argparse
 import fnmatch
@@ -13,6 +14,7 @@ import sys
 import threading
 import time
 import json
+import json5
 import itertools
 from operator import itemgetter
 import subprocess
@@ -53,6 +55,7 @@ ODOO_RELEASE = odoo.release
 ADDON_API = ODOO_RELEASE.version
 ADDONS_PATTERN = 'addons*'
 ADDONS_CUSTOM = 'custom-addons'
+ADDONS_CUSTOM_PATTERN = r'^(.*/(custom-addons-(.*)))/.*$'
 
 RESTORED_FILE_NAME = 'restored'
 DEFAULT_SLEEP = 5
@@ -86,6 +89,54 @@ def update_database(database):
     except KeyError:
         pass
 
+def get_custom_addons():
+    working_dir = os.getcwd()
+    if not working_dir.endswith('/'):
+        working_dir += '/'
+    m = re.match(ADDONS_CUSTOM_PATTERN, working_dir)
+    if m:
+        return {
+            'name': m.group(3),
+            'dir': m.group(2),
+            'path': m.group(1)
+        }
+    return None
+
+def get_custom_addons_path():
+    custom_addons = get_custom_addons()
+    if custom_addons:
+        return custom_addons['path']
+    return os.path.join(get_base_dir(), ADDONS_CUSTOM)
+
+def is_addon_repository(directory):
+    if not directory:
+        return False
+    if not os.path.isdir(directory):
+        return False
+    if not glob.glob(f'{directory}/*/'):
+        return False
+    return True
+
+def get_custom_addons_paths(postfix='/'):
+    dir_custom_addons = get_custom_addons_path()
+    if os.path.exists(dir_custom_addons) and is_addon_repository(dir_custom_addons):
+        # add custom addons paths
+        paths = set()
+        for custom_subdir in os.listdir(dir_custom_addons):
+            if custom_subdir.startswith('.'):
+                continue
+            manifest_file = os.path.join(dir_custom_addons, custom_subdir, '__manifest__.py')
+            if os.path.exists(manifest_file):
+                paths.add(f"{dir_custom_addons}{postfix}")
+            else:
+                custom_addon_repository_path = f"{dir_custom_addons}/{custom_subdir}"
+                if is_addon_repository(custom_addon_repository_path):
+                    paths.add(f"{custom_addon_repository_path}{postfix}")
+
+        return list(paths)
+
+    return []
+
 
 
 class ConfigException(Exception):
@@ -101,7 +152,12 @@ class Profile(argparse.ArgumentParser):
         self.defaults = {}
         self.base_dir = get_base_dir()
         self.server_dir = get_server_dir()
+
+        # get profile name
         self.profile = os.path.basename(self.base_dir)
+        custom_addons = get_custom_addons()
+        if custom_addons:
+            self.profile = f"{self.profile}-{custom_addons['name']}"
 
         # ensure that config dir exist
         self.config_dir = os.path.join(self.base_dir, ".config")
@@ -183,9 +239,7 @@ class Profile(argparse.ArgumentParser):
     def get_default_addon_path(self):
         addon_pattern = [f"{self.base_dir}/{ADDONS_PATTERN}/"]
         # add addons collections
-        dir_custom_addons =  os.path.join(self.base_dir, ADDONS_CUSTOM)
-        if os.path.exists(dir_custom_addons) and self.is_addon_repository(dir_custom_addons):
-            addon_pattern.append(f"{dir_custom_addons}/{ADDONS_PATTERN}/")
+        addon_pattern.extend(get_custom_addons_paths())
         # build package paths
         package_paths = set()
         for cur_pattern in addon_pattern:
@@ -632,10 +686,10 @@ class ConfigCommand():
                     _logger.warning('Create directory %s', dest)
                     os.makedirs(dest, exist_ok=True)
                 # tree copy or update /*
-                cmd = f"cp -ru {src}* {dest}"
+                cmd = f'cp -ru "{src}"* "{dest}"'
             else:
                 # simple file copy
-                cmd = f"cp {src} {dest}"
+                cmd = f'cp "{src}" "{dest}"'
         else:
             # rsync
             cmd = ["rsync",
@@ -646,8 +700,8 @@ class ConfigCommand():
             if filestore:
                 cmd.append(f'--exclude /{RESTORED_FILE_NAME}')
 
-            cmd.append(src)
-            cmd.append(dest)
+            cmd.append(f'"{src}"')
+            cmd.append(f'"{dest}"')
             cmd = " ".join(cmd)
 
         # copy
@@ -657,7 +711,7 @@ class ConfigCommand():
         # sync deletes if local copy is used
         # errors are not handled
         if local and dirs:
-            subprocess.run(f"rsync -vr --delete --ignore-existing {src} {dest}", check=False, shell=True)
+            subprocess.run(f'rsync -vr --delete --ignore-existing "{src}" "{dest}"', check=False, shell=True)
 
         _logger.info('%s from %s to %s done!', info, src, dest)
         return res
@@ -1979,10 +2033,12 @@ class Assemble(Command):
                 f"{dir_workspace}/{ADDONS_PATTERN}"
             ]
 
-            # add collections dir
-            dir_custom_addons =  os.path.join(dir_workspace, ADDONS_CUSTOM)
-            if os.path.exists(dir_custom_addons):
-                addon_pattern.append( f"{dir_custom_addons}/{ADDONS_PATTERN}")
+            # add custom addon
+
+            addon_pattern.extend(get_custom_addons_paths())
+
+
+            # assemble
 
             merged = []
             update_failed = []
@@ -2061,9 +2117,39 @@ class Assemble(Command):
 
             _logger.info("Removed links: %s" % len(addons_removed))
             _logger.info("Added links: %s" % len(addons_added))
-            _logger.info("Finished!")
+
+        def switch_odoo_env():
+            custom_addons = get_custom_addons()
+            if not custom_addons:
+                return
+
+            base_dir = get_base_dir()
+            launch_file = os.path.join(base_dir, '.vscode/launch.json')
+            if not os.path.exists(launch_file):
+                return
+
+            _logger.info("Switch environment to %s", custom_addons['name'])
+
+            with open(launch_file, 'r') as f:
+                vscode_launch_cfg = json5.load(f)
+
+            # change cwd
+            launch_cfgs = vscode_launch_cfg.get('configurations')
+            for launch_cfg in launch_cfgs:
+                if launch_cfg.get('program') == '${workspaceFolder}/odoo/odoo-bin':
+                    old_cwd = launch_cfg.get('cwd', '')
+                    new_cwd = '${workspaceFolder}/' + custom_addons['dir']
+                    if old_cwd != new_cwd:
+                        _logger.info("Change cwd for config %s: %s -> %s", launch_cfg['name'], old_cwd, new_cwd)
+                        launch_cfg['cwd'] = new_cwd
+
+            with open(launch_file, 'w') as f:
+                json5.dump(vscode_launch_cfg, f, indent=4, quote_keys=True)
 
         setup_addons(only_links=not params.cleanup)
+        switch_odoo_env()
+
+        _logger.info("Finished!")
 
 
 
@@ -2413,9 +2499,18 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
 
     def download_database(self, url):
         if url.netloc:
+            # get path without wildcard
+            ls_params = ''
+            url_path_split = url.path.split('/*.')[0]
+            if len(url_path_split) > 1:
+                url_path = url_path_split[0]
+                ls_params = '-tr'
+            else:
+                url_path = url.path
+
             # check if database exists
             ssh_url = f"{url.netloc}"
-            result = subprocess.check_output(f"ssh {ssh_url} -q 'ls {url.path}'", shell=True).decode()
+            result = subprocess.check_output(f"ssh {ssh_url} -q 'ls {ls_params} {url.path}'", shell=True).decode()
             if not result:
                 raise ConfigException(f"No database found at {str(url)}")
 
@@ -2423,10 +2518,13 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
             dump_file = [r for r in result.split("\n") if r][-1]
             if not dump_file:
                 raise ConfigException(f"No database file found at {str(url)}")
-            if dump_file != url.path:
-                dump_path = f"{url.path}/{dump_file}"
+            if dump_file != url_path:
+                if dump_file.startswith(url_path):
+                    dump_path = dump_file
+                else:
+                    dump_path = f"{url_path}/{dump_file}"
             else:
-                dump_path = url.path
+                dump_path = url_path
 
             # detect zip format
             split_dump_file = os.path.splitext(dump_path)
@@ -2436,6 +2534,9 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
                 if split_dump_file[1] == '.bz2':
                     zip_ext = split_dump_file[1]
                     extract_cmd = 'bzip2 -d %s'
+                elif split_dump_file[1] == '.gz':
+                    zip_ext = split_dump_file[1]
+                    extract_cmd = 'gzip -d %s'
 
             # build paths
             dest_path = os.path.join(self.parser.config_dir, 'db.dump')

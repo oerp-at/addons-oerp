@@ -13,6 +13,7 @@ vcrpy-unittest = "*"
 requests-mock = "*"
 parquet-tools = "*"
 unittest-xml-reporting = "*"
+json5 = "*"
 
 [packages]
 pyyaml = "*"
