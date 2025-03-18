@@ -15,8 +15,7 @@
     'data': [
     ],
     'python': [
-        'azure-core',
-        'azure-ai-formrecognizer'
+        'json5'
     ],
     'installable': True
 }
