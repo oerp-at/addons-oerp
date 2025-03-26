@@ -9,7 +9,7 @@
         <form string="Task" create="false">
           <header>
             <button type="object" name="action_queue" string="Start" class="oe_highlight" invisible="state != 'draft'"/>
-            <button type="object" name="action_queue" string="Restart" invisible="state not in ('cancel','failed','done')"/>
+            <button type="object" name="action_restart" string="Restart" invisible="state not in ('cancel','failed','done')"/>
             <button type="object" name="action_cancel" string="Cancel" invisible="state != 'queued'"/>
             <field name="state" widget="statusbar" statusbar_visible="draft,queued,run,done"/>
           </header>

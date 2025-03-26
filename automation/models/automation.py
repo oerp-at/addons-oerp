@@ -1,4 +1,3 @@
-import time
 import uuid
 import logging
 import psycopg2
@@ -309,6 +308,9 @@ class AutomationTask(models.Model):
                 task.sudo()._task_enqueue()
         return True
 
+    def action_restart(self):
+        return self.action_queue()
+
     def _task_options(self):
         self.ensure_one()
         # get instance
@@ -503,6 +505,9 @@ class AutomationTaskMixin(models.AbstractModel):
 
     def action_queue(self):
         return self.task_id.action_queue()
+
+    def action_restart(self):
+        return self.task_id.action_restart()
 
     def action_cancel(self):
         return self.task_id.action_cancel()
