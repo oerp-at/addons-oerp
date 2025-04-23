@@ -280,6 +280,17 @@ class AutomationTask(models.Model):
     def action_reset(self):
         return True
 
+    def _is_run_unqueued(self):
+        """ Check task should be run unqueued """
+
+        if self.env.context.get('task_unqueued_run'):
+            return True
+
+        param = self.env['ir.config_parameter'].sudo().get_param('automation.task_unqueued_run')
+        if not param:
+            return False
+        return param.lower() in ('true', '1', 'yes', 'on')
+
     def _task_enqueue(self):
         """ queue task """
 
@@ -293,8 +304,7 @@ class AutomationTask(models.Model):
         self.write({
             "state": "queued"
         })
-        # if the task is run here, process it immediately
-        if self.env.context.get('task_direct_run'):
+        if self._is_run_unqueued():
             self._process_task()
         else:
             self.env.ref('automation.ir_cron_automation_task')._trigger()
