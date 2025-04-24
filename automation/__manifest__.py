@@ -2,7 +2,7 @@
 # pylint: disable=missing-readme
 {
     'name': 'Automation',
-    'version': '18.0.1.4.0',
+    'version': '18.0.2.0.1',
     'summary': 'Simple Automation Framework',
     'category': 'Automation',
     'author': 'martin-reisenhofer',
@@ -19,7 +19,8 @@
         'views/automation_menu.xml',
         'views/task_log_views.xml',
         'views/task_views.xml',
-        'views/task_example.xml'
+        'views/task_example.xml',
+        'wizard/res_config_settings_views.xml'
     ],
     'installable': True
 }
