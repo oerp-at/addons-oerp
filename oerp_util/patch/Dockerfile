@@ -79,7 +79,8 @@ RUN apt-get install -y -f \
     python3-google-auth \
     python3-tabulate \
     python3-pip \
-    python3-phonenumbers
+    python3-phonenumbers \
+    python3-json5
 
 # install whktmltopdf
 COPY docker/install /install
