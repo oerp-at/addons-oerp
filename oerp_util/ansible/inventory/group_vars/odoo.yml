@@ -1,0 +1,32 @@
+# general
+deployment_name: "{{ lookup('env', 'DEPLOYMENT_NAME') | default('weboffice') }}"
+admin_email: admin@weboffice.at
+backup_dir: "{{ lookup('env', 'BACKUP_DIR') | default('/tmp/backup') }}/{{ deployment_name }}"
+
+# docker
+docker_user: "{{ lookup('env', 'DOCKER_USER') }}"
+docker_password: "{{ lookup('env', 'DOCKER_PASSWORD') }}"
+docker_registry: "{{ lookup('env', 'DOCKER_REGISTRY', default='ghcr.io') }}"
+
+# odoo general
+odoo_version: 18
+odoo_list_db: false
+odoo_image: "{{ lookup('env', 'ODOO_IMAGE', default='ghcr.io/weboffice-it/odoo-enterprise:18.0') }}"
+
+# odoo database
+odoo_db_name: "{{ lookup('env', 'PGDATABASE') }}"
+odoo_db_user: "{{ lookup('env', 'PGUSER') }}"
+odoo_db_password: "{{ lookup('env', 'PGPASSWORD') }}"
+odoo_db_host: "{{ lookup('env', 'PGHOST') }}"
+odoo_db_port: "{{ lookup('env', 'PGPORT', default='5431') }}"
+odoo_admin_password: "{{ lookup('env', 'ODOO_ADMIN_PASSWORD') }}"
+
+# odoo proxy
+odoo_frontend: "{{ lookup('env', 'ODOO_FRONTEND') }}"
+odoo_backend: "{{ lookup('env', 'ODOO_BACKEND', default='127.0.0.1') }}"
+odoo_backend_port: "{{ lookup('env', 'ODOO_BACKEND_PORT', default='8069') }}"
+odoo_backend_port_websocket: "{{ lookup('env', 'ODOO_BACKEND_PORT_WEBSOCKET', default='8072') }}"
+odoo_client_max_body_size: 5120M
+
+
+

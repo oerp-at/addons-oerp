@@ -1,0 +1,11 @@
+---
+# defaults file for odoo-deployment
+
+odoo_chown: "1000"
+odoo_stdout: true
+odoo_backend_port: "8069"
+odoo_backend_port_websocket: "8072"
+odoo_data_dir: "/data"
+odoo_cron_threads: 1
+odoo_workers: 2
+odoo_version: 18

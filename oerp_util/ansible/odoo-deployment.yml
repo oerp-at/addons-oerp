@@ -1,0 +1,7 @@
+---
+
+- name: Odoo deployment
+  hosts: odoo
+  roles:
+    - odoo-deployment
+    - odoo-nginx

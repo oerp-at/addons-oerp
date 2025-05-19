@@ -1,0 +1,69 @@
+---
+# neutralize database
+
+- name: Ensure PostgreSQL is installed
+  package:
+    name: postgresql
+    state: present
+
+- name: Ensure PostgreSQL is listening on all interfaces
+  lineinfile:
+    path: /etc/postgresql/*/main/postgresql.conf
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = '*'"
+  register: postgres_listen_config
+
+- name: Allow connections from Docker subnet in pg_hba.conf
+  lineinfile:
+    path: /etc/postgresql/*/main/pg_hba.conf
+    line: "host    all             all             172.17.0.0/16           md5"
+  register: postgres_hba_config
+
+- name: Restart PostgreSQL service
+  systemd:
+    name: postgresql
+    state: restarted
+  when: postgres_listen_config.changed or postgres_hba_config.changed
+
+- name: Create PostgreSQL user for current user
+  become: true
+  become_user: postgres
+  postgresql_user:
+    name: "{{ odoo_neutralized_db_user }}"
+    password: "{{ odoo_neutralized_db_password }}"
+    role_attr_flags: CREATEDB,NOSUPERUSER
+
+- name: Drop neutralized database if it exists
+  postgresql_db:
+    name: "{{ odoo_neutralized_db }}"
+    login_user: "{{ odoo_neutralized_db_user }}"
+    login_password: "{{ odoo_db_password }}"
+    state: absent
+
+- name: Import backup to neutralized database
+  postgresql_db:
+    name: "{{ odoo_neutralized_db }}"
+    login_user: "{{ odoo_neutralized_db_user }}"
+    login_password: "{{ odoo_db_password }}"
+    state: restore
+    target: "{{ backup_file }}"
+
+- name: Log into Docker registry
+  docker_login:
+    username: "{{ docker_user }}"
+    password: "{{ docker_password }}"
+    registry: "{{ docker_registry }}"
+
+- name: Run neutralization of database
+  docker_container:
+    name: "{{ deployment_name }}"
+    image: "{{ odoo_image }}"
+    state: started
+    auto_remove: true
+    detach: false
+    env:
+      PGDATABASE: "{{ odoo_neutralized_db }}"
+      PGUSER: "{{ odoo_neutralized_db_user }}"
+      PGPASSWORD: "{{ odoo_db_password }}"
+      PGHOST: "{{ odoo_db_host }}"
+      PGPORT: "{{ odoo_db_port }}"

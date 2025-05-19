@@ -1,0 +1,40 @@
+---
+# tasks file for nginx-odoo
+
+- name: Check if certbot-nginx is installed
+  package:
+    name: python3-certbot-nginx
+    state: present
+
+- name: Setup odoo nginx config
+  template:
+    src: "templates/odoo.conf"
+    dest: "/etc/nginx/conf.d/100-{{ deployment_name }}.conf"
+
+- name: Prepare forward destinations
+  set_fact:
+    forward_sources: "{{ odoo_forwards | map(attribute='forward.src') | list }}"
+
+- name: Prepare domains
+  set_fact:
+    certbot_domains: "{{ [odoo_frontend] + odoo_aliases + forward_sources }}"
+
+- name: Prepare domain param
+  set_fact:
+    certbot_domain_param: "{{ certbot_domains | join(',') }}"
+
+- name: Add cert
+  shell: certbot --nginx -m {{ admin_email | mandatory }} --expand --redirect -n --agree-tos -d {{ certbot_domain_param | mandatory }}
+
+- name: Change http to http2
+  lineinfile:
+    path: "/etc/nginx/conf.d/100-{{ deployment_name }}.conf"
+    state: present
+    regexp: '^    listen 443 ssl; # managed by Certbot$'
+    line: '    listen 443 ssl http2; # managed by Certbot'
+  when: not ignore_ssl is defined or not ignore_ssl
+
+- name: Reload nginx
+  systemd:
+    name: nginx
+    state: reloaded

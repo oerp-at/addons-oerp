@@ -1,0 +1,7 @@
+---
+# vars file for odoo-backup
+
+backup_file: "{{ backup_dir }}/db.sql"
+backup_backlog_dir: "{{ backup_dir }}/.backlog"
+odoo_neutralized_database: "{{ deployment_name }}_neutralized.sql"
+odoo_neutralized_db_user: "{{ deployment_name }}_neutralized"

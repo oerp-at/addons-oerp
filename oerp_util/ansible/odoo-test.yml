@@ -1,0 +1,7 @@
+---
+- name: test
+  hosts: odoo
+  tasks:
+    - name: Print deployment name
+      debug:
+        msg: "Testing deployment {{ deployment_name }}"

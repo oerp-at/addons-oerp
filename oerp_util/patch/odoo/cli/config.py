@@ -111,6 +111,17 @@ def is_addon_repository(directory):
         return False
     return True
 
+def get_addon_repositories(directory):
+    repositories = set()
+    if os.path.isdir(directory):
+        for addon_dir in glob.glob(f'{directory}/*/'):
+            manifest_file = os.path.join(addon_dir, '__manifest__.py')
+            if not os.path.exists(manifest_file):
+                repositories |= get_addon_repositories(addon_dir)
+            else:
+                repositories.add(directory)
+    return repositories
+
 def get_custom_addons_paths(postfix='/'):
     dir_custom_addons = get_custom_addons_path()
     if os.path.exists(dir_custom_addons) and is_addon_repository(dir_custom_addons):
@@ -124,8 +135,9 @@ def get_custom_addons_paths(postfix='/'):
                 paths.add(f"{dir_custom_addons}{postfix}")
             else:
                 custom_addon_repository_path = f"{dir_custom_addons}/{custom_subdir}"
-                if is_addon_repository(custom_addon_repository_path):
-                    paths.add(f"{custom_addon_repository_path}{postfix}")
+                repository_dirs = get_addon_repositories(custom_addon_repository_path)
+                for repository_dir in repository_dirs:
+                    paths.add(f"{repository_dir}{postfix}")
 
         return list(paths)
 

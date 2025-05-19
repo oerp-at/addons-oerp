@@ -1,0 +1,12 @@
+---
+# vars file for odoo-deployment
+
+odoo_volume: "/var/lib/docker/volumes/{{ deployment_name }}"
+odoo_volume_data: "{{ odoo_volume }}/_data"
+odoo_volume_filestore: "{{ odoo_volume_data }}/filestore"
+odoo_volume_etc: "{{ odoo_volume_data }}/etc"
+odoo_volume_sessions: "{{ odoo_volume_data }}/sessions"
+odoo_volume_logs: "{{ odoo_volume_data }}/logs"
+odoo_docker_compose_dir: "{{ ansible_env.HOME }}/.odoo-deployment/{{ deployment_name }}"
+odoo_volumes:
+  - "{{ deployment_name }}:/data:rw"
