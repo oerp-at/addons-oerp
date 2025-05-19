@@ -1,6 +1,0 @@
----
-
-- name: Backup Odoo
-  hosts: odoo
-  roles:
-    - odoo-backup
