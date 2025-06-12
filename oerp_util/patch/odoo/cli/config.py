@@ -1706,6 +1706,10 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
                 else:
                     _logger.warning('[FOUND] invalid view %s', arch_fs)
 
+        # get report layout view ids
+        cr.execute("SELECT view_id FROM report_layout")
+        report_layout_view_ids = set([r[0] for r in cr.fetchall()])
+
         while delete_view_ids:
             # delete views which have not dependency
             deleted_views = []
@@ -1713,7 +1717,17 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
                 _logger.warning('[FIX] Removing invalid view %s', arch_fs)
                 child_views = [k for k, (child_inherit_id, child_arch_fs) in delete_view_ids.items() if child_inherit_id == view_id]
                 if not child_views:
-                    cr.execute("DELETE FROM ir_ui_view WHERE inherit_id = %s AND NOT active", (view_id,))
+                    # special case for openupgrade_scripts
+                    if arch_fs.startswith('openupgrade_scripts'):
+                        cr.execute("DELETE FROM ir_ui_view WHERE inherit_id = %s", (view_id,))
+                    else:
+                        cr.execute("DELETE FROM ir_ui_view WHERE inherit_id = %s AND NOT active", (view_id,))
+
+                    # delete report layout if view is used
+                    if view_id in report_layout_view_ids:
+                        _logger.warning('[FIX] Deactivate report layout view %s', arch_fs)
+                        cr.execute("DELETE FROM report_layout WHERE view_id = %s", (view_id,))
+
                     cr.execute("DELETE FROM ir_ui_view WHERE id = %s", (view_id,))
                     deleted_views.append(view_id)
 
