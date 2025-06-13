@@ -2146,7 +2146,7 @@ class UpdateList(ConfigCommand, Command):
 ###############################################################################
 
 
-class Backup(ConfigCommand, DatabaseMixin):
+class Backup(ConfigCommand, Command, DatabaseMixin):
 
     def __init__(self):
         super().__init__()
@@ -2217,7 +2217,7 @@ class Backup(ConfigCommand, DatabaseMixin):
         return file_path
 
     def run_config(self):
-        self.setup_db_env(admin_user=self.pg_admin_user, admin_password=self.params.pg_admin_password)
+        self.setup_db_env(admin_user=self.params.pg_admin_user, admin_password=self.params.pg_admin_password)
         self.filestore = os.path.abspath(os.path.join(config['data_dir'], 'filestore', self.db_name))
 
         # create backup directory
