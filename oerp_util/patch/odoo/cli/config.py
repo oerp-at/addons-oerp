@@ -371,6 +371,10 @@ class DatabaseMixin(object):
         if self.db_admin_env:
             self.db_admin_env['PGDATABASE'] = self.db_name
 
+    def dropdb_connections(self, database, admin=False, check=False):
+        _logger.warning('Terminating database connections to %s', database)
+        return subprocess.run(f"psql -d postgres -c \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{database}'\"", shell=True, check=check, env=self.get_db_env(admin=admin))
+
     def dropdb(self, database, admin=False):
         _logger.warning('Dropping database %s', database)
         return subprocess.run(f"dropdb --if-exists {database}", shell=True, check=True, env=self.get_db_env(admin=admin))
@@ -394,7 +398,9 @@ class DatabaseMixin(object):
     def createdb(self, database, admin=False):
         return subprocess.run(f"createdb {database}", shell=True, check=True, env=self.get_db_env(admin=admin))
 
-    def restore_database(self, backup_file, admin=False):
+    def restore_database(self, backup_file, admin=False, force=False):
+        if force:
+            self.dropdb_connections(self.db_name, admin=admin)
         self.dropdb(self.db_name, admin=admin)
         _logger.info("Restore database %s from %s", self.db_name, backup_file)
         self.createdb(self.db_name, admin=admin)
@@ -2444,6 +2450,12 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
             help="The database admin password.",
             envvar="PGADMINPASSWORD",
         )
+        self.parser.add_argument(
+            "--force-drop-db",
+            action="store_true",
+            name="force_drop_db",
+            default=False,
+            help="Cancel all connections to the database before restore.")
 
     def restore_filestore(self, url):
         # prepare urls
@@ -2664,7 +2676,7 @@ class Restore(ConfigCommand, Command, DatabaseMixin):
         # restore database
         if self.db_dump:
             # restore
-            self.restore_database(self.db_dump)
+            self.restore_database(self.db_dump, force=self.params.force_drop_db)
 
             # neutralize and/or development
             if self.params.neutralize or self.params.development:
