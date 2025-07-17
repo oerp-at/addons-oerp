@@ -13,6 +13,7 @@ vcrpy-unittest = "*"
 requests-mock = "*"
 parquet-tools = "*"
 unittest-xml-reporting = "*"
+websocket-client = "*"
 
 [packages]
 pyyaml = "*"

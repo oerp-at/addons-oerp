@@ -80,7 +80,8 @@ RUN apt-get install -y -f \
     python3-tabulate \
     python3-pip \
     python3-phonenumbers \
-    python3-json5
+    python3-json5 \
+    python3-websocket
 
 # install whktmltopdf
 COPY docker/install /install
