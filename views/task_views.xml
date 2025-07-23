@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+  <data>
+
+    <record id="form_automation_task" model="ir.ui.view">
+      <field name="name">automation.form_automation_task</field>
+      <field name="model">automation.task</field>
+      <field name="arch" type="xml">
+        <form string="Task" create="false">
+          <header>
+            <button type="object" name="action_queue" string="Start" class="oe_highlight" invisible="state != 'draft'"/>
+            <button type="object" name="action_restart" string="Restart" invisible="state not in ('cancel','failed','done')"/>
+            <button type="object" name="action_cancel" string="Cancel" invisible="state != 'queued'"/>
+            <field name="state" widget="statusbar" statusbar_visible="draft,queued,run,done"/>
+          </header>
+          <sheet>
+            <div class="oe_button_box" name="button_box">
+              <button type="object"
+                      class="oe_stat_button"
+                      id="stage_button"
+                      icon="fa-tasks"
+                      name="action_stage">
+                      <field name="total_stages" widget="statinfo" string="Stages"/>
+              </button>
+              <button type="object"
+                      class="oe_stat_button"
+                      id="log_button"
+                      icon="fa-bars"
+                      name="action_log">
+                      <field name="total_logs" widget="statinfo" string="Logs"/>
+              </button>
+              <button type="object"
+                      class="oe_stat_button"
+                      id="warning_button"
+                      icon="fa-exclamation-triangle"
+                      name="action_warning"
+                      invisible="not total_warnings">
+                      <field name="total_warnings" widget="statinfo" string="Warnings"/>
+              </button>
+              <button type="object"
+                      class="oe_stat_button"
+                      id="error_button"
+                      icon="fa-exclamation-circle"
+                      name="action_error"
+                      invisible="not total_errors">
+                      <field name="total_errors" widget="statinfo" string="Errors"/>
+              </button>
+              <button type="object"
+                      class="oe_inline"
+                      id="stage_button"
+                      icon="fa-refresh"
+                      name="action_refresh">
+              </button>
+            </div>
+            <group name="task_specific">
+              <group name="task_name">
+                <field name="name" readonly="state != 'draft'"/>
+                <field name="owner_id"/>
+                <field name="group_id" invisible="not group_id and state != 'draft'"/>
+                <field name="res_ref" invisible="not res_ref"/>
+                <field name="task_id" invisible="1" required="0"/>
+              </group>
+              <group name="task_progress">
+                <field name="progress" widget="progressbar"/>
+                <field name="state_change"/>
+              </group>
+            </group>
+            <notebook>
+              <page string="Error" invisible="state != 'failed'">
+                <field name="error"/>
+              </page>
+            </notebook>
+          </sheet>
+        </form>
+      </field>
+    </record>
+
+    <record id="tree_automation_task" model="ir.ui.view">
+      <field name="name">automation.tree_automation_task</field>
+      <field name="model">automation.task</field>
+      <field name="arch" type="xml">
+        <list string="Tasks" create="false"
+          decoration-muted="state=='cancel'"
+          decoration-info="state=='draft'"
+          decoration-bf="state=='queued'"
+          decoration-warning="state=='run' or warning_count > 0"
+          decoration-danger="state=='failed' or error_count > 0">
+
+          <field name="name"/>
+          <field name="owner_id"/>
+          <field name="res_ref" optional="hide"/>
+          <field name="progress" widget="progressbar"/>
+          <field name="state_change"/>
+          <field name="state"/>
+          <field name="warning_count" string="Warnings" optional="hide"/>
+          <field name="error_count" string="Errors" optional="hide"/>
+        </list>
+      </field>
+    </record>
+
+    <record id="search_automation_task" model="ir.ui.view">
+      <field name="name">automation.search_automation_task</field>
+      <field name="model">automation.task</field>
+      <field name="arch" type="xml">
+        <search string="Automation Task">
+          <field name="name"/>
+          <field name="state"/>
+          <field name="owner_id"/>
+          <field name="res_model"/>
+          <field name="res_id"/>
+          <filter name="task_running" string="Running" domain="[('state','in',['run','queued'])]"/>
+          <filter name="task_failed" string="Failed" domain="[('state','=','failed')]"/>
+          <filter name="task_done" string="Done" domain="[('state','=','done')]"/>
+          <filter name="task_warnings" string="Warnings" domain="[('warning_count','>',0)]"/>
+          <filter name="task_errors" string="Errors" domain="[('error_count','>',0)]"/>
+          <group expand="0" string="Group By...">
+            <filter name="by_owner" string="Owner" context="{'group_by': 'owner_id'}"/>
+            <filter name="by_state" string="State" context="{'group_by': 'state'}"/>
+          </group>
+        </search>
+      </field>
+    </record>
+
+    <record id="action_automation_task" model="ir.actions.act_window">
+      <field name="name">Automation Task</field>
+      <field name="res_model">automation.task</field>
+      <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_automation_task" name="Automation Task" parent="base.menu_automation"
+      sequence="50"
+      action="action_automation_task"/>
+
+    <menuitem id="menu_automation_tasks" name="Tasks"
+      parent="menu_automation_root"
+      sequence="1000"
+      action="action_automation_task" />
+
+  </data>
+</odoo>
