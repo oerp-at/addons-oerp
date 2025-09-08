@@ -2,15 +2,21 @@
 # pylint: disable=missing-readme
 {
     'name': 'Automation',
-    'version': '18.0.2.0.1',
+
     'summary': 'Simple Automation Framework',
-    'category': 'Automation',
+
     'author': 'martin-reisenhofer',
     'maintainers': ['martin-reisenhofer'],
     'website': 'https://github.com/oerp-at',
+    'version': '18.0.2.0.2',
     'license': 'LGPL-3',
-    'depends': ['base',
-                'mail'],
+    'category': 'Automation',
+
+    'depends': [
+        'base',
+        'mail'
+    ],
+
     'data': [
         'security/security.xml',
         'security/ir.model.access.csv',
@@ -22,5 +28,4 @@
         'views/task_example.xml',
         'wizard/res_config_settings_views.xml'
     ],
-    'installable': True
 }

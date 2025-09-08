@@ -3,7 +3,7 @@
 from odoo import http, SUPERUSER_ID
 from odoo.http import request
 from odoo.api import Environment
-from odoo import registry as registry_get
+from odoo.modules.registry import Registry
 
 
 class TaskLogController(http.Controller):
@@ -40,7 +40,7 @@ class TaskLogController(http.Controller):
         return kwargs
 
     def _get_registry(self):
-        return registry_get(request.httprequest.headers['X-Automation-DB'])
+        return Registry(request.httprequest.headers['X-Automation-DB'])
 
     @http.route(
         "/automation/log",
@@ -56,7 +56,7 @@ class TaskLogController(http.Controller):
             env = Environment(cr, SUPERUSER_ID, {})
 
             # check if progress passed
-            # .. modify progress
+            # … modify progress
             if progress:
                 try:
                     progress = float(progress)

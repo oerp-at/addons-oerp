@@ -12,7 +12,7 @@ class TestMixin(object):
     def getDownloadPath(self, path):
         download_path = config.get('test_download')
         if not download_path:
-            _logger.warning('No download path configuered. Please configure test_download in odoo.conf')
+            _logger.warning('No download path configured. Please configure test_download in odoo.conf')
             return None
 
         parent_path = os.path.dirname(path)
@@ -44,10 +44,11 @@ class TestMixin(object):
                     f.write(data)
 
     def assertPdf(self, data, name=None):
-        ''' Asserts that the given data is a valid PDF.
-        :param data: PDF data
-        :param name: name for the downloaded file, if it should be saved locally
-        '''
+        """
+            Asserts that the given data is a valid PDF.
+            :param data: PDF data
+            :param name: name for the downloaded file, if it should be saved locally
+        """
         self.assertTrue(data)
         self.assertTrue(data.startswith(b'%PDF-'))
         if name:

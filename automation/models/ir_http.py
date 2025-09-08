@@ -1,8 +1,8 @@
 from werkzeug.exceptions import BadRequest
 
-import odoo
 from odoo import models
 from odoo.http import request
+from odoo.modules.registry import Registry
 
 
 class IrHttp(models.AbstractModel):
@@ -13,20 +13,20 @@ class IrHttp(models.AbstractModel):
         token = request.httprequest.headers['X-Automation-Token']
         dbname = request.httprequest.headers['X-Automation-DB']
 
-        #check header
+        #  check header
         if not dbname:
-            raise BadRequest("Database not specified")
+            raise BadRequest('Database not specified')
         if not token:
-            raise BadRequest("Token not specified")
+            raise BadRequest('Token not specified')
 
         # check token
-        registry = odoo.registry(dbname)
+        registry = Registry(dbname)
         with registry.cursor() as cr:
-            cr.execute("SELECT COUNT(id) FROM automation_task_token WHERE token = %s", (token,))
+            cr.execute('SELECT COUNT(id) FROM automation_task_token WHERE token = %s', (token,))
             token = cr.fetchall()
             if not token:
-                raise BadRequest("Token not found")
+                raise BadRequest('Token not found')
             if request.session.uid:
-                raise BadRequest("There should no user been set")
+                raise BadRequest('There should no user been set')
 
         return True

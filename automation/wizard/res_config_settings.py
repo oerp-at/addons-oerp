@@ -8,5 +8,5 @@ class ResConfigSettings(models.TransientModel):
         string='Unqueued Run',
         config_parameter='automation.task_unqueued_run',
         default=False,
-        help="Allow tasks to run without queueing"
+        help='Allow tasks to run without queueing'
     )
