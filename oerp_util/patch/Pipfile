@@ -63,6 +63,10 @@ zeep = "==4.2.1"
 decorator = "*"
 json5 = "*"
 phonenumbers = "*"
+tabulate = "*"
+base58 = "*"
+pynacl = "*"
+py-multihash = "*"
 
 [requires]
 python_version = "3.12"
