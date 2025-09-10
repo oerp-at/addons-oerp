@@ -5,12 +5,13 @@
 
     'summary': 'Simple Automation Framework',
 
-    'author': 'martin-reisenhofer',
-    'maintainers': ['martin-reisenhofer'],
+    'author': 'mreisenhofer-web',
+    'maintainers': ['mreisenhofer-web'],
     'website': 'https://github.com/oerp-at',
     'version': '18.0.2.0.2',
     'license': 'LGPL-3',
     'category': 'Automation',
+    'installable': True,
 
     'depends': [
         'base',

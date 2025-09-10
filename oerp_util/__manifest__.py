@@ -6,13 +6,13 @@
     'version': '18.0.1.0.0',
     'summary': 'Base Utils for Testing, Development and Deployment',
     'category': 'Base',
-    'author': 'martin-reisenhofer',
-    'maintainers': ['martin-reisenhofer'],
+    'author': 'mreisenhofer-web',
+    'maintainers': ['mreisenhofer-web'],
     'website': 'https://github.com/oerp-at',
     'license': 'LGPL-3',
+    'installable': True,
     'depends': ['base',
                 'mail'],
     'data': [
-    ],
-    'installable': True
+    ]
 }
