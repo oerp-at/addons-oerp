@@ -2,7 +2,7 @@
 # pylint: disable=missing-readme
 {
     'name': 'Automation',
-    'version': '18.0.2.0.1',
+    'version': '19.0.1.0.0',
     'summary': 'Simple Automation Framework',
     'category': 'Automation',
     'author': 'martin-reisenhofer',
