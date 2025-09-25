@@ -113,7 +113,7 @@
           <filter name="task_done" string="Done" domain="[('state','=','done')]"/>
           <filter name="task_warnings" string="Warnings" domain="[('warning_count','>',0)]"/>
           <filter name="task_errors" string="Errors" domain="[('error_count','>',0)]"/>
-          <group expand="0" string="Group By...">
+          <group>
             <filter name="by_owner" string="Owner" context="{'group_by': 'owner_id'}"/>
             <filter name="by_state" string="State" context="{'group_by': 'state'}"/>
           </group>

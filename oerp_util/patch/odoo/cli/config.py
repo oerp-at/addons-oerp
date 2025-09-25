@@ -1527,7 +1527,7 @@ class CleanUp(ConfigCommand, Command, DatabaseMixin):
             # now delete the records
             _logger.info('Deleting %s', records)
             try:
-                with ModelData._cr.savepoint():
+                with ModelData.env.cr.savepoint():
                     records.unlink()
             except Exception:
                 if len(records) <= 1:

@@ -9,8 +9,8 @@ _logger = logging.getLogger(__name__)
 
 def _list_all_models(self):
     """ show all available odoo models """
-    self._cr.execute("SELECT model, name FROM ir_model ORDER BY name")
-    return self._cr.fetchall()
+    self.env.cr.execute("SELECT model, name FROM ir_model ORDER BY name")
+    return self.env.cr.fetchall()
 
 
 class AutomationTask(models.Model):
@@ -42,7 +42,7 @@ class AutomationTask(models.Model):
     owner_id = fields.Many2one(
         "res.users",
         required=True,
-        default=lambda self: self._uid,
+        default=lambda self: self.env.uid,
         index=True,
         readonly=True,
     )
@@ -73,11 +73,11 @@ class AutomationTask(models.Model):
 
         #  get progress from stages
         res = dict.fromkeys(self.ids, 0.0)
-        self._cr.execute(
+        self.env.cr.execute(
             "SELECT id FROM automation_task_stage WHERE task_id IN %s AND parent_id IS NULL",
             (tuple(self.ids), ),
         )
-        stage_ids = [r[0] for r in self._cr.fetchall()]
+        stage_ids = [r[0] for r in self.env.cr.fetchall()]
         for stage in self.env["automation.task.stage"].browse(stage_ids):
             res[stage.task_id.id] = stage._get_progress()
         # assign
@@ -89,7 +89,7 @@ class AutomationTask(models.Model):
             self.res_ref = None
             return
 
-        self._cr.execute(
+        self.env.cr.execute(
             """SELECT res_model, ARRAY_AGG(id)
             FROM automation_task
             WHERE id IN %s
@@ -97,11 +97,11 @@ class AutomationTask(models.Model):
         """, (tuple(self.ids), ))
 
         values = {}
-        for res_model, task_ids in self._cr.fetchall():
+        for res_model, task_ids in self.env.cr.fetchall():
             model_obj = self.env.get(res_model)
             if model_obj:
                 table_name = model_obj._table
-                self._cr.execute(
+                self.env.cr.execute(
                     """SELECT
                         t.id, r.id
                     FROM automation_task t
@@ -109,7 +109,7 @@ class AutomationTask(models.Model):
                     WHERE t.id IN %%s
                 """ % table_name, (task_ids, ))
 
-                values.update(dict([(i, "%s,%s" % (res_model, r)) for (i, r) in self._cr.fetchall()]))
+                values.update(dict([(i, "%s,%s" % (res_model, r)) for (i, r) in self.env.cr.fetchall()]))
 
         for obj in self:
             obj.res_ref = values.get(obj.id, None)
@@ -119,9 +119,9 @@ class AutomationTask(models.Model):
             self.total_logs = 0
             return
 
-        self._cr.execute("SELECT task_id, COUNT(*) FROM automation_task_log WHERE task_id IN %s GROUP BY 1",
+        self.env.cr.execute("SELECT task_id, COUNT(*) FROM automation_task_log WHERE task_id IN %s GROUP BY 1",
                     (tuple(self.ids), ))
-        values = dict(self._cr.fetchall())
+        values = dict(self.env.cr.fetchall())
         for obj in self:
             obj.total_logs = values.get(obj.id) or 0
 
@@ -130,13 +130,13 @@ class AutomationTask(models.Model):
             self.total_warnings = 0
             return
 
-        self._cr.execute(
+        self.env.cr.execute(
             """SELECT task_id, COUNT(*) FROM automation_task_log
             WHERE pri = 'w'
               AND task_id IN %s
             GROUP BY 1
             """, (tuple(self.ids), ))
-        values = dict(self._cr.fetchall())
+        values = dict(self.env.cr.fetchall())
         for obj in self:
             obj.total_warnings = values.get(obj.id) or 0
 
@@ -145,12 +145,12 @@ class AutomationTask(models.Model):
             self.total_errors = 0
             return
 
-        self._cr.execute(
+        self.env.cr.execute(
             """SELECT task_id, COUNT(*) FROM automation_task_log
             WHERE pri IN ('a','e','x')
               AND task_id IN %s GROUP BY 1
             """, (tuple(self.ids), ))
-        values = dict(self._cr.fetchall())
+        values = dict(self.env.cr.fetchall())
         for obj in self:
             obj.total_errors = values.get(obj.id) or 0
 
@@ -160,11 +160,11 @@ class AutomationTask(models.Model):
             return
 
         res = dict.fromkeys(self.ids, 0)
-        self._cr.execute(
+        self.env.cr.execute(
             "SELECT task_id, COUNT(*) FROM automation_task_stage WHERE task_id IN %s GROUP BY 1",
             (tuple(self.ids), ),
         )
-        for task_id, stage_count in self._cr.fetchall():
+        for task_id, stage_count in self.env.cr.fetchall():
             res[task_id] = stage_count
         for r in self:
             r.total_stages = res[r.id]
@@ -180,7 +180,7 @@ class AutomationTask(models.Model):
         self.ensure_one()
 
         task_id = self.id
-        self._cr.execute(
+        self.env.cr.execute(
             """WITH RECURSIVE task(id) AS (
                 SELECT
                     id
@@ -196,7 +196,7 @@ class AutomationTask(models.Model):
             SELECT id FROM task
             """, (task_id, ))
 
-        task_ids = [r[0] for r in self._cr.fetchall()]
+        task_ids = [r[0] for r in self.env.cr.fetchall()]
         return self.browse(task_ids)
 
     def _task_get_after_tasks(self):
@@ -221,7 +221,7 @@ class AutomationTask(models.Model):
 
     def _check_execution_rights(self):
         # check rights
-        if self.owner_id.id != self._uid and not self.env.user.has_groups(
+        if self.owner_id.id != self.env.uid and not self.env.user.has_groups(
                 "automation.group_automation_manager,base.group_system"):
             raise exceptions.UserError(_("Not allowed. You have to be the owner or an automation manager"))
 
@@ -295,7 +295,7 @@ class AutomationTask(models.Model):
         """ queue task """
 
         # remove stages
-        self._cr.execute(
+        self.env.cr.execute(
             "DELETE FROM automation_task_stage WHERE task_id=%s",
             (self.id, ),
         )
@@ -345,11 +345,11 @@ class AutomationTask(models.Model):
         """ ugly hack but needed to commit changes """
         if not tools.config.get('test_enable'):
             # pylint: disable=invalid-commit
-            self._cr.commit()
+            self.env.cr.commit()
 
     def _rollback_state(self):
         if not tools.config.get('test_enable'):
-            self._cr.rollback()
+            self.env.cr.rollback()
 
     def _test_task(self):
         self.ensure_one()
@@ -376,12 +376,12 @@ class AutomationTask(models.Model):
                 # don't process this task
                 if task_options.get("singleton"):
                     # check concurrent
-                    self._cr.execute(
+                    self.env.cr.execute(
                         "SELECT MIN(id) FROM automation_task WHERE res_model=%s AND state IN ('queued','run')",
                         (resource._model._name, ),
                     )
 
-                    active_task_id = self._cr.fetchone()[0]
+                    active_task_id = self.env.cr.fetchone()[0]
                     if active_task_id and active_task_id < task.id:
                         # queue task after running
                         task.write({"start_after_task_id": active_task_id})
@@ -464,11 +464,11 @@ class AutomationTask(models.Model):
         # get available tasks
         ids = None
         try:
-            self._cr.execute("""SELECT id FROM automation_task WHERE state = 'queued' FOR UPDATE NOWAIT LIMIT 1""")
-            ids = [r[0] for r in self._cr.fetchall()]
+            self.env.cr.execute("""SELECT id FROM automation_task WHERE state = 'queued' FOR UPDATE NOWAIT LIMIT 1""")
+            ids = [r[0] for r in self.env.cr.fetchall()]
         except psycopg2.OperationalError:
             # return if there is a concurrency error
-            self._cr.rollback()
+            self.env.cr.rollback()
             return
 
         # return if no tasks available
@@ -488,7 +488,6 @@ class AutomationTaskMixin(models.AbstractModel):
     task_id = fields.Many2one("automation.task", "Task", required=True, index=True, ondelete="cascade")
 
     @api.model_create_multi
-    @api.returns('self', lambda value: value.id)
     def create(self, vals_list):
         tasks = super(AutomationTaskMixin, self).create(vals_list)
         for task in tasks:
@@ -501,8 +500,8 @@ class AutomationTaskMixin(models.AbstractModel):
         ids = self.ids
         task_ids = None
         if ids:
-            self._cr.execute(f"SELECT task_id FROM {self._table} WHERE id IN %s AND task_id IS NOT NULL", (tuple(ids),))
-            task_ids = [r[0] for r in self._cr.fetchall()]
+            self.env.cr.execute(f"SELECT task_id FROM {self._table} WHERE id IN %s AND task_id IS NOT NULL", (tuple(ids),))
+            task_ids = [r[0] for r in self.env.cr.fetchall()]
 
         # unlink self
         res = super(AutomationTaskMixin, self).unlink()
@@ -575,7 +574,7 @@ class AutomationTaskStage(models.Model):
     child_ids = fields.One2many("automation.task.stage", "parent_id", string="Substages", copy=False)
 
     def _compute_name(self):
-        exclude_root = self._context.get('display_exclude_root')
+        exclude_root = self.env.context.get('display_exclude_root')
         for obj in self:
             name = []
             stage = obj

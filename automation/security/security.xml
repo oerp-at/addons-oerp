@@ -8,18 +8,24 @@
       <field name="visible" eval="0" />
     </record>
 
+    <record id="res_groups_privilege_automation" model="res.groups.privilege">
+      <field name="name">Automation</field>
+      <field name="category_id" ref="module_category_automation"/>
+      <field name="description">Everything about automated tasks.</field>
+    </record>
+
 
     <!-- groups -->
 
     <record id="group_automation_user" model="res.groups">
       <field name="name">Automation User</field>
-      <field name="category_id" ref="module_category_automation"/>
+       <field name="privilege_id" ref="res_groups_privilege_automation"/>
       <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
     </record>
 
     <record id="group_automation_manager" model="res.groups">
       <field name="name">Automation Manager</field>
-      <field name="category_id" ref="module_category_automation"/>
+      <field name="privilege_id" ref="res_groups_privilege_automation"/>
       <field name="implied_ids" eval="[(4, ref('group_automation_user'))]"/>
     </record>
 
@@ -27,11 +33,11 @@
     <!-- assign groups -->
 
     <record model="res.users" id="base.user_root">
-        <field eval="[(4,ref('group_automation_manager'))]" name="groups_id"/>
+        <field eval="[(4,ref('group_automation_manager'))]" name="group_ids"/>
     </record>
 
     <record model="res.users" id="base.user_admin">
-        <field eval="[(4,ref('group_automation_manager'))]" name="groups_id"/>
+        <field eval="[(4,ref('group_automation_manager'))]" name="group_ids"/>
     </record>
 
 
@@ -40,7 +46,7 @@
     <record id="rule_automation_task_automation_group_rule" model="ir.rule">
       <field name="name">automation_task/automation_group</field>
       <field name="model_id" ref="model_automation_task"/>
-      <field name="domain_force">[('group_id','in',[g.id for g in user.groups_id])]</field>
+      <field name="domain_force">[('group_id','in',[g.id for g in user.group_ids])]</field>
       <field name="groups" eval="[(4,ref('group_automation_user'))]"/>
       <field name="perm_read" eval="True"/>
       <field name="perm_write" eval="True"/>

@@ -135,7 +135,7 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
 
 def patch_dist():
     """
-    Patch(back) the current cli/config.py to the current odoo distribution.
+    Patch(back) the current cli/*.py to the current odoo distribution.
     """
 
     # determine and check paths
@@ -176,11 +176,12 @@ def patch_dist():
     ## setup distribution
     #
 
-    patch(
-        os.path.join(odoo_path, 'odoo', 'cli', 'config.py'),
-        os.path.join(src_path, 'odoo', 'cli', 'config.py'),
-        patch_back=True,
-        add_init=True)
+    for cli_cmd in ('assemble', 'install', 'serve', 'test'):
+        patch(
+            os.path.join(odoo_path, 'odoo', 'cli', f'{cli_cmd}.py'),
+            os.path.join(src_path, 'odoo', 'cli', f'{cli_cmd}.py'),
+            patch_back=True,
+            add_init=True)
 
     patch(
         os.path.join(odoo_path, 'odoo-bin'),

@@ -64,7 +64,7 @@
           <filter name="warning" string="Warning" domain="[('pri','=','w')]"/>
           <filter name="info"  string="Info" domain="[('pri','in',['n','i'])]"/>
           <filter name="debug" string="Debug"  domain="[('pri','=','d')]"/>
-          <group string="Group By..." expand="0">
+          <group>
             <filter name="by_task" string="Task" context="{'group_by': 'task_id'}"/>
             <filter name="by_stage" string="Stage" context="{'group_by': 'stage_id'}"/>
             <filter name="by_priority" string="Priority" context="{'group_by': 'pri'}"/>
