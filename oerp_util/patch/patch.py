@@ -54,7 +54,7 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
                 with open(dst_init_path, 'r', encoding='utf-8') as f:
                     init_content = f.read()
                     import_line = f'from . import {name}'
-                    if not 'from . import config' in init_content:
+                    if not 'from . import {name}' in init_content:
                         _logger.warning('Patch %s', dst_init_path)
                         with open(dst_init_path, 'w', encoding='utf-8') as f:
                             init_content = init_content + f'\n{import_line}\n'
@@ -180,8 +180,7 @@ def patch_dist():
         patch(
             os.path.join(odoo_path, 'odoo', 'cli', f'{cli_cmd}.py'),
             os.path.join(src_path, 'odoo', 'cli', f'{cli_cmd}.py'),
-            patch_back=True,
-            add_init=True)
+            patch_back=True)
 
     patch(
         os.path.join(odoo_path, 'odoo-bin'),
