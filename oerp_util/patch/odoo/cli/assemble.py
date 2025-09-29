@@ -493,10 +493,6 @@ class CommandMixin:
             config_args.append("--addons-path")
             config_args.append(params.addons_path)
 
-        if params.lang:
-            config_args.append("--lang")
-            config_args.append(params.lang)
-
         if params.config:
             config_args.append("--config")
             config_args.append(params.config)
