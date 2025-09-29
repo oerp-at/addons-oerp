@@ -11,6 +11,8 @@ import logging
 import shutil
 import yaml
 import json5
+import subprocess
+import psycopg2
 import odoo
 
 from odoo import SUPERUSER_ID
@@ -37,6 +39,11 @@ ADDONS_CUSTOM_PATTERN = r'^(.*/(custom-addons-(.*)))/.*$'
 RESTORED_FILE_NAME = 'restored'
 DEFAULT_SLEEP = 5
 
+
+def get_db_name(name):
+    if isinstance(name, list):
+        return name[0]
+    return name
 
 def get_file_path():
     return os.path.realpath(os.path.dirname(__file__))
@@ -378,7 +385,7 @@ def is_addon(addon_path):
 
 
 ###############################################################################
-# Config Mixin
+# Command Mixin
 ###############################################################################
 
 class CommandMixin:
@@ -499,7 +506,7 @@ class CommandMixin:
 
         config.parse_config(config_args)
         if not params.database:
-            params.database = config.get('db_name')
+            params.database = get_db_name(config.get('db_name'))
 
         if params.reinit:
             config["reinit"] = params.reinit
@@ -527,6 +534,257 @@ class CommandMixin:
                     raise e
                 else:
                     _logger.error(str(e))
+
+    def install_module(self, env, module_name):
+        modul_obj = env['ir.module.module']
+        mod = modul_obj.search([('name','=', module_name)], limit=1)
+        if not mod:
+            _logger.error("Unkown module %s!", module_name)
+            return False
+        elif mod.state == 'installed':
+            _logger.warning("Module %s is already installed!", module_name)
+            return False
+
+        # install module
+        mod.button_immediate_install()
+        env.cr.commit()
+        return True
+
+    def sync_files(self, src, dest, dirs=False, info="Sync", filestore=False, delete=False, local=False):
+        if dirs:
+            if not src.endswith(os.path.sep) and not src.endswith('/'):
+                src += os.path.sep
+            if not dest.endswith(os.path.sep) and not dest.endswith('/'):
+                dest += os.path.sep
+
+        # build command
+        if local:
+            if dirs:
+                # create destination directory if not exists
+                if not os.path.exists(dest):
+                    _logger.warning('Create directory %s', dest)
+                    os.makedirs(dest, exist_ok=True)
+                # tree copy or update /*
+                cmd = f'cp -ru "{src}"* "{dest}"'
+            else:
+                # simple file copy
+                cmd = f'cp "{src}" "{dest}"'
+        else:
+            # rsync
+            cmd = ["rsync",
+                   "-avz"]
+
+            if delete:
+                cmd.append('--delete')
+            if filestore:
+                cmd.append(f'--exclude /{RESTORED_FILE_NAME}')
+
+            cmd.append(f'"{src}"')
+            cmd.append(f'"{dest}"')
+            cmd = " ".join(cmd)
+
+        # copy
+        _logger.info('%s from %s to %s ...', info, src, dest)
+        res = subprocess.run(cmd, check=True, shell=True)
+
+        # sync deletes if local copy is used
+        # errors are not handled
+        if local and dirs:
+            subprocess.run(f'rsync -vr --delete --ignore-existing "{src}" "{dest}"', check=False, shell=True)
+
+        _logger.info('%s from %s to %s done!', info, src, dest)
+        return res
+
+    def get_addons_paths(self):
+        addons_paths = config.get('addons_path')
+        if addons_paths:
+            addons_paths = addons_paths.split(',')
+        else:
+            addons_paths = []
+
+        server_path =  get_server_dir()
+        addons_path = os.path.join(server_path, "addons")
+        base_addons_path = os.path.join(server_path, "odoo/addons")
+        addons_paths.append(addons_path)
+        addons_paths.append(base_addons_path)
+        return addons_paths
+
+
+###############################################################################
+# Database Mixin
+###############################################################################
+class DatabaseMixin(object):
+
+    def setup_db_env(self, admin_user=None, admin_password=None):
+        self.db_env = os.environ.copy()
+
+        # get database names
+        self.db_name = get_db_name(config.get('db_name'))
+
+        # update database params
+        changed_db_env = {}
+        for config_key, env_name in (
+            ('db_user', 'PGUSER'),
+            ('db_password', 'PGPASSWORD'),
+            ('db_port', 'PGPORT'),
+            ('db_host', 'PGHOST'),
+            ('db_name', 'PGDATABASE')
+            ):
+            value = config.get(config_key)
+            if config_key == 'db_name':
+                value = get_db_name(value)
+            if value:
+                changed_db_env[env_name] = str(value)
+
+        if changed_db_env:
+            self.db_env.update(changed_db_env)
+
+        # create admin env
+        self.db_admin_env = None
+        self.db_admin_user = admin_user
+        self.db_admin_password = admin_password
+        if self.db_admin_user:
+            self.db_admin_env = self.db_env.copy()
+            self.db_admin_env['PGUSER'] = self.db_admin_user
+            if not self.db_admin_password is None:
+                self.db_admin_env['PGPASSWORD'] = self.db_admin_password
+
+    def get_db_env(self, admin=False):
+        if admin and self.db_admin_env:
+            return self.db_admin_env
+        return self.db_env
+
+    def set_db_name(self, db_name):
+        self.db_name = db_name
+        config['db_name'] = self.db_name
+        self.db_env['PGDATABASE'] = self.db_name
+        if self.db_admin_env:
+            self.db_admin_env['PGDATABASE'] = self.db_name
+
+    def dropdb_connections(self, database, admin=False, check=False):
+        _logger.warning('Terminating database connections to %s', database)
+        return subprocess.run(f"psql -d postgres -c \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{database}'\"", shell=True, check=check, env=self.get_db_env(admin=admin))
+
+    def dropdb(self, database, admin=False):
+        _logger.warning('Dropping database %s', database)
+        return subprocess.run(f"dropdb --if-exists {database}", shell=True, check=True, env=self.get_db_env(admin=admin))
+
+    def check_database(self):
+        return subprocess.check_output('psql -A -c "SELECT COUNT(id) FROM res_company"', shell=True, env=self.get_db_env())
+
+    def connect_database_admin(self, database=None):
+        if self.db_admin_user is None:
+            return self.connect_database(database=database)
+        return self.connect_database(user=self.db_admin_user, password=self.db_admin_password, database=database)
+
+    def backup_database(self, backup_file, compatible=True):
+        _logger.info("Backup database %s to %s (compatible=%s)", self.db_name, backup_file, compatible)
+        if compatible:
+            cmd = f'pg_dump -f {backup_file} {self.db_name}'
+        else:
+            cmd = f'pg_dump -F c -f {backup_file} {self.db_name}'
+        return subprocess.run(cmd, shell=True, check=True, env=self.get_db_env(admin=True))
+
+    def createdb(self, database, admin=False):
+        return subprocess.run(f"createdb {database}", shell=True, check=True, env=self.get_db_env(admin=admin))
+
+    def restore_database(self, backup_file, admin=False, force=False):
+        if force:
+            self.dropdb_connections(self.db_name, admin=admin)
+        self.dropdb(self.db_name, admin=admin)
+        _logger.info("Restore database %s from %s", self.db_name, backup_file)
+        self.createdb(self.db_name, admin=admin)
+        db_env=self.get_db_env(admin=admin)
+        try:
+            subprocess.run(f"pg_restore -d {self.db_name} < {backup_file}", shell=True, check=False, env=db_env)
+            self.check_database()
+        except subprocess.CalledProcessError:
+            subprocess.run(f"psql -d {self.db_name} -f {backup_file}", shell=True, check=False, env=db_env)
+            self.check_database()
+        _logger.info("Restored database from %s", backup_file)
+
+    def connect_database(self, user=None, password=None, database=None):
+        # prepare connection string
+        params = []
+        def add_param(param_name, config_name):
+            value = config.get(config_name)
+            if value:
+                params.append(f"{param_name}='{value}'")
+
+        add_param("host", "db_host")
+        add_param("port", "db_port")
+
+        if database is None:
+            add_param("dbname", "db_name")
+        elif database:
+            params.append(f"dbname='{database}'")
+
+        # allow user overwrite
+        if user is None:
+            add_param("user", "db_user")
+        elif user:
+            params.append(f"user='{user}'")
+
+        # allow password override
+        if password is None:
+            add_param("password", "db_password")
+        elif password:
+            params.append(f"password='{password}'")
+
+        # connect
+        params = " ".join(params)
+        return psycopg2.connect(params)
+
+    def call_with_cr(self, fct):
+        """ call function with cr """
+        con = self.connect_database()
+        try:
+            cr = con.cursor()
+            try:
+                cr = con.cursor()
+                fct(cr)
+            finally:
+                cr.close()
+        finally:
+            con.close()
+
+    def is_database_ready(self):
+        try:
+            con = self.connect_database()
+            # get odoo base version
+            base_version = odoo.modules.load_information_from_description_file('base')['version']
+            # fetch data from database
+            try:
+                cr = con.cursor()
+                def fetch_value():
+                    row = cr.fetchone()
+                    return row[0] if row else None
+                try:
+                    cr.execute("SELECT latest_version FROM ir_module_module WHERE name=%s", ['base'])
+                    version = fetch_value()
+                    cr.execute("SELECT COUNT(*) FROM ir_module_module WHERE state LIKE %s", ['to %'])
+                    changes = fetch_value()
+                finally:
+                    cr.close()
+            finally:
+                con.close()
+        except psycopg2.DatabaseError as e:
+            _logger.warning(str(e))
+            return False
+
+        # check results
+        if version is None:
+            _logger.warning('Database %s has no version', self.db_name)
+            return False
+        if version != base_version:
+            _logger.warning('Database %s has different version %s != %s', self.db_name, version, base_version)
+            return False
+        if changes:
+            _logger.warning('Database %s is currently being updated', self.db_name)
+            return False
+        # everything fine
+        return True
+
 
 ###############################################################################
 # Assemble Command
