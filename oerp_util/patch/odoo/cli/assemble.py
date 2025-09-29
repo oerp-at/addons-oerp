@@ -449,11 +449,6 @@ class CommandMixin:
                                 envvar=True,
                                 help="If an error happened, exit and return error value")
 
-        self.parser.add_argument("--lang",
-                                 required=False,
-                                 metavar="LANG",
-                                 envvar=True)
-
         self.parser.add_argument(
             "--reinit",
             metavar="REINIT",
