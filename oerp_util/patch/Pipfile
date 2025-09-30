@@ -67,6 +67,7 @@ tabulate = "*"
 base58 = "*"
 pynacl = "*"
 py-multihash = "*"
+"pdfminer.six" = "*"
 
 [requires]
 python_version = "3.12"

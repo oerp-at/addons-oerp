@@ -54,24 +54,15 @@ def get_base_dir():
 def get_server_dir():
     return os.path.abspath(os.path.join(get_file_path(), "../.."))
 
-def update_database(database):
+def update_database(database, modules=None):
     """ Odoo Database Update """
-    registry = odoo.modules.registry.Registry.new(database, update_module=True)
+    if not modules:
+        modules = ["base"]
+    if isinstance(modules, str):
+        modules = [m.strip() for m in modules.split(",")]
 
-    # refresh
-    try:
-        if config["reinit"] == "full":
-            with registry.cursor() as cr:
-                cr.execute("SELECT matviewname FROM pg_matviews")
-
-                for (matview, ) in cr.fetchall():
-                    _logger.info("REFRESH MATERIALIZED VIEW %s ...", matview)
-                    cr.execute("REFRESH MATERIALIZED VIEW %s" % matview)
-                    cr.commit()
-
-                _logger.info("Finished refreshing views")
-    except KeyError:
-        pass
+    # update databases
+    registry = odoo.modules.registry.Registry.new(database, update_module=True, upgrade_modules=modules)
 
 def get_custom_addons():
     working_dir = os.getcwd()
@@ -789,7 +780,6 @@ class DatabaseMixin(object):
 ###############################################################################
 # Assemble Command
 ###############################################################################
-
 class Assemble(Command):
     """ Setup VSCode environment to environment """
     def __init__(self):

@@ -29,9 +29,7 @@
 			"--disable",
 			"access-member-before-definition",
 			"--disable",
-			"attribute-defined-outside-init",
-			"--disable",
-			"missing-return"
+			"attribute-defined-outside-init"
 		],
 		"files.exclude": {
 			"**/*.pyc": {"when": "$(basename).py"},
