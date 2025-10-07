@@ -351,7 +351,7 @@ def link_directory_entries(src, dst, ignore=None, names=None):
             continue
         src_path = os.path.join(src, name)
         dst_path = os.path.join(dst, name)
-        if not name.endswith(".pyc") and not name.startswith("."):
+        if not name.endswith(".pyc") and not name.startswith(".") and not name == "__pycache__":
             os.symlink(src_path, dst_path)
             links.add(dst_path)
 
