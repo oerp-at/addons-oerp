@@ -2107,6 +2107,11 @@ class Assemble(Command):
 
                                     if is_addon(cur_addon_path):
                                         dstPath = os.path.join(dir_enabled_addons, cur_addon)
+
+                                        # remove old link
+                                        if os.path.exists(dstPath) and os.path.islink(dstPath):
+                                            os.remove(dstPath)
+
                                         if not os.path.exists(dstPath):
                                             # log.info("Create addon link " + str(dstPath) + " from " + str(cur_addon_path))
                                             os.symlink(

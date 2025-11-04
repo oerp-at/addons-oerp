@@ -31,7 +31,9 @@
 			"--disable",
 			"attribute-defined-outside-init",
 			"--disable",
-			"missing-return"
+			"missing-return",
+			"--disable",
+			"pointless-statement",
 		],
 		"files.exclude": {
 			"**/*.pyc": {"when": "$(basename).py"},
@@ -41,7 +43,17 @@
 		"python.analysis.userFileIndexingLimit": -1,
 		"python.analysis.extraPaths": [
 			"${workspaceFolder}/assembly"
-		]
+		],
+		"cursorpyright.analysis.extraPaths": [
+			"${workspaceFolder}/assembly"
+		],
+		"cursorpyright.analysis.diagnosticSeverityOverrides": {
+			"reportMissingImports": "none",
+			"reportUnusedExpression": "none",
+			"reportUnusedImport": "none"
+		},
+		"cursorpyright.analysis.disableWorkspaceSymbol": true,
+		"cursorpyright.analysis.typeCheckingMode": "off",
 	}
 }
 
