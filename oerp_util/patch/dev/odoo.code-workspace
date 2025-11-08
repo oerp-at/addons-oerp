@@ -35,11 +35,20 @@
 			"**/*.pyc": {"when": "$(basename).py"},
 			"**/__pycache__": true
 		},
-
 		"python.analysis.userFileIndexingLimit": -1,
 		"python.analysis.extraPaths": [
 			"${workspaceFolder}/assembly"
-		]
+		],
+		"cursorpyright.analysis.extraPaths": [
+			"${workspaceFolder}/assembly"
+		],
+		"cursorpyright.analysis.diagnosticSeverityOverrides": {
+			"reportMissingImports": "none",
+			"reportUnusedExpression": "none",
+			"reportUnusedImport": "none"
+		},
+		"cursorpyright.analysis.disableWorkspaceSymbol": true,
+		"cursorpyright.analysis.typeCheckingMode": "off",
 	}
 }
 
