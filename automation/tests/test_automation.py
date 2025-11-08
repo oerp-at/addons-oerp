@@ -28,3 +28,19 @@ class TestAutomation(TransactionCase):
         task.unlink()
         # check delete of empty set
         self.env['automation.task.example'].unlink()
+
+    def test_automation_retrying_lifecycle(self):
+        task = self.env['automation.task.example'].create({
+            'name': 'Test Task'
+        })
+
+        # queue task
+        task.action_queue()
+        self.assertEqual(task.state, 'queued')
+
+        # process task
+        task.task_id.with_context(max_duration_s=5)._test_task()
+
+        # check if task is requeued
+        self.assertEqual(task.state, 'queued')
+

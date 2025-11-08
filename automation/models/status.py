@@ -1,10 +1,14 @@
 import json
 import logging
+import time
 import requests
-from odoo import tools, exceptions, _
+from odoo import tools, exceptions
 
 _logger = logging.getLogger(__name__)
 
+
+class AutomationTaskRequeueException(Exception):
+    pass
 
 class TaskStatus(object):
     """ This class is used to log the progress of a task. """
@@ -38,6 +42,8 @@ class TaskStatus(object):
         # init loop
         self._loop_inc = 0.0
         self._loop_progress = 0.0
+        self._loop_start_time = None
+        self._loop_max_duration_s = 0
 
         # init task
         self.task = task
@@ -74,7 +80,7 @@ class TaskStatus(object):
                 self.token = token
                 baseurl = self.task.get_base_url()
                 if not baseurl:
-                    raise exceptions.UserError(_("Cannot determine Base-Url"))
+                    raise exceptions.UserError(self.env._("Cannot determine Base-Url"))
 
                 self.log_path = f"{baseurl}/automation/log"
                 self.stage_path = f"{baseurl}/automation/stage"
@@ -100,7 +106,7 @@ class TaskStatus(object):
 
         # first log
         # second call to remote
-        self.log(_("Started"))
+        self.log(self.env._("Started"))
 
 
     def _post_data(self, url, data, result_parser=lambda res: None):
@@ -284,8 +290,10 @@ class TaskStatus(object):
     def logx(self, message, pri="x", **kwargs):
         self.log(message, pri=pri, **kwargs)
 
-    def loop_init(self, loop_count, status=None):
+    def loop_init(self, loop_count, status=None, max_duration_s=0):
         self._loop_progress = 0.0
+        self._loop_start_time = time.time()
+        self._loop_max_duration_s = max_duration_s
         if not loop_count:
             self._loop_progress = 100.0
             self._loop_inc = 0.0
@@ -295,6 +303,12 @@ class TaskStatus(object):
         self.progress(status, self._loop_progress)
 
     def loop_next(self, status=None, step=1):
+        # check if is time for requeue
+        if self._loop_max_duration_s and time.time() - self._loop_start_time > self._loop_max_duration_s:
+            message = self.env._('Limit of %s sec reached, initiating requeue!', self._loop_max_duration_s)
+            self.logw(message, code='REQUEUE')
+            raise AutomationTaskRequeueException(message)
+
         self._loop_progress += self._loop_inc * step
         self.progress(status, self._loop_progress)
 
@@ -328,12 +342,12 @@ class TaskStatus(object):
         self.stage_id = self._create_stage(values)
 
     def done(self):
-        self.progress(_("Done"), 100.0)
+        self.progress(self.env._("Done"), 100.0)
         if self.stage_stack:
             self.parent_stage_id, self.stage_id = self.stage_stack.pop()
 
     def close(self):
-        self._post_progress({"stage_id": self.root_stage_id, "status": _("Done"), "progress": 100.0})
+        self._post_progress({"stage_id": self.root_stage_id, "status": self.env._("Done"), "progress": 100.0})
 
     def __enter__(self):
         return self

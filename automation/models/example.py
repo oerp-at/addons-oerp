@@ -24,7 +24,8 @@ class AutomationTaskExample(models.Model):
             taskc.done()
 
         taskc.stage("Another Loop to show percentage progress")
-        taskc.loop_init(10)
+        max_duration_s = self.env.context.get('max_duration_s', 0)
+        taskc.loop_init(10, max_duration_s=max_duration_s)
         counter = 0
         for i in range(10):
             taskc.loop_next()

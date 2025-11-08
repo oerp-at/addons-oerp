@@ -1,8 +1,8 @@
 import uuid
 import logging
 import psycopg2
-from odoo import api, fields, models, _, exceptions, tools
-from .status import TaskStatus
+from odoo import api, fields, models, exceptions, tools
+from .status import TaskStatus, AutomationTaskRequeueException
 
 _logger = logging.getLogger(__name__)
 
@@ -223,7 +223,7 @@ class AutomationTask(models.Model):
         # check rights
         if self.owner_id.id != self.env.uid and not self.env.user.has_groups(
                 "automation.group_automation_manager,base.group_system"):
-            raise exceptions.UserError(_("Not allowed. You have to be the owner or an automation manager"))
+            raise exceptions.UserError(self.env._("Not allowed. You have to be the owner or an automation manager"))
 
     def action_cancel(self):
         for task in self:
@@ -236,7 +236,7 @@ class AutomationTask(models.Model):
 
     def action_stage(self):
         return {
-            "display_name": _("Stages"),
+            "display_name": self.env._("Stages"),
             "res_model": "automation.task.stage",
             "type": "ir.actions.act_window",
             "view_mode": "list,form",
@@ -246,7 +246,7 @@ class AutomationTask(models.Model):
 
     def action_log(self):
         return {
-            "display_name": _("Logs"),
+            "display_name": self.env._("Logs"),
             "res_model": "automation.task.log",
             "type": "ir.actions.act_window",
             "view_mode": "list,form",
@@ -256,7 +256,7 @@ class AutomationTask(models.Model):
 
     def action_warning(self):
         return {
-            "display_name": _("Logs"),
+            "display_name": self.env._("Logs"),
             "res_model": "automation.task.log",
             "type": "ir.actions.act_window",
             "view_mode": "list,form",
@@ -266,7 +266,7 @@ class AutomationTask(models.Model):
 
     def action_error(self):
         return {
-            "display_name": _("Logs"),
+            "display_name": self.env._("Logs"),
             "res_model": "automation.task.log",
             "type": "ir.actions.act_window",
             "view_mode": "list,form",
@@ -410,7 +410,7 @@ class AutomationTask(models.Model):
                     # check fail on errors
                     if task_options.get("fail_on_errors"):
                         if error_count:
-                            raise exceptions.UserError(_("Task finished with errors"))
+                            raise exceptions.UserError(self.env._("Task finished with errors"))
 
                 # update status and commit
                 task.write({"state_change": fields.Datetime.now(),
@@ -423,37 +423,43 @@ class AutomationTask(models.Model):
                 # pylint: disable=invalid-commit
                 self._commit_state()
 
+            # pylint: disable=broad-exception-caught
             except Exception as e:
-                # rollback on error
-                self._rollback_state()
+                if isinstance(e, AutomationTaskRequeueException):
+                    # check if task should be requeued later
+                    self.with_context(task_unqueued_run=False)._task_enqueue()
+                else:
+                    # rollback on error
+                    self._rollback_state()
 
-                _logger.exception("Task execution failed")
-                task = self.browse(task.id)  # reload task after rollback
+                    _logger.exception("Task execution failed")
+                    task = self.browse(task.id)  # reload task after rollback
 
-                # securely try to get message
-                error = None
-                try:
-                    error = str(e)
-                    if not error and hasattr(e, "message"):
-                        error = e.message
-                except:
-                    _logger.exception("Parsing failed")
+                    # securely try to get message
+                    error = None
+                    try:
+                        error = str(e)
+                        if not error and hasattr(e, "message"):
+                            error = e.message
+                    # pylint: disable=bare-except
+                    except:
+                        _logger.exception("Parsing failed")
 
-                #if there is no message
-                if not error:
-                    error = "Unexpected error, see logs"
+                    #if there is no message
+                    if not error:
+                        error = "Unexpected error, see logs"
 
-                # write error
-                task.write({
-                    "state_change": fields.Datetime.now(),
-                    "state": "failed",
-                    "error": error,
-                    "error_count": error_count,
-                    "warning_count": warning_count
-                })
+                    # write error
+                    task.write({
+                        "state_change": fields.Datetime.now(),
+                        "state": "failed",
+                        "error": error,
+                        "error_count": error_count,
+                        "warning_count": warning_count
+                    })
 
                 # finally commit current state after
-                # rollback
+                # rollback or requeue
                 self._commit_state()
 
         return True
