@@ -32,7 +32,7 @@ class AutomationTaskExample(models.Model):
             taskc.log("Processing %s" % counter)
             time.sleep(1)
 
-        taskc.log('Generall Log with reference and json data', ref='account.move,13', data={'a': 1, 'b': 2})
+        taskc.log('Generall Log with reference and json data', ref='res.partner,23', data={'a': 1, 'b': 2})
         taskc.logd('Debug log')
         taskc.logw('Warning log')
         taskc.log('Info log')
