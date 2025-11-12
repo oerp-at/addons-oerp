@@ -176,7 +176,14 @@ def patch_dist():
     ## setup distribution
     #
 
-    for cli_cmd in ('assemble', 'install', 'serve', 'test', 'restore', 'update', 'po_export'):
+    for cli_cmd in ('assemble',
+                    'install',
+                    'serve',
+                    'test',
+                    'restore',
+                    'update',
+                    'po_export',
+                    'po_import'):
         patch(
             os.path.join(odoo_path, 'odoo', 'cli', f'{cli_cmd}.py'),
             os.path.join(src_path, 'odoo', 'cli', f'{cli_cmd}.py'),
