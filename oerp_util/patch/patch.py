@@ -183,7 +183,8 @@ def patch_dist():
                     'restore',
                     'update',
                     'po_export',
-                    'po_import'):
+                    'po_import',
+                    'updatelist'):
         patch(
             os.path.join(odoo_path, 'odoo', 'cli', f'{cli_cmd}.py'),
             os.path.join(src_path, 'odoo', 'cli', f'{cli_cmd}.py'),
