@@ -86,5 +86,5 @@ class Po_Import(CommandMixin, Command):
         translation_importer.load_file(import_file, self.lang)
         translation_importer.save(overwrite=self.params.overwrite)
 
-        # and commit
+        # pylint: disable=invalid-commit
         cr.commit()

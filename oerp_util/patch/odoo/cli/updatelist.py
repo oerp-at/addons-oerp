@@ -14,4 +14,6 @@ class UpdateList(CommandMixin, Command):
         ModuleModule = env['ir.module.module']
         updated, added = ModuleModule.update_list()
         _logger.info('Modules Updated: %s, Added: %s', updated, added)
+
+        # pylint: disable=invalid-commit
         env.cr.commit()
