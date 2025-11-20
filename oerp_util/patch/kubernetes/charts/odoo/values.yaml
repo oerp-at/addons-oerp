@@ -58,7 +58,15 @@ securityContext: {}
 service:
   type: ClusterIP
   port: 8069
-  longpollingPort: 8072
+  websocketPort: 8072
+
+hosts: []
+
+certmanager:
+  enabled: false
+  issuer: "letsencrypt-prod"
+  secretName: "odoo-tls"
+  annotations: {}
 
 ingress:
   enabled: false
@@ -66,21 +74,23 @@ ingress:
   maxBodySize: "512m"
   timeout: "720"
   className: ""
+  tlsSecretName: "odoo-tls"
   annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
 
-  tlsSecretName: ""
-
+ingressroute:
+  enabled: false
+  className: "traefik"
+  certManagerIssuer: "letsencrypt-prod"
+  tlsSecretName: "odoo-tls"
+  annotations: {}
 
 resources:
   limits:
      memory: "8Gi"
-  requests:
      cpu: "1"
-     memory: "4Gi"
+  requests:
+     cpu: "250m"
+     memory: "500Mi"
 
 autoscaling:
   enabled: false

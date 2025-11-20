@@ -11,9 +11,9 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
-    - port: {{ .Values.service.longpollingPort }}
-      targetPort: http-poll
+    - port: {{ .Values.service.websocketPort }}
+      targetPort: http-websocket
       protocol: TCP
-      name: http-poll
+      name: http-websocket
   selector:
     {{- include "odoo.selectorLabels" . | nindent 4 }}

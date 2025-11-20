@@ -118,7 +118,8 @@ log_level = info
 data_dir = /data
 workers = {{ .Values.workers }}
 {{- if gt (int .Values.workers) 0 }}
-max_cron_threads = 0
+max_cron_threads = {{ .Values.cronWorkers }}
+limit_time_real_cron = 0
 {{- else }}
 max_cron_threads = {{ .Values.cronThreads }}
 limit_time_real_cron = 0

@@ -1,4 +1,4 @@
-{{- if and .Values.backup .Values.backup.schedule -}}
+{{- if and .Values.backup.enabled .Values.backup.schedule -}}
 apiVersion: batch/v1
 kind: CronJob
 metadata:

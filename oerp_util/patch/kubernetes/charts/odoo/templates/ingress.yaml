@@ -1,7 +1,7 @@
 {{- if .Values.ingress.enabled -}}
 {{- $fullName := include "odoo.fullname" . -}}
 {{- $svcPort := .Values.service.port -}}
-{{- $svcLongpollingPort := .Values.service.longpollingPort -}}
+{{- $svcWebsocketPort := .Values.service.websocketPort -}}
 {{- $tlsSecretName := .Values.ingress.tlsSecretName  -}}
 {{- $workers := .Values.odooinit.workers -}}
 {{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
@@ -47,7 +47,7 @@ spec:
   {{- if  $tlsSecretName }}
   tls:
     - hosts:
-        {{- range .Values.ingress.hosts }}
+        {{- range .Values.hosts }}
         - {{ . | quote }}
         {{- end }}
       secretName: {{  $tlsSecretName }}
@@ -57,7 +57,7 @@ spec:
   {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
+    {{- range .Values.hosts }}
     - host: {{ . | quote }}
       http:
         paths:
@@ -105,23 +105,23 @@ spec:
   {{- if  $tlsSecretName }}
   tls:
     - hosts:
-        {{- range .Values.ingress.hosts }}
+        {{- range .Values.hosts }}
         - {{ . | quote }}
         {{- end }}
       secretName: {{  $tlsSecretName }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
+    {{- range .Values.hosts }}
     - host: {{ . | quote }}
       http:
         paths:
-          - path: /longpolling
+          - path: /websocket
             pathType: Prefix
             backend:
               service:
                 name: {{ $fullName }}
                 port:
-                  number: {{ $svcLongpollingPort  }}
+                  number: {{ $svcWebsocketPort  }}
     {{- end }}
 {{- end }}
 {{- end }}

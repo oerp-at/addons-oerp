@@ -1,4 +1,4 @@
-{{- if gt (int .Values.odooinit.workers) 0 }}
+{{- if and (gt (int .Values.odooinit.workers) 0) (gt (int .Values.odooinit.cronThreads) 0) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -24,7 +24,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- with .Values.odooinit.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}

@@ -6,7 +6,16 @@
 adminPassword: "admin"
 additionalConfig: ""
 workers: 3
-cronThreads: 2
+
+# amount of workers for cron jobs
+# default 0, because no crons are running on the worker pods
+cronWorkers: 0
+
+# amount of threads for cron jobs on a separate cron pod
+# default 2, because the cron pod is used for cron jobs
+# if 0 no cron pods are deployed
+cronThreads: 1
+
 pgHost: ""
 pgUser: ""
 pgPort: "5432"
@@ -77,10 +86,10 @@ securityContext: {}
 resources:
   limits:
      memory: "8Gi"
-  requests:
      cpu: "1"
-     memory: "4Gi"
-
+  requests:
+     cpu: "250m"
+     memory: "500Mi"
 
 volumes: []
 volumeMounts: []

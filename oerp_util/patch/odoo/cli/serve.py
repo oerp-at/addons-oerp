@@ -7,7 +7,7 @@ from odoo.tools.config import config
 import odoo.cli.server as server_cli
 
 from . import Command
-from .assemble import Profile, RESTORED_FILE_NAME, DEFAULT_SLEEP
+from .assemble import Profile, RESTORED_FILE_NAME, DEFAULT_SLEEP, get_db_name
 
 
 _logger = logging.getLogger(__name__)
@@ -86,7 +86,8 @@ class Serve(Command):
 
             # wait for restore
             if args.wait_for_restore:
-                restored_file = os.path.join(config['data_dir'], 'filestore', config['db_name'], RESTORED_FILE_NAME)
+                db_name = get_db_name(config['db_name'])
+                restored_file = os.path.join(config['data_dir'], 'filestore', db_name, RESTORED_FILE_NAME)
                 while not os.path.exists(restored_file):
                     _logger.warning('Waiting %s seconds for %s...', DEFAULT_SLEEP, restored_file)
                     time.sleep(DEFAULT_SLEEP)

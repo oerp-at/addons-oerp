@@ -23,7 +23,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- with .Values.odooinit.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -32,9 +32,11 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: "{{ .Chart.Name }}-worker"
+          {{- if .Values.odooinit.restore.enabled }}
           env:
             - name: ODOO_WAIT_FOR_RESTORE
               value: "1"
+          {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.odooinit.image.repository }}:{{ .Values.odooinit.image.tag | default .Chart.AppVersion }}"
@@ -43,8 +45,8 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
-            - name: http-poll
-              containerPort: {{ .Values.service.longpollingPort }}
+            - name: http-websocket
+              containerPort: {{ .Values.service.websocketPort }}
               protocol: TCP
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
