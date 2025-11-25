@@ -83,7 +83,8 @@ RUN apt-get install -y -f \
     python3-json5 \
     python3-websocket \
     python3-cbor2 \
-    python3-asn1crypto
+    python3-asn1crypto \
+    python3-openpyxl
 
 # install whktmltopdf
 COPY docker/install /install
