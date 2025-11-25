@@ -231,7 +231,7 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
 
     def _cleanup_modules(self, env):
         cr = env.cr
-        cr.execute('SELECT name, latest_version FROM ir_module_module')
+        cr.execute("SELECT name, latest_version FROM ir_module_module WHERE name != 'studio_customization'")
         rows = cr.fetchall()
         invalid_modules = []
         uninstall_set = set(self.params.uninstall) if self.params.uninstall else set()
@@ -332,6 +332,7 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
             LEFT JOIN ir_model_data d ON d.res_id = v.id AND d.model = 'ir.ui.view'
             LEFT JOIN ir_module_module m ON m.name = d.module
             WHERE v.arch_prev IS NOT NULL
+            AND m.name != 'studio_customization'
             AND v.arch_fs IS NOT NULL
             AND v.active""")
 
