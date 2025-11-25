@@ -589,7 +589,10 @@ class CommandMixin:
     def get_addons_paths(self):
         addons_paths = config.get('addons_path')
         if addons_paths:
-            addons_paths = addons_paths.split(',')
+            if isinstance(addons_paths, str):
+                addons_paths = addons_paths.split(',')
+            else:
+                addons_paths = list(addons_paths)
         else:
             addons_paths = []
 
@@ -700,6 +703,9 @@ class DatabaseMixin(object):
         def add_param(param_name, config_name):
             value = config.get(config_name)
             if value:
+                # fix list values (e.g. database value)
+                if isinstance(value, list):
+                    value = value[0]
                 params.append(f"{param_name}='{value}'")
 
         add_param("host", "db_host")

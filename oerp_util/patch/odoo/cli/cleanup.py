@@ -9,7 +9,7 @@ from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 from odoo.models import LOG_ACCESS_COLUMNS
 
 from . import Command
-from .assemble import CommandMixin
+from .assemble import CommandMixin, DatabaseMixin
 
 ODOO_RELEASE = odoo.release
 ADDON_API = ODOO_RELEASE.version
@@ -17,7 +17,7 @@ ADDON_API = ODOO_RELEASE.version
 _logger = logging.getLogger(__name__)
 
 
-class CleanUp(CommandMixin, Command):
+class CleanUp(CommandMixin, Command, DatabaseMixin):
     """ CleanUp Database """
 
     def __init__(self):
