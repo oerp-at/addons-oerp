@@ -27,6 +27,12 @@ class Restore(CommandMixin, Command, DatabaseMixin):
         self.filestore = None
         self.restored_file = None
         self.db_dump = None
+        self.db_name = None
+
+        # ensure that restore dir exist
+        self.restore_dir = os.path.join(self.parser.base_dir, ".restore")
+        if not os.path.exists(self.restore_dir):
+            os.makedirs(self.restore_dir)
 
         self.parser.add_argument(
             "--update",
@@ -211,7 +217,7 @@ class Restore(CommandMixin, Command, DatabaseMixin):
                     extract_cmd = 'gzip -d %s'
 
             # build paths
-            dest_path = os.path.join(self.parser.config_dir, 'db.dump')
+            dest_path = os.path.join(self.restore_dir, f'{self.db_name}.dump')
             zipped_dest_path = f'{dest_path}{zip_ext}'
             rsync_url = f"{ssh_url}:{dump_path}"
 
@@ -273,10 +279,7 @@ class Restore(CommandMixin, Command, DatabaseMixin):
 
     def restore_and_update(self):
         # init needed env
-        db_name = config.get('db_name')
-        if isinstance(db_name, list):
-            db_name = db_name[0]
-        if not db_name:
+        if not self.db_name:
             raise ConfigException("No database name configured")
 
         # setup database environment
@@ -284,7 +287,7 @@ class Restore(CommandMixin, Command, DatabaseMixin):
                           admin_password=self.params.pg_admin_password)
 
         # ensure filestore
-        self.filestore = os.path.join(config['data_dir'], 'filestore', db_name)
+        self.filestore = os.path.join(config['data_dir'], 'filestore', self.db_name)
         if not os.path.exists(self.filestore):
             _logger.warning('Create filestore %s', self.filestore)
             os.makedirs(self.filestore, exist_ok=True)
@@ -341,6 +344,12 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             self.setup_env()
 
     def run_config(self):
+        # get database name
+        db_name = config.get('db_name')
+        if isinstance(db_name, list):
+            db_name = db_name[0]
+        self.db_name = db_name
+
         if self.params.restore_zip:
             _logger.info("Restore from zip %s", self.params.restore_zip)
             restore_url = urlparse(self.params.restore_zip)

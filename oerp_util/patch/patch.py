@@ -185,7 +185,8 @@ def patch_dist():
                     'po_export',
                     'po_import',
                     'updatelist',
-                    'cleanup'):
+                    'cleanup',
+                    'backup'):
         patch(
             os.path.join(odoo_path, 'odoo', 'cli', f'{cli_cmd}.py'),
             os.path.join(src_path, 'odoo', 'cli', f'{cli_cmd}.py'),
@@ -213,6 +214,7 @@ def patch_dist():
     # setup directories
     patch(os.path.join(workspace_path, '.test'), directory=True)
     patch(os.path.join(workspace_path, '.venv'), directory=True)
+    patch(os.path.join(workspace_path, '.restore'), directory=True)
 
     # copy Pipfile
     patch(os.path.join(workspace_path, 'Pipfile'),
