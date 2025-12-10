@@ -5,4 +5,5 @@ assembly
 .test
 .venv
 .restore
+.profiles
 custom-addons-*
