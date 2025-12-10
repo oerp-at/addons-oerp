@@ -541,7 +541,7 @@ class CommandMixin:
         env.cr.commit()
         return True
 
-    def sync_files(self, src, dest, dirs=False, info="Sync", filestore=False, delete=False, local=False):
+    def sync_files(self, src, dest, dirs=False, info="Sync", filestore=False, delete=False, local=False, max_size=None):
         if dirs:
             if not src.endswith(os.path.sep) and not src.endswith('/'):
                 src += os.path.sep
@@ -569,6 +569,9 @@ class CommandMixin:
                 cmd.append('--delete')
             if filestore:
                 cmd.append(f'--exclude /{RESTORED_FILE_NAME}')
+                # add max size for exclude large files
+                if max_size:
+                    cmd.append(f'--max-size={max_size}')
 
             cmd.append(f'"{src}"')
             cmd.append(f'"{dest}"')

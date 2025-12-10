@@ -106,6 +106,17 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             name="force_drop_db",
             default=False,
             help="Cancel all connections to the database before restore.")
+        self.parser.add_argument(
+            "--max-size",
+            name="max_size",
+            default=None,
+            help="Set the maximum allowed size in MB.")
+        self.parser.add_argument(
+            "--delete",
+            action="store_true",
+            name="delete",
+            default=False,
+            help="Full sync of filestore, delete files that are not in the source.")
 
     def restore_filestore(self, url):
         # prepare urls
@@ -118,7 +129,7 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             if not os.path.exists(rsync_url):
                 raise ConfigException(f"No filestore found at {rsync_url}")
         # sync filestore
-        self.sync_files(rsync_url, self.filestore, local=local, dirs=True, filestore=True, info="Restore")
+        self.sync_files(rsync_url, self.filestore, local=local, dirs=True, filestore=True, info="Restore", max_size=self.params.max_size, delete=self.params.delete)
 
     def neutralize(self):
         _logger.info("Neutralize database %s", self.params.database)
