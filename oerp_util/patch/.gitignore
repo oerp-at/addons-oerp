@@ -7,3 +7,4 @@ assembly
 .restore
 .profiles
 custom-addons-*
+odoo-gitops
