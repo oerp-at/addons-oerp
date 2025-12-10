@@ -257,6 +257,11 @@ def patch_dist():
               os.path.join(src_path, 'kubernetes'),
               copy_tree=True)
 
+    # copy github workflows
+    patch(os.path.join(workspace_path, '.github'),
+              os.path.join(src_path, 'github'),
+              copy_tree=True)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
