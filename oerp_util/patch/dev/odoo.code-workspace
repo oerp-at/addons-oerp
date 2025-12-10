@@ -34,8 +34,7 @@
 		"files.exclude": {
 			"**/*.pyc": {"when": "$(basename).py"},
 			"**/__pycache__": true,
-			".restore": true,
-			".config/db.dump": true
+			".restore": true
 		},
 		"python.analysis.userFileIndexingLimit": -1,
 		"python.analysis.extraPaths": [
