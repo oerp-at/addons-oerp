@@ -1,0 +1,111 @@
+# Default values for odoo.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# odoo specific configuration
+adminPassword: "admin"
+additionalConfig: ""
+workers: 3
+
+# amount of workers for cron jobs
+# default 0, because no crons are running on the worker pods
+cronWorkers: 0
+
+# amount of threads for cron jobs on a separate cron pod
+# default 2, because the cron pod is used for cron jobs
+# if 0 no cron pods are deployed
+cronThreads: 1
+
+pgHost: ""
+pgUser: ""
+pgPort: "5432"
+pgDatabase: ""
+pgPassword: ""
+pgAdminUser: ""
+pgAdminPassword: ""
+queue: false
+
+# update
+update:
+  enabled: true
+  backoffLimit: 0
+
+# restore
+restore:
+  enabled: false
+  onUpdate: false
+  installModule: ""
+  filestorePath: ""
+  databasePath: ""
+
+# backup
+backup:
+  enabled: false
+  path: ''
+  backlog: 6
+  onlyDatabase: false
+  schedule: ''
+  backoffLimit: 0
+  volumeClaim: ""
+
+image:
+  repository: odoo
+  pullPolicy: Always
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsGroup: 1000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources:
+  limits:
+     memory: "8Gi"
+     cpu: "1"
+  requests:
+     cpu: "250m"
+     memory: "500Mi"
+
+volumes: []
+volumeMounts: []
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+filestore:
+  size: 10Gi
+  storageClassName: "default"
+
+sessionstore:
+  size: 1Gi
+  storageClassName: "default"
+
+
