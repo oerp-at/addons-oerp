@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "odoo.fullname" . }}
+  labels:
+    {{- include "odoo.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: {{ .Values.service.websocketPort }}
+      targetPort: http-websocket
+      protocol: TCP
+      name: http-websocket
+  selector:
+    {{- include "odoo.selectorLabels" . | nindent 4 }}
