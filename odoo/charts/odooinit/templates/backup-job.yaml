@@ -1,0 +1,83 @@
+{{- if and .Values.backup.enabled .Values.backup.schedule -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "odoo.fullname" . }}-backup-cron
+  labels:
+    {{- include "odoo.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backupSchedule }}
+  {{- if .Values.backupTimezone }}
+  timeZone: "{{ .Values.backupTimezone }}"
+  {{- end }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.backupBackoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "odoo.labels" . | nindent 12 }}
+        spec:
+          restartPolicy: Never
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          serviceAccountName: {{ include "odoo.serviceAccountName" . }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: {{ include "odoo.fullname" . }}-backup-cron
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              args:
+              - backup
+              - "--backup-dir={{ .Values.backup.path }}"
+              - "--backlog={{ .Values.backup.backlog }}"
+              {{- if .Values.backup.onlyDatabase }}
+              - "--only-database"
+              {{- end }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              volumeMounts:
+                - name: {{ include "odoo.fullname" . }}-config-vol
+                  mountPath: /data/etc
+                  readOnly: true
+                - name: {{ include "odoo.fullname" . }}-session-vol
+                  mountPath: /data/sessions
+                - name: {{ include "odoo.fullname" . }}-filestore-vol
+                  mountPath: /data/filestore
+                {{- if .Values.backup.volumeClaim }}
+                - name: {{ include "odoo.fullname" . }}-backup-vol
+                  mountPath: /data/backup
+                {{- end }}
+                {{- with .Values.volumeMounts }}
+                  {{- toYaml . | nindent 16 }}
+                {{- end }}
+              envFrom:
+                - secretRef:
+                    name: "{{ include "odoo.fullname" . }}-postgres-config"
+          volumes:
+            - name: {{ include "odoo.fullname" . }}-config-vol
+              secret:
+                secretName: {{ include "odoo.fullname" . }}-config
+            - name: {{ include "odoo.fullname" . }}-session-vol
+              persistentVolumeClaim:
+                claimName: {{ include "odoo.fullname" . }}-sessionstore
+            - name: {{ include "odoo.fullname" . }}-filestore-vol
+              persistentVolumeClaim:
+                claimName: {{ include "odoo.fullname" . }}-filestore
+            {{- if .Values.backup.volumeClaim }}
+            - name: {{ include "odoo.fullname" . }}-backup-vol
+              persistentVolumeClaim:
+                claimName: {{ .Values.backup.volumeClaim }}
+            {{- end }}
+          {{- with .Values.volumes }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

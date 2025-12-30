@@ -1,0 +1,18 @@
+{{- if and .Values.certmanager.enabled .Values.hosts }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.certmanager.secretName | default (include "odoo.fullname" .) }}
+  labels:
+    {{- include "odoo.labels" . | nindent 4 }}
+spec:
+  commonName: {{ (index .Values.hosts 0) }}
+  secretName: {{ .Values.certmanager.secretName | default (include "odoo.fullname" .) }}
+  dnsNames:
+    {{- range .Values.hosts }}
+    - {{ . }}
+    {{- end }}
+  issuerRef:
+    name: {{ .Values.certmanager.issuer }}
+    kind: ClusterIssuer
+{{- end }}
