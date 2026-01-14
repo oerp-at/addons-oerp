@@ -153,9 +153,20 @@ class Profile(argparse.ArgumentParser):
         # define profile locations
         profile_files = [
             '/etc/odoo/odoo-profile.yml',
-            os.path.join(self.base_dir, "odoo-profile.yml"),
-            os.path.expanduser('~/.odoo-profile.yml'),
+            os.path.join(self.base_dir, "odoo-profile.yml")
         ]
+
+        # load profiles from directory
+        profile_dir = os.path.join(self.base_dir, ".profiles")
+        if os.path.isdir(profile_dir):
+            for profile_filename in os.listdir(profile_dir):
+                if profile_filename.endswith('.yml'):
+                    profile_files.append(os.path.join(profile_dir, profile_filename))
+
+        # user specific overwrites
+        profile_files.append(
+            os.path.expanduser('~/.odoo-profile.yml')
+        )
 
         # load profile files
         # and update defaults
