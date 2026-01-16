@@ -139,34 +139,31 @@ class Profile(argparse.ArgumentParser):
         self.base_dir = get_base_dir()
         self.server_dir = get_server_dir()
 
-        # get profile name
-        self.profile = os.path.basename(self.base_dir)
-        custom_addons = get_custom_addons()
-        if custom_addons:
-            self.profile = f"{self.profile}-{custom_addons['name']}"
-
-        # ensure that config dir exist
-        self.config_dir = os.path.join(self.base_dir, ".config")
-        if not os.path.exists(self.config_dir):
-            os.makedirs(self.config_dir)
-
         # define profile locations
         profile_files = [
             '/etc/odoo/odoo-profile.yml',
             os.path.join(self.base_dir, "odoo-profile.yml")
         ]
 
-        # load profiles from directory
-        profile_dir = os.path.join(self.base_dir, ".profiles")
-        if os.path.isdir(profile_dir):
-            for profile_filename in os.listdir(profile_dir):
-                if profile_filename.endswith('.yml'):
-                    profile_files.append(os.path.join(profile_dir, profile_filename))
+        # get profile name
+        self.profile = os.path.basename(self.base_dir)
+        custom_addons = get_custom_addons()
+        if custom_addons:
+            self.profile = f"{self.profile}-{custom_addons['name']}"
+            # add custom-addons profile
+            custom_addons_profile = os.path.join(custom_addons['path'], "odoo-profile.yml")
+            if os.path.exists(custom_addons_profile):
+                profile_files.append(custom_addons_profile)
 
         # user specific overwrites
         profile_files.append(
             os.path.expanduser('~/.odoo-profile.yml')
         )
+
+        # ensure that config dir exist
+        self.config_dir = os.path.join(self.base_dir, ".config")
+        if not os.path.exists(self.config_dir):
+            os.makedirs(self.config_dir)
 
         # load profile files
         # and update defaults
