@@ -34,8 +34,10 @@ ODOO_RELEASE = odoo.release
 ADDON_API = ODOO_RELEASE.version
 ADDONS_PATTERN = 'addons*'
 ADDONS_CUSTOM = 'custom-addons'
-ADDONS_CUSTOM_PATTERN = r'^(.*/(custom-addons-(.*)))/.*$'
 
+ADDONS_CUSTOM_PATTERN = re.compile(r'^(.*/(custom-addons-(.*)))/.*$')
+DISTRIBUTION_PATTERN = re.compile(r'^(odoo\-(([0-9]+)\.([0-9]+))\-([a-z0-9_]+))(\-.*)?$')
+PLACEHOLDER_PATTERN = re.compile(r'\{\{\s*([A-Za-z0-9_\-]+)\s*\}\}')
 RESTORED_FILE_NAME = 'restored'
 DEFAULT_SLEEP = 5
 
@@ -68,7 +70,7 @@ def get_custom_addons():
     working_dir = os.getcwd()
     if not working_dir.endswith('/'):
         working_dir += '/'
-    m = re.match(ADDONS_CUSTOM_PATTERN, working_dir)
+    m = ADDONS_CUSTOM_PATTERN.match(working_dir)
     if m:
         return {
             'name': m.group(3),
@@ -76,6 +78,25 @@ def get_custom_addons():
             'path': m.group(1)
         }
     return None
+
+def get_distribution_info():
+    base_dir = get_base_dir()
+    m = DISTRIBUTION_PATTERN.match(os.path.basename(base_dir))
+    res = {
+        'base_dir': base_dir
+    }
+    if m:
+        profile = m.group(1)
+        odoo_version = m.group(2)
+        short_version = m.group(3)
+        short_name = m.group(5)
+        res.update({
+            'profile': profile,
+            'version': odoo_version,
+            'short_version': short_version,
+            'short_name': short_name
+        })
+    return res
 
 def get_custom_addons_path():
     custom_addons = get_custom_addons()
@@ -124,6 +145,19 @@ def get_custom_addons_paths(postfix='/'):
 
     return []
 
+def replace_placeholders(value, context):
+    """
+    Replace all placeholders in the format {{ placeholder }} with values from context dictionary.
+    """
+    def replace_match(match):
+        placeholder = match.group(1).strip()
+        if placeholder not in context:
+            return placeholder
+        return str(context.get(placeholder) or '')
+
+    evaluated = PLACEHOLDER_PATTERN.sub(replace_match, value)
+    return evaluated
+
 
 class ConfigException(Exception):
     pass
@@ -136,7 +170,8 @@ class Profile(argparse.ArgumentParser):
         super().__init__(**kwargs)
         self.name = name
         self.defaults = {}
-        self.base_dir = get_base_dir()
+        self.info = get_distribution_info()
+        self.base_dir = self.info['base_dir']
         self.server_dir = get_server_dir()
 
         # define profile locations
@@ -150,10 +185,9 @@ class Profile(argparse.ArgumentParser):
         custom_addons = get_custom_addons()
         if custom_addons:
             self.profile = f"{self.profile}-{custom_addons['name']}"
+            self.info['short_name'] = custom_addons['name']
             # add custom-addons profile
-            custom_addons_profile = os.path.join(custom_addons['path'], "odoo-profile.yml")
-            if os.path.exists(custom_addons_profile):
-                profile_files.append(custom_addons_profile)
+            profile_files.append(os.path.join(custom_addons['path'], "odoo-profile.yml"))
 
         # user specific overwrites
         profile_files.append(
@@ -186,6 +220,12 @@ class Profile(argparse.ArgumentParser):
             'ODOO_DB_HOST': ['PGHOST']
         }
 
+    def _evaluate_values(self, d):
+        for key, value in d.items():
+            if isinstance(value, str):
+                d[key] = replace_placeholders(value, self.info)
+            elif isinstance(value, dict):
+                self._evaluate_values(value)
 
     def _merge_dict(self, d1, d2):
         """ merge two dicts based on keys into first dict param """
@@ -197,6 +237,7 @@ class Profile(argparse.ArgumentParser):
                 d1[key] = value
 
     def update(self, profile):
+        self._evaluate_values(profile)
         self._merge_dict(self.defaults, profile)
 
     def get(self, path, default=None):

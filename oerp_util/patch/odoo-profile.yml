@@ -1,4 +1,8 @@
 default:
-  db: {{ database }}
+  db: "odoo{{{{ short_version }}}}_{{{{ short_name }}}}"
   po_export:
       lang: de_DE
+  restore:
+    development: true
+    update: true
+    delete: true

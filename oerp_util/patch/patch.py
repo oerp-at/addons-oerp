@@ -8,18 +8,27 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
+PLACEHOLDER_PATTERN = re.compile(r'\{\{(\{\{)?\s*([A-Za-z0-9_]+)\s*(\}\})?\}\}')
+
 
 class PatchError(Exception):
     pass
 
 
-def content_from_template(content, template_ctx):
-    """ Replace {{var}} in template with values from template_ctx """
-    pattern = re.compile(r'\{\{\s*([a-z0-9_]+)\s*}\}')
-    def replace(match):
-        var_name = match.group(1)
-        return template_ctx.get(var_name, '')
-    return pattern.sub(replace, content)
+def replace_placeholders(value, context):
+    """
+    Replace all placeholders in the format {{ placeholder }} with values from context dictionary.
+    """
+    def replace_match(match):
+        placeholder = match.group(2).strip()
+        if match.group(1) == '{{' and match.group(3) == '}}':
+            return '{{ ' + placeholder + ' }}'
+        elif placeholder not in context:
+            return placeholder
+        return str(context.get(placeholder) or '')
+
+    value = PLACEHOLDER_PATTERN.sub(replace_match, value)
+    return value
 
 def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_back=False, add_init=False, copy_tree=False, update=True):
     """ A simple patch function with less library dependencies that it runs if python3 is installed."""
@@ -94,7 +103,7 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
         # get file content
         with open(src_path, 'r', encoding='utf-8') as f:
             tmpl = f.read()
-            content = content_from_template(tmpl, template_ctx)
+            content = replace_placeholders(tmpl, template_ctx)
 
         # write new file
         if not os.path.exists(dst_path):
@@ -233,6 +242,9 @@ def patch_dist():
     # setup vscode config
     if not patch(os.path.join(workspace_path, '.vscode'),
           os.path.join(src_path, 'dev', '.vscode'), copy_tree=True):
+        # if vscode directory exists check if launch.json exists
+        patch(os.path.join(workspace_path, '.vscode', 'launch.json'),
+              os.path.join(src_path, 'dev', '.vscode', 'launch.json'))
         # if vscode directory exists, patch (back) snippets
         patch(os.path.join(workspace_path, '.vscode', 'odoo.code-snippets'),
               os.path.join(src_path, 'dev', '.vscode', 'odoo.code-snippets'),
