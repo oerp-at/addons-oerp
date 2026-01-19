@@ -68,6 +68,7 @@ base58 = "*"
 pynacl = "*"
 py-multihash = "*"
 "pdfminer.six" = "*"
+behave = "*"
 
 [requires]
 python_version = "3.12"
