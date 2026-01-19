@@ -49,7 +49,7 @@ class Test(CommandMixin, Command):
 
         self.parser.add_argument(
             "--test-addons",
-            help="Only thest modules inside addons path like custom-addons/*",
+            help="Only test modules inside addons path like custom-addons/*",
             action="append",
             required=False,
 
@@ -202,9 +202,9 @@ class Test(CommandMixin, Command):
             for addons_dir_pattern in self.params.test_addons:
                 if not addons_dir_pattern.startswith('/'):
                     addons_dir_pattern = f"{dir_workspace}/{addons_dir_pattern}"
-                for dir in glob.glob(addons_dir_pattern):
-                    if os.path.isdir(dir) and is_addon(dir):
-                        allowed_modules.add(os.path.basename(dir))
+                for dir_addon in glob.glob(addons_dir_pattern):
+                    if os.path.isdir(dir_addon) and is_addon(dir_addon):
+                        allowed_modules.add(os.path.basename(dir_addon))
 
             modules = [m for m in modules if m in allowed_modules]
 
