@@ -3,6 +3,7 @@
 import sys
 import os
 import re
+import subprocess
 import argparse
 import fnmatch
 import glob
@@ -11,19 +12,12 @@ import logging
 import shutil
 import yaml
 import json5
-import subprocess
 import psycopg2
 import odoo
 
 from odoo import SUPERUSER_ID
-from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
-from odoo.models import LOG_ACCESS_COLUMNS
 from odoo.modules.module import MANIFEST_NAMES
-from odoo.service.server import ThreadedServer
-from odoo.tools import misc, unique
 from odoo.tools.config import config
-from odoo.tools.translate import (PoFileReader, PoFileWriter,
-                                  TranslationModuleReader, TranslationImporter)
 
 from . import Command
 
