@@ -10,6 +10,7 @@ from datetime import datetime
 import requests
 
 import odoo
+import odoo.modules.neutralize
 from odoo.tools.config import config
 
 from . import Command
