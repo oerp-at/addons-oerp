@@ -85,8 +85,7 @@ RUN apt-get install -y -f \
     python3-cbor2 \
     python3-asn1crypto \
     python3-openpyxl \
-    python3-behave \
-    python3-rlpycairo
+    python3-behave
 
 # install whktmltopdf
 COPY docker/install /install
