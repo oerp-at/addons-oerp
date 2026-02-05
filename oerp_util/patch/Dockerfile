@@ -84,7 +84,9 @@ RUN apt-get install -y -f \
     python3-websocket \
     python3-cbor2 \
     python3-asn1crypto \
-    python3-openpyxl
+    python3-openpyxl \
+    python3-behave \
+    python3-rlpycairo
 
 # install whktmltopdf
 COPY docker/install /install
@@ -115,6 +117,7 @@ RUN mkdir /data/log
 RUN mkdir /data/sessions
 
 # copy odoo source
+COPY addons-enterprise /home/odoo/addons-enterprise
 COPY addons-design-themes /home/odoo/addons-design-themes
 COPY addons-oerp /home/odoo/addons-oerp
 COPY odoo /home/odoo/odoo

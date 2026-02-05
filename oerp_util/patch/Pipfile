@@ -69,6 +69,8 @@ pynacl = "*"
 py-multihash = "*"
 "pdfminer.six" = "*"
 behave = "*"
+google-auth = "*"
+rlpycairo = "*"
 
 [requires]
 python_version = "3.12"
