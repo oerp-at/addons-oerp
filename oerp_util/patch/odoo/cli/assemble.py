@@ -182,6 +182,8 @@ class Profile(argparse.ArgumentParser):
             self.info['short_name'] = custom_addons['name']
             # add custom-addons profile
             profile_files.append(os.path.join(custom_addons['path'], "odoo-profile.yml"))
+            # add local custom-addons profile
+            profile_files.append(os.path.join(custom_addons['path'], ".odoo-profile.yml"))
 
         # user specific overwrites
         profile_files.append(
@@ -314,11 +316,11 @@ class Profile(argparse.ArgumentParser):
             # try to get default value from profile
             if default is None:
                 # get default value
-                path = self.path_mapping.get(name)
-                if path:
-                    default = self.get(path)
-                else:
-                    default = self.get([self.name, name])
+                default = self.get([self.name, name], default=self.get([name]))
+                mapped_path = self.path_mapping.get(name)
+                if mapped_path:
+                    default = self.get(mapped_path, default=default)
+
             # only if a default value was found
             if not default is None:
                 kwargs['default'] = default
@@ -584,7 +586,8 @@ class CommandMixin:
         env.cr.commit()
         return True
 
-    def sync_files(self, src, dest, dirs=False, info="Sync", filestore=False, delete=False, local=False, max_size=None):
+    def sync_files(self, src, dest, dirs=False, info="Sync", filestore=False,
+                   delete=False, local=False, max_size=None, rsync_cmd="rsync"):
         if dirs:
             if not src.endswith(os.path.sep) and not src.endswith('/'):
                 src += os.path.sep
@@ -605,7 +608,7 @@ class CommandMixin:
                 cmd = f'cp "{src}" "{dest}"'
         else:
             # rsync
-            cmd = ["rsync",
+            cmd = [rsync_cmd,
                    "-avz"]
 
             if delete:

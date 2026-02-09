@@ -19,6 +19,9 @@ RUN apt-get clean && apt-get update && apt-get install -y locales && \
 # install os python dependencies
 
 RUN apt-get install -y -f \
+    gzip \
+    rsync \
+    restic \
     fonts-dejavu-core \
     fonts-freefont-ttf \
     fonts-freefont-otf \
@@ -84,7 +87,8 @@ RUN apt-get install -y -f \
     python3-websocket \
     python3-cbor2 \
     python3-asn1crypto \
-    python3-openpyxl
+    python3-openpyxl \
+    python3-behave
 
 # install whktmltopdf
 COPY docker/install /install

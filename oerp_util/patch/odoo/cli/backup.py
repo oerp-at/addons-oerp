@@ -2,6 +2,7 @@ import os
 import logging
 from datetime import datetime
 import shutil
+import subprocess
 
 from odoo.tools.config import config
 
@@ -56,6 +57,27 @@ class Backup(CommandMixin, Command, DatabaseMixin):
             default=6,
             help="The amount of database backups to keep.")
 
+        self.parser.add_argument(
+            "--compress",
+            action="store_true",
+            name="compress",
+            default=False,
+            help="Compress the backup file with gzip.")
+
+        self.parser.add_argument(
+            "--backup-store",
+            name="backup_store",
+            help="The backup store where backups will be pushed via restic (only for full backups)."
+        )
+
+        self.parser.add_argument(
+            "--backup-store-days",
+            name="backup_store_days",
+            type=int,
+            default=7,
+            help="The days the snapshot is kept in the backup store."
+        )
+
     def create_backlog(self, file_path):
         if self.params.backlog > 0 and os.path.exists(file_path):
             # ensure backlog dir
@@ -67,10 +89,11 @@ class Backup(CommandMixin, Command, DatabaseMixin):
             # ensure max size of backlog
             base_name = os.path.basename(file_path)
             if os.path.exists(backlog_dir):
+                backlog_minus_new = self.params.backlog-1
                 for index, backlog_name in enumerate(sorted(os.listdir(backlog_dir), reverse=True)):
                     # delete backlogfile if index is bigger than backlog size
                     backlog_file_path = os.path.join(backlog_dir, backlog_name)
-                    if index >= self.params.backlog and os.path.isfile(backlog_file_path):
+                    if index >= backlog_minus_new and os.path.isfile(backlog_file_path):
                         _logger.warning('Delete old backup %s', backlog_file_path)
                         os.unlink(backlog_file_path)
 
@@ -81,6 +104,19 @@ class Backup(CommandMixin, Command, DatabaseMixin):
             shutil.move(file_path, new_backup_file)
 
         return file_path
+
+    def push_backup_to_store(self, backup_dir, backup_store, backup_store_days=7):
+        _logger.info("Push backup to store %s", backup_store)
+        # Check if the remote destination is initialized; if not, initialize it
+        result = subprocess.run(f"restic -r {backup_store} snapshots", shell=True, check=False)
+        if result.returncode not in (0,3):
+            _logger.warning("Initialize restic repository at %s", backup_store)
+            subprocess.run(f"restic -r {backup_store} init", shell=True, check=True)
+        # Backup
+        subprocess.run(f'restic -r {backup_store} backup {backup_dir} --exclude=".backlog"', shell=True, check=True)
+        # Forget old backups
+        if backup_store_days > 0:
+            subprocess.run(f"restic -r {backup_store} forget --keep-within {backup_store_days}d --prune", shell=True, check=True)
 
     def run_config(self):
         self.setup_db_env(admin_user=self.params.pg_admin_user, admin_password=self.params.pg_admin_password)
@@ -102,6 +138,30 @@ class Backup(CommandMixin, Command, DatabaseMixin):
                 _logger.info("Remove %s", restored_file_path)
                 os.unlink(restored_file_path)
 
+        # prepare backup file path
+        backup_file_path = os.path.join(self.backup_dir, 'db.dump')
+        zipped_backup_file_path = backup_file_path
+        if self.params.compress:
+            zipped_backup_file_path = backup_file_path + '.gz'
+            # if previous backup file is not compressed, compress it
+            if os.path.exists(backup_file_path) and not os.path.exists(zipped_backup_file_path):
+                _logger.warning("Compress old backup file %s", backup_file_path)
+                subprocess.run(f"gzip {backup_file_path}", shell=True, check=True)
+
+        # create backlog
+        self.create_backlog(zipped_backup_file_path)
         # backup database
-        backup_file_path = self.create_backlog(os.path.join(self.backup_dir, 'db.dump'))
         self.backup_database(backup_file_path, compatible=self.params.compatible)
+        # compress backup file after backup
+        if self.params.compress and os.path.exists(backup_file_path):
+            # unlink if there still exists a previous compressed backup file
+            if os.path.exists(zipped_backup_file_path):
+                _logger.warning("Remove old compressed backup file %s", zipped_backup_file_path)
+                os.unlink(zipped_backup_file_path)
+            _logger.info("Compress backup file %s", zipped_backup_file_path)
+            subprocess.run(f"gzip {backup_file_path}", shell=True, check=True)
+
+        # push backup to store
+        if self.params.backup_store and not self.params.only_database:
+            self.push_backup_to_store(self.backup_dir, self.params.backup_store, self.params.backup_store_days)
+

@@ -1,3 +1,4 @@
+import re
 import os
 import time
 import uuid
@@ -18,6 +19,8 @@ from .assemble import CommandMixin, DatabaseMixin, ConfigException, RESTORED_FIL
 
 
 _logger = logging.getLogger(__name__)
+
+NAMESPACE_CONTEXT_REGEX = re.compile(r'^([^\.]+)(\.(.+))?$')
 
 
 class Restore(CommandMixin, Command, DatabaseMixin):
@@ -122,6 +125,7 @@ class Restore(CommandMixin, Command, DatabaseMixin):
     def restore_filestore(self, url):
         # prepare urls
         local = False
+        exec_cmd, rsync_cmd, url = self.get_cmd(url)
         if url.netloc:
             rsync_url = f"{url.netloc}:{url.path}/"
         else:
@@ -130,7 +134,9 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             if not os.path.exists(rsync_url):
                 raise ConfigException(f"No filestore found at {rsync_url}")
         # sync filestore
-        self.sync_files(rsync_url, self.filestore, local=local, dirs=True, filestore=True, info="Restore", max_size=self.params.max_size, delete=self.params.delete)
+        self.sync_files(rsync_url, self.filestore, local=local, dirs=True, filestore=True,
+            info="Restore", max_size=self.params.max_size, delete=self.params.delete,
+            rsync_cmd=rsync_cmd)
 
     def neutralize(self):
         _logger.info("Neutralize database %s", self.params.database)
@@ -186,9 +192,53 @@ class Restore(CommandMixin, Command, DatabaseMixin):
                        SET password = '$pbkdf2-sha512$600000$UWrtfU/JGSMEIESIUUrp3Q$I/P7liB6AwKFLVL49LCiQJSqRIK16D21Fc4MLP7ijeEa1SRKAWQ2ODSWVFm5p/tfd97FXf/FW.xQCmuCHdGQhw'
                        WHERE active AND (password IS NOT NULL OR login = 'admin')""")
 
+    def get_cmd(self, url):
+        exec_cmd = f'ssh {url.netloc} -q'
+        rsync_cmd = "rsync"
+        if url.scheme == 'kube':
+            base_dir = self._parser.base_dir
+            krsync_path = os.path.join(base_dir, 'kubernetes', 'sbin', 'krsync.sh')
+            if not os.path.exists(krsync_path):
+                raise ConfigException(f"krsync.sh not found at {krsync_path}")
+
+            pod = url.username
+            m = NAMESPACE_CONTEXT_REGEX.match(url.hostname)
+            if not m:
+                raise ConfigException(f"Invalid namespace/context for kube scheme: {url.hostname}")
+
+            # build kubectl params
+            namespace = m.group(1)
+            context = m.group(3) or ''
+            params = f'-n {namespace}'
+            if context:
+                params = f'--context={context} {params}'
+
+            # search pod
+            result = subprocess.check_output(f'kubectl {params} -o name get pods', shell=True).decode()
+            pos_instance = None
+            if result:
+                for pod_name in result.split("\n"):
+                    pod_name = pod_name[len('pod/'):]
+                    if pod_name.startswith(pod):
+                        pos_instance = pod_name
+                        break
+            if not pos_instance:
+                raise ConfigException(f"Pod {pod} not found at {str(url)}")
+
+            # build commands, url
+            exec_cmd = f'kubectl {params} exec -it {pos_instance} -- bash -c'
+            rsync_cmd = krsync_path
+            url = urlparse(f'kube://{pos_instance}@{url.hostname}{url.path}')
+
+        return exec_cmd, rsync_cmd, url
 
     def download_database(self, url):
+        # remote processing
         if url.netloc:
+            # init dump path
+            dump_path = url.path
+            exec_cmd, rsync_cmd, url = self.get_cmd(url)
+
             # get path without wildcard
             ls_params = ''
             url_path_split = url.path.split('/*.')[0]
@@ -199,8 +249,7 @@ class Restore(CommandMixin, Command, DatabaseMixin):
                 url_path = url.path
 
             # check if database exists
-            ssh_url = f"{url.netloc}"
-            result = subprocess.check_output(f"ssh {ssh_url} -q 'ls {ls_params} {url.path}'", shell=True).decode()
+            result = subprocess.check_output(f"{exec_cmd} 'ls {ls_params} {url.path}'", shell=True).decode()
             if not result:
                 raise ConfigException(f"No database found at {str(url)}")
 
@@ -208,6 +257,7 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             dump_file = [r for r in result.split("\n") if r][-1]
             if not dump_file:
                 raise ConfigException(f"No database file found at {str(url)}")
+            dump_file = dump_file.strip()
             if dump_file != url_path:
                 if dump_file.startswith(url_path):
                     dump_path = dump_file
@@ -231,10 +281,10 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             # build paths
             dest_path = os.path.join(self.restore_dir, f'{self.db_name}.dump')
             zipped_dest_path = f'{dest_path}{zip_ext}'
-            rsync_url = f"{ssh_url}:{dump_path}"
+            rsync_url = f"{url.netloc}:{dump_path}"
 
             # sync file
-            self.sync_files(rsync_url, zipped_dest_path, info='Download Database')
+            self.sync_files(rsync_url, zipped_dest_path, info='Download Database', rsync_cmd=rsync_cmd)
 
             # check if there is something to extract
             if extract_cmd:
@@ -246,6 +296,8 @@ class Restore(CommandMixin, Command, DatabaseMixin):
                     raise ConfigException(f"Extracted database not found at {dest_path}")
 
             self.db_dump = dest_path
+
+        # local processing
         else:
             if not os.path.exists(url.path):
                 raise ConfigException(f"No database file found at {str(url)}")
