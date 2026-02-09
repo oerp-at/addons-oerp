@@ -656,6 +656,7 @@ class CommandMixin:
 ###############################################################################
 # Database Mixin
 ###############################################################################
+
 class DatabaseMixin(object):
 
     def setup_db_env(self, admin_user=None, admin_password=None):
