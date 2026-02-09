@@ -5,6 +5,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
 {{ include "odoo.labels" . | indent 4 }}
+  annotations:
+    "argocd.argoproj.io/sync-wave": "-21"
 spec:
   storageClassName: {{ .Values.filestore.storageClassName }}
   accessModes:
@@ -20,6 +22,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
 {{ include "odoo.labels" . | indent 4 }}
+  annotations:
+    "argocd.argoproj.io/sync-wave": "-21"
 spec:
   storageClassName: {{ .Values.sessionstore.storageClassName }}
   accessModes:

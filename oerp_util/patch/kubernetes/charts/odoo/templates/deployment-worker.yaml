@@ -80,7 +80,7 @@ spec:
               mountPath: /data/sessions
             - name: {{ include "odoo.fullname" . }}-filestore-vol
               mountPath: /data/filestore
-            {{- if .Values.odooinit.backupVolumeClaim }}
+            {{- if .Values.odooinit.backup.volumeClaim }}
             - name: {{ include "odoo.fullname" . }}-backup-vol
               mountPath: /data/backup
             {{- end }}
@@ -100,10 +100,10 @@ spec:
         - name: {{ include "odoo.fullname" . }}-filestore-vol
           persistentVolumeClaim:
             claimName: {{ include "odoo.fullname" . }}-filestore
-        {{- if .Values.odooinit.backupVolumeClaim }}
+        {{- if .Values.odooinit.backup.volumeClaim }}
         - name: {{ include "odoo.fullname" . }}-backup-vol
           persistentVolumeClaim:
-            claimName: {{ .Values.odooinit.backupVolumeClaim }}
+            claimName: {{ .Values.odooinit.backup.volumeClaim }}
         {{- end }}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}

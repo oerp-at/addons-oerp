@@ -6,14 +6,14 @@ metadata:
   labels:
     {{- include "odoo.labels" . | nindent 4 }}
 spec:
-  schedule: {{ .Values.backupSchedule }}
-  {{- if .Values.backupTimezone }}
-  timeZone: "{{ .Values.backupTimezone }}"
+  schedule: {{ .Values.backup.schedule }}
+  {{- if .Values.backup.timezone }}
+  timeZone: "{{ .Values.backup.timezone }}"
   {{- end }}
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
-      backoffLimit: {{ .Values.backupBackoffLimit }}
+      backoffLimit: {{ .Values.backup.backoffLimit }}
       template:
         metadata:
           labels:
@@ -42,6 +42,15 @@ spec:
               {{- if .Values.backup.onlyDatabase }}
               - "--only-database"
               {{- end }}
+              {{- if .Values.backup.compress }}
+              - "--compress"
+              {{- end }}
+              {{- if .Values.backup.store }}
+              - "--backup-store={{ .Values.backup.store }}"
+              {{- end }}
+              {{- if .Values.backup.storeDays }}
+              - "--backup-store-days={{ .Values.backup.storeDays }}"
+              {{- end }}
               resources:
                 {{- toYaml .Values.resources | nindent 16 }}
               volumeMounts:
@@ -62,6 +71,8 @@ spec:
               envFrom:
                 - secretRef:
                     name: "{{ include "odoo.fullname" . }}-postgres-config"
+                - secretRef:
+                    name: "{{ include "odoo.fullname" . }}-backup-store-config"
           volumes:
             - name: {{ include "odoo.fullname" . }}-config-vol
               secret:

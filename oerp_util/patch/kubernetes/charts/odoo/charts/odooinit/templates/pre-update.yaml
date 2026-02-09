@@ -1,4 +1,4 @@
-{{- if .Values.update.enabled }}
+{{- if and .Values.update.enabled (not .Values.setup) -}}
 apiVersion: batch/v1
 kind: Job
 metadata:

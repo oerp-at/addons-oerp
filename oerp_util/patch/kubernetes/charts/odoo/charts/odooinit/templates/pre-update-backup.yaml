@@ -1,4 +1,4 @@
-{{- if .Values.backup.enabled -}}
+{{- if and .Values.backup.enabled (not .Values.setup) -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -41,6 +41,9 @@ spec:
           - "--backup-dir={{ .Values.backup.path }}"
           - "--backlog={{ .Values.backup.backlog }}"
           - "--only-database"
+          {{- if .Values.backup.compress }}
+          - "--compress"
+          {{- end }}
           volumeMounts:
             - name: {{ include "odoo.fullname" . }}-config-vol
               mountPath: /data/etc

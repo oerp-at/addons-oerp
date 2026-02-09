@@ -24,6 +24,7 @@ pgPassword: ""
 pgAdminUser: ""
 pgAdminPassword: ""
 queue: false
+setup: false
 
 # update
 update:
@@ -41,12 +42,20 @@ restore:
 # backup
 backup:
   enabled: false
-  path: ''
+  path: ""
   backlog: 6
+  compress: true
   onlyDatabase: false
-  schedule: ''
+  schedule: ""
   backoffLimit: 0
   volumeClaim: ""
+  timezone: ""
+  store: ""
+  storeRegion: ""
+  storeKey: ""
+  storeSecret: ""
+  storePassword: ""
+  storeDays: 7
 
 image:
   repository: odoo
@@ -108,4 +117,6 @@ sessionstore:
   size: 1Gi
   storageClassName: "default"
 
+argocd:
+  enabled: false
 

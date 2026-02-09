@@ -1,4 +1,4 @@
- {{- if .Values.restore.onUpdate -}}
+{{- if and .Values.restore.onUpdate (not .Values.setup) -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -57,7 +57,7 @@ spec:
               mountPath: /data/sessions
             - name: {{ include "odoo.fullname" . }}-filestore-vol
               mountPath: /data/filestore
-            {{- if .Values.backupVolumeClaim }}
+            {{- if .Values.backup.volumeClaim }}
             - name: {{ include "odoo.fullname" . }}-backup-vol
               mountPath: /data/backup
             {{- end }}
@@ -79,10 +79,10 @@ spec:
         - name: {{ include "odoo.fullname" . }}-filestore-vol
           persistentVolumeClaim:
             claimName: {{ include "odoo.fullname" . }}-filestore
-        {{- if .Values.backupVolumeClaim }}
+        {{- if .Values.backup.volumeClaim }}
         - name: {{ include "odoo.fullname" . }}-backup-vol
           persistentVolumeClaim:
-            claimName: {{ .Values.backupVolumeClaim }}
+            claimName: {{ .Values.backup.volumeClaim }}
         {{- end }}
         {{- with .Values.volumes }}
           {{- toYaml . | nindent 8 }}
