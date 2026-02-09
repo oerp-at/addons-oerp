@@ -729,7 +729,11 @@ class DatabaseMixin(object):
         return subprocess.run(cmd, shell=True, check=True, env=self.get_db_env(admin=True))
 
     def createdb(self, database, admin=False):
-        return subprocess.run(f"createdb {database}", shell=True, check=True, env=self.get_db_env(admin=admin))
+        res = subprocess.run(f"createdb {database}", shell=True, check=True, env=self.get_db_env(admin=admin))
+        subprocess.run(f"psql {database} -c \"CREATE EXTENSION IF NOT EXISTS pg_trgm;\"", shell=True, check=True, env=self.get_db_env(admin=admin))
+        subprocess.run(f"psql {database} -c \"CREATE EXTENSION IF NOT EXISTS unaccent;\"", shell=True, check=True, env=self.get_db_env(admin=admin))
+        subprocess.run(f"psql {database} -c \"ALTER FUNCTION unaccent(text) IMMUTABLE;\"", shell=True, check=True, env=self.get_db_env(admin=admin))
+        return res
 
     def restore_database(self, backup_file, admin=False, force=False):
         if force:
