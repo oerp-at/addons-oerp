@@ -119,6 +119,7 @@ RUN mkdir /data/log
 RUN mkdir /data/sessions
 
 # copy odoo source
+COPY addons-enterprise /home/odoo/addons-enterprise
 COPY addons-design-themes /home/odoo/addons-design-themes
 COPY addons-oerp /home/odoo/addons-oerp
 COPY odoo /home/odoo/odoo
