@@ -7,13 +7,13 @@ from odoo.tools.config import config
 import odoo.cli.server as server_cli
 
 from . import Command
-from .assemble import Profile, RESTORED_FILE_NAME, DEFAULT_SLEEP, get_db_name
+from .assemble import Profile, RESTORED_FILE_NAME, DEFAULT_SLEEP, get_db_name, DatabaseMixin
 
 
 _logger = logging.getLogger(__name__)
 
 
-class Serve(Command):
+class Serve(Command, DatabaseMixin):
     """ Quick start the Odoo server for your Project """
 
     def run(self, cmdargs):
@@ -23,10 +23,7 @@ class Serve(Command):
             description=self.__doc__
         )
 
-        parser.add_argument("--create",
-                            action="store_true",
-                            help="Create database if it not exist")
-
+        # environment arguments
         parser.add_argument(
             "-d",
             "--database",
@@ -35,49 +32,59 @@ class Serve(Command):
             envvar=True,
             help="Specify the database",
         )
-
+        parser.add_argument("--db_host",
+            metavar="DB_HOST",
+            envvar=True,
+            help="Specify the database host")
+        parser.add_argument("--db_password",
+            metavar="DB_PASSWORD",
+            envvar=True,
+            help="Specify the database password")
+        parser.add_argument("--db_port",
+            metavar="DB_PORT",
+            envvar=True,
+            help="Specify the database port",
+            type=int)
+        parser.add_argument("--db_user",
+            metavar="DB_USER",
+            envvar=True,
+            help="Specify the database user")
         parser.add_argument(
             "--addons-path",
             metavar="ADDONS",
             envvar=True)
-
         parser.add_argument("--config",
             metavar="CONFIG",
             envvar=True,
             help="Specify the configuration")
 
+        # additional arguments
         parser.add_argument("--wait-for-database",
             name="wait_for_database",
             action="store_true",
             envvar=True)
-
         parser.add_argument("--wait-for-restore",
             name="wait_for_restore",
             action="store_true",
             envvar=True)
 
-        args, unknown = parser.parse_known_args(args=cmdargs)
+        # parse
+        args, other_args = parser.parse_known_args(args=cmdargs)
 
-        # remove additional args
-        for additional_arg in ('--wait-for-database', '--wait-for-restore'):
-            if additional_arg in cmdargs:
-                cmdargs.remove(additional_arg)
-
-        # configure database name
-        # (use defaults from parser if not used)
-        if args.database:
-            if "--db-filter" not in cmdargs:
-                cmdargs = [f"--db-filter=^{args.database}$"] + cmdargs
-            if "-d" not in cmdargs and "--database" not in cmdargs:
-                cmdargs = [f"--database={args.database}"] + cmdargs
-
-        # configure addons paths, if it is not passed
-        if "--addons-path" not in cmdargs and args.addons_path:
-            cmdargs = [f"--addons-path={args.addons_path}"] + cmdargs
-
-        # configure config file, if it is not passed
-        if "--config" not in cmdargs and args.config:
-            cmdargs = [f"--config={args.config}"] + cmdargs
+        # rewrite environment variables
+        for config_key, env_name in (
+            ('database', 'PGDATABASE'),
+            ('db_host', 'PGHOST'),
+            ('db_port', 'PGPORT'),
+            ('db_user', 'PGUSER'),
+            ('db_password', 'PGPASSWORD'),
+            ('addons_path', 'ODOO_ADDONS_PATH'),
+            ('config', 'ODOO_RC'),
+            ):
+            if hasattr(args, config_key):
+                value = getattr(args, config_key)
+                if value:
+                    os.environ[env_name] = value
 
         # prepare hook
         report_configuration_fct = server_cli.report_configuration
@@ -101,4 +108,4 @@ class Serve(Command):
 
         # install configuration hook and start server
         server_cli.report_configuration = report_configuration_hook
-        server_cli.main(cmdargs)
+        server_cli.main(other_args)

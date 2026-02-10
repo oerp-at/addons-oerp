@@ -803,7 +803,7 @@ class DatabaseMixin(object):
         try:
             con = self.connect_database()
             # get odoo base version
-            base_version = odoo.modules.load_information_from_description_file('base')['version']
+            base_version = odoo.modules.module.Manifest.for_addon('base')['version']
             # fetch data from database
             try:
                 cr = con.cursor()
