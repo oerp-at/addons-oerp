@@ -84,7 +84,7 @@ class Serve(Command, DatabaseMixin):
             if hasattr(args, config_key):
                 value = getattr(args, config_key)
                 if value:
-                    os.environ[env_name] = value
+                    os.environ[env_name] = str(value)
 
         # prepare hook
         report_configuration_fct = server_cli.report_configuration

@@ -71,7 +71,7 @@ class AutoEnv(Command):
             if hasattr(args, config_key):
                 value = getattr(args, config_key)
                 if value:
-                    env_vars[env_name] = value
+                    env_vars[env_name] = str(value)
 
         # run the original command again with new commandss
         command = [orignal_cmd] + cmdargs
