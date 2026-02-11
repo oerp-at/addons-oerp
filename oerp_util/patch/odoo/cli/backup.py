@@ -7,7 +7,7 @@ import subprocess
 from odoo.tools.config import config
 
 from . import Command
-from .assemble import CommandMixin, DatabaseMixin
+from .assemble import CommandMixin, DatabaseMixin, ConfigException
 
 _logger = logging.getLogger(__name__)
 
@@ -33,7 +33,6 @@ class Backup(CommandMixin, Command, DatabaseMixin):
         self.parser.add_argument(
             "--backup-dir",
             name="backup_dir",
-            required=True,
             help="The backup directory."
         )
         self.parser.add_argument(
@@ -123,6 +122,9 @@ class Backup(CommandMixin, Command, DatabaseMixin):
         self.filestore = os.path.abspath(os.path.join(config['data_dir'], 'filestore', self.db_name))
 
         # create backup directory
+        if not self.params.backup_dir:
+            raise ConfigException("Backup directory is required: --backup-dir <path>")
+
         self.backup_dir = os.path.abspath(os.path.join(self.params.backup_dir))
         if not os.path.exists(self.backup_dir):
             _logger.info('Create backup directory %s', self.backup_dir)
