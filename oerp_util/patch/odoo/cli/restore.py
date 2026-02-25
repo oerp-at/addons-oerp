@@ -186,8 +186,16 @@ class Restore(CommandMixin, Command, DatabaseMixin):
         cr = env.cr
         # disable cron jobs
         cr.execute("UPDATE ir_cron SET active = FALSE")
+        # disable mfa
+        cr.execute("""UPDATE ir_config_parameter
+                    SET value = 'False'
+                    WHERE key = 'auth_totp.policy'""")
+        # reset totp secret
+        cr.execute("""UPDATE res_users
+                    SET totp_secret = NULL
+                    WHERE totp_secret IS NOT NULL""")
         # reset password to admin
-        #cr.execute("UPDATE res_users SET password = 'admin'")
+        cr.execute("UPDATE res_users SET login = 'admin', active = TRUE WHERE id = 2")
         cr.execute("""UPDATE res_users
                        SET password = '$pbkdf2-sha512$600000$UWrtfU/JGSMEIESIUUrp3Q$I/P7liB6AwKFLVL49LCiQJSqRIK16D21Fc4MLP7ijeEa1SRKAWQ2ODSWVFm5p/tfd97FXf/FW.xQCmuCHdGQhw'
                        WHERE active AND (password IS NOT NULL OR login = 'admin')""")
