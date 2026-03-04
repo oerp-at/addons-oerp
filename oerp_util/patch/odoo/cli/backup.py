@@ -7,7 +7,7 @@ import subprocess
 from odoo.tools.config import config
 
 from . import Command
-from .assemble import CommandMixin, DatabaseMixin, ConfigException
+from .assemble import CommandMixin, DatabaseMixin, ConfigException, run_and_retry
 
 _logger = logging.getLogger(__name__)
 
@@ -112,10 +112,10 @@ class Backup(CommandMixin, Command, DatabaseMixin):
             _logger.warning("Initialize restic repository at %s", backup_store)
             subprocess.run(f"restic -r {backup_store} init", shell=True, check=True)
         # Backup
-        subprocess.run(f'restic -r {backup_store} backup {backup_dir} --exclude=".backlog"', shell=True, check=True)
+        run_and_retry(f'restic -r {backup_store} backup {backup_dir} --exclude=".backlog"')
         # Forget old backups
         if backup_store_days > 0:
-            subprocess.run(f"restic -r {backup_store} forget --keep-within {backup_store_days}d --prune", shell=True, check=True)
+            run_and_retry(f"restic -r {backup_store} forget --keep-within {backup_store_days}d --prune")
 
     def run_config(self):
         self.setup_db_env(admin_user=self.params.pg_admin_user, admin_password=self.params.pg_admin_password)

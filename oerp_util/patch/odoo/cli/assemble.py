@@ -3,6 +3,7 @@
 import sys
 import os
 import re
+import time
 import subprocess
 import argparse
 import fnmatch
@@ -151,6 +152,17 @@ def replace_placeholders(value, context):
 
     evaluated = PLACEHOLDER_PATTERN.sub(replace_match, value)
     return evaluated
+
+def run_and_retry(command, retries=3, delay=5):
+    while True:
+        try:
+            return subprocess.run(command, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            if retries > 0:
+                retries -= 1
+                time.sleep(delay)
+                continue
+            raise e
 
 
 class ConfigException(Exception):
@@ -625,7 +637,7 @@ class CommandMixin:
 
         # copy
         _logger.info('%s from %s to %s ...', info, src, dest)
-        res = subprocess.run(cmd, check=True, shell=True)
+        res = run_and_retry(cmd)
 
         # sync deletes if local copy is used
         # errors are not handled
