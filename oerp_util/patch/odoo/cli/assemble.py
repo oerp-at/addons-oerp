@@ -897,6 +897,10 @@ class Assemble(Command):
                 _logger.info("Create directory %s", dir_path)
                 os.mkdir(dir_path)
 
+        # cleanup __pycache__ in assembly tree
+        for pycache_dir in glob.glob(os.path.join(lib_path, '**', '__pycache__'), recursive=True):
+            _logger.info("Remove %s", pycache_dir)
+            shutil.rmtree(pycache_dir)
 
         dir_enabled_addons = lib_path_addons
 
