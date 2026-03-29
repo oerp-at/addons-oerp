@@ -51,6 +51,9 @@
 		"cursorpyright.analysis.disableWorkspaceSymbol": true,
 		"cursorpyright.analysis.typeCheckingMode": "off",
 		"git.autoRepositoryDetection": true,
+		"files.watcherExclude": {
+			"**/.assembly/**": true
+		},
 	}
 }
 
