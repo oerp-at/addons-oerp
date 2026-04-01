@@ -86,6 +86,7 @@ with
 
     ./odoo <cmd> --help
 
+Tours only work with this Chrome version: [google-chrome-stable_127.0.6533.99-1_amd64.deb](https://mirror.cs.uchicago.edu/google-chrome/pool/main/g/google-chrome-stable/google-chrome-stable_127.0.6533.99-1_amd64.deb)
 
 ## Profiles
 
