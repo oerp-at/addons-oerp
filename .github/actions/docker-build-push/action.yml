@@ -24,7 +24,7 @@ inputs:
     required: false
     default: "true"
   version-tag:
-    description: Optional additional version tag to apply
+    description: Optional additional version tag (e.g. chart version from odoo-detect-manifest-version)
     required: false
     default: ""
 
