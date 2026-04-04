@@ -2,6 +2,8 @@ name: Odoo Detect Manifest Version
 description: >
   Detects Odoo __manifest__.py version changes between the current and previous
   commit and calculates bumped appVersion / chart version accordingly.
+  If no manifest version changed but non-chart files were modified, the patch
+  version is bumped automatically. Pure chart-only changes are skipped.
   Requires checkout with fetch-depth >= 2.
 
 inputs:
@@ -99,10 +101,15 @@ runs:
         done
 
         if [ -z "$HIGHEST_CHANGE" ]; then
-          echo "No manifest version changes detected."
-          echo "changed=false" >> "$GITHUB_OUTPUT"
-          echo "change_level=" >> "$GITHUB_OUTPUT"
-          exit 0
+          NON_CHART_CHANGES=$(git diff --name-only HEAD~1 HEAD | grep -v '^charts/' || true)
+          if [ -z "$NON_CHART_CHANGES" ]; then
+            echo "Only chart changes detected – skipping version bump."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "change_level=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "No manifest version changes but non-chart files changed – bumping patch."
+          HIGHEST_CHANGE="patch"
         fi
 
         echo "Highest change level: $HIGHEST_CHANGE"
