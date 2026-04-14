@@ -14,6 +14,7 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: {{ .Values.backup.backoffLimit }}
+      ttlSecondsAfterFinished: {{ .Values.backup.ttlSecondsAfterFinished }}
       template:
         metadata:
           labels:
