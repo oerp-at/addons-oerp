@@ -349,6 +349,13 @@ class Restore(CommandMixin, Command, DatabaseMixin):
         finally:
             con.close()
 
+    def init_database(self):
+        """ Initialize a new Odoo database via 'odoo serve --stop-after-init' """
+        _logger.info("Initialize database %s via 'odoo serve --stop-after-init'", self.db_name)
+        odoo_bin = os.path.join(self.parser.server_dir, 'odoo-bin')
+        subprocess.run([odoo_bin, 'serve', '--stop-after-init'],
+                       check=True, env=self.get_db_env())
+
     def restore_and_update(self):
         # init needed env
         if not self.db_name:
@@ -413,6 +420,13 @@ class Restore(CommandMixin, Command, DatabaseMixin):
                 update_database(self.params.database)
 
             # final tasks
+            self.setup_env()
+        elif not self.params.restore_fs and not self.params.restore_db:
+            # no restore source given, ensure a fresh database is initialized
+            if not self.is_database_ready():
+                self.init_database()
+
+            # mark as restored
             self.setup_env()
 
     def run_config(self):
