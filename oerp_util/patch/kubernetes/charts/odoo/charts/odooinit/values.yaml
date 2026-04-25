@@ -36,7 +36,7 @@ update:
 # leaves a generous buffer for very large databases. Tune per instance
 # if dumps are smaller; raise for multi-TB filestores.
 restore:
-  enabled: false
+  enabled: true
   onUpdate: false
   installModule: ""
   filestorePath: ""
