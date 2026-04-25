@@ -216,6 +216,15 @@ class Profile(argparse.ArgumentParser):
                     if profile_defaults:
                         self.update(profile_defaults)
 
+        # auto-resolve db_port from db_version via pg_lsclusters
+        # so that parallel postgres clusters (e.g. PG16 on 5432, PG18 on 5433)
+        # are picked up automatically when only the version is configured
+        db_version = self.get(['db_version'])
+        if db_version is not None and self.get(['db_port']) is None:
+            db_port = self._resolve_db_port_from_cluster(db_version)
+            if db_port is not None:
+                self.update({'default': {'db_port': db_port}})
+
         # path mappping of parameters
         self.path_mapping = {
             'database': ['db']
@@ -227,6 +236,41 @@ class Profile(argparse.ArgumentParser):
             'ODOO_DB_PASSWORD': ['PGPASSWORD'],
             'ODOO_DB_HOST': ['PGHOST']
         }
+
+    def _resolve_db_port_from_cluster(self, db_version):
+        """Look up the port of a postgres cluster matching ``db_version``
+        by parsing ``pg_lsclusters --no-header``.
+
+        Returns ``None`` if pg_lsclusters is unavailable or no matching
+        cluster exists, so that the caller can fall back to other defaults.
+        """
+        try:
+            result = subprocess.run(
+                ['pg_lsclusters', '--no-header'],
+                capture_output=True, text=True, check=True,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError) as e:
+            _logger.warning(
+                "Cannot resolve db_port for db_version %s via pg_lsclusters: %s",
+                db_version, e,
+            )
+            return None
+
+        target = str(db_version)
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            # columns: Ver Cluster Port Status Owner Data-directory Log-file
+            if len(parts) >= 3 and parts[0] == target:
+                try:
+                    return int(parts[2])
+                except ValueError:
+                    continue
+
+        _logger.warning(
+            "No postgres cluster found for db_version %s via pg_lsclusters",
+            db_version,
+        )
+        return None
 
     def _evaluate_values(self, d):
         for key, value in d.items():
