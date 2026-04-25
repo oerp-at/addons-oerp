@@ -27,8 +27,9 @@ spec:
         - name: {{ $fullName }}
           port: 8069
   {{- end }}
-  {{- if .Values.ingressroute.tlsSecretName }}
+  {{- $tlsSecretName := include "odoo.ingressroute.tlsSecretName" . }}
+  {{- if $tlsSecretName }}
   tls:
-    secretName: {{ .Values.ingressroute.tlsSecretName }}
+    secretName: {{ $tlsSecretName }}
   {{- end }}
 {{- end }}

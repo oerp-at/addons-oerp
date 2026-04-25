@@ -2,7 +2,7 @@
 {{- $fullName := include "odoo.fullname" . -}}
 {{- $svcPort := .Values.service.port -}}
 {{- $svcWebsocketPort := .Values.service.websocketPort -}}
-{{- $tlsSecretName := .Values.ingress.tlsSecretName  -}}
+{{- $tlsSecretName := include "odoo.ingress.tlsSecretName" . -}}
 {{- $workers := .Values.odooinit.workers -}}
 {{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
   {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}

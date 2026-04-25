@@ -62,6 +62,42 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+Resolve the TLS Secret name produced by cert-manager. Defaults to
+`<fullname>-tls` so multiple chart instances in the same namespace
+do not collide on a hardcoded secret name. Overridable via
+`certmanager.secretName`.
+*/}}
+{{- define "odoo.tlsSecretName" -}}
+{{- default (printf "%s-tls" (include "odoo.fullname" .)) .Values.certmanager.secretName -}}
+{{- end -}}
+
+{{/*
+Resolve the TLS Secret name an Ingress should reference. Cascade:
+  1. Explicit `ingress.tlsSecretName` (user override)
+  2. cert-manager managed secret if cert-manager is enabled
+  3. Empty (Ingress is rendered without TLS section)
+*/}}
+{{- define "odoo.ingress.tlsSecretName" -}}
+{{- if .Values.ingress.tlsSecretName -}}
+{{- .Values.ingress.tlsSecretName -}}
+{{- else if .Values.certmanager.enabled -}}
+{{- include "odoo.tlsSecretName" . -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Resolve the TLS Secret name a Traefik IngressRoute should reference.
+Same cascade as `odoo.ingress.tlsSecretName`.
+*/}}
+{{- define "odoo.ingressroute.tlsSecretName" -}}
+{{- if .Values.ingressroute.tlsSecretName -}}
+{{- .Values.ingressroute.tlsSecretName -}}
+{{- else if .Values.certmanager.enabled -}}
+{{- include "odoo.tlsSecretName" . -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Create additional odoo config
 */}}
 {{- define "odoo.addConfig" -}}

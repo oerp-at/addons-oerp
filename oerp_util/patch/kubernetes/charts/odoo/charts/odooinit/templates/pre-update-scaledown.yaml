@@ -1,0 +1,169 @@
+{{- if and .Values.scaleDown.enabled (not .Values.setup) -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "odoo.fullname" . }}-scaledown
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-13"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "odoo.fullname" . }}-scaledown
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-13"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  # delete is required for the one-time selector migration
+  # (Deployment.spec.selector is immutable, so legacy deployments must
+  # be removed before Helm can apply the new manifest with the
+  # `app.kubernetes.io/component` selector).
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale"]
+    verbs: ["get", "list", "watch", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "odoo.fullname" . }}-scaledown
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-13"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "odoo.fullname" . }}-scaledown
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "odoo.fullname" . }}-scaledown
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "odoo.fullname" . }}-scaledown
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-12"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "odoo.fullname" . }}-scaledown
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: scaledown
+          image: "{{ .Values.scaleDown.image.repository }}:{{ .Values.scaleDown.image.tag }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              # Enable pipefail when the shell supports it so silent
+              # failures in pipelines (kubectl | grep | wc -l) are caught.
+              ( set -o pipefail ) 2>/dev/null && set -o pipefail || true
+
+              NS="{{ .Release.Namespace }}"
+              TIMEOUT="{{ .Values.scaleDown.timeout }}"
+              FULLNAME="{{ include "odoo.fullname" . }}"
+              SELECTOR_BASE="app.kubernetes.io/name=odoo,app.kubernetes.io/instance={{ .Release.Name }}"
+
+              # Phase 1: One-time selector migration. Deployment.spec.selector
+              # is immutable, so an existing Deployment with the legacy
+              # selector (no component label) must be removed before Helm
+              # can apply the new manifest. After the first upgrade this
+              # is a no-op.
+              migrate_selector() {
+                DEPLOY="$1"
+                kubectl get deployment "$DEPLOY" -n "$NS" >/dev/null 2>&1 || return 0
+                CURRENT=$(kubectl get deployment "$DEPLOY" -n "$NS" \
+                  -o jsonpath='{.spec.selector.matchLabels.app\.kubernetes\.io/component}' \
+                  2>/dev/null || true)
+                if [ -z "$CURRENT" ]; then
+                  echo "Deployment $DEPLOY uses legacy selector - deleting for selector migration ..."
+                  kubectl delete deployment "$DEPLOY" -n "$NS" \
+                    --cascade=foreground --timeout="${TIMEOUT}s" --ignore-not-found
+                fi
+              }
+
+              scale_zero() {
+                DEPLOY="$1"
+                if kubectl get deployment "$DEPLOY" -n "$NS" >/dev/null 2>&1; then
+                  echo "Scaling $DEPLOY to 0 ..."
+                  kubectl scale deployment "$DEPLOY" --replicas=0 -n "$NS"
+                else
+                  echo "Deployment $DEPLOY not found - skipping."
+                fi
+              }
+
+              await_rollout() {
+                DEPLOY="$1"
+                if kubectl get deployment "$DEPLOY" -n "$NS" >/dev/null 2>&1; then
+                  echo "Waiting for $DEPLOY rollout to converge ..."
+                  kubectl rollout status deployment "$DEPLOY" -n "$NS" \
+                    --timeout="${TIMEOUT}s"
+                fi
+              }
+
+              await_pods_gone() {
+                COMPONENT="$1"
+                SELECTOR="${SELECTOR_BASE},app.kubernetes.io/component=${COMPONENT}"
+                echo "Waiting for ${COMPONENT} pods (selector ${SELECTOR}) to terminate ..."
+                if ! kubectl wait --for=delete pod -l "$SELECTOR" -n "$NS" \
+                    --timeout="${TIMEOUT}s"; then
+                  REMAINING=$(kubectl get pods -n "$NS" -l "$SELECTOR" \
+                    --no-headers 2>/dev/null | wc -l)
+                  echo "Timeout: $REMAINING ${COMPONENT} pod(s) still present after ${TIMEOUT}s." >&2
+                  exit 1
+                fi
+              }
+
+              # Phase 1: selector migration (no-op after first upgrade)
+              migrate_selector "${FULLNAME}-worker"
+              migrate_selector "${FULLNAME}-cron"
+
+              # Phase 2: scale (only if Deployment still exists)
+              scale_zero "${FULLNAME}-worker"
+              scale_zero "${FULLNAME}-cron"
+
+              # Phase 3: wait for ReplicaSet status to reflect 0 replicas
+              await_rollout "${FULLNAME}-worker"
+              await_rollout "${FULLNAME}-cron"
+
+              # Phase 4: wait for actual pod termination (covers
+              # terminationGracePeriodSeconds and ensures no DB
+              # connections linger before backup/restore/update hooks).
+              await_pods_gone "worker"
+              await_pods_gone "cron"
+
+              echo "Scale-down complete."
+{{- end }}

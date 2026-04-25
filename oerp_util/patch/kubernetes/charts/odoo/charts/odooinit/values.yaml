@@ -32,12 +32,16 @@ update:
   backoffLimit: 0
 
 # restore
+# activeDeadlineSeconds caps the restore Job runtime. Default 7200 (2h)
+# leaves a generous buffer for very large databases. Tune per instance
+# if dumps are smaller; raise for multi-TB filestores.
 restore:
   enabled: false
   onUpdate: false
   installModule: ""
   filestorePath: ""
   databasePath: ""
+  activeDeadlineSeconds: 7200
 
 # backup
 backup:
@@ -117,6 +121,13 @@ filestore:
 sessionstore:
   size: 1Gi
   storageClassName: "default"
+
+scaleDown:
+  enabled: true
+  timeout: 120
+  image:
+    repository: bitnami/kubectl
+    tag: latest
 
 argocd:
   enabled: false

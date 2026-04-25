@@ -7,6 +7,14 @@ metadata:
 {{ include "odoo.labels" . | indent 4 }}
   annotations:
     "argocd.argoproj.io/sync-wave": "-21"
+    # PVC is created as a pre-install hook so it is available for the
+    # pre-install restore Job (which runs before regular resources).
+    # The keep policy ensures the volume survives Helm uninstall and
+    # any future hook lifecycle changes; pre-upgrade is intentionally
+    # omitted so the PVC is never re-created on upgrades.
+    "helm.sh/hook": "pre-install"
+    "helm.sh/hook-weight": "-30"
+    "helm.sh/resource-policy": "keep"
 spec:
   storageClassName: {{ .Values.filestore.storageClassName }}
   accessModes:
@@ -24,6 +32,9 @@ metadata:
 {{ include "odoo.labels" . | indent 4 }}
   annotations:
     "argocd.argoproj.io/sync-wave": "-21"
+    "helm.sh/hook": "pre-install"
+    "helm.sh/hook-weight": "-30"
+    "helm.sh/resource-policy": "keep"
 spec:
   storageClassName: {{ .Values.sessionstore.storageClassName }}
   accessModes:

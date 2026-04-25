@@ -1,4 +1,25 @@
- {{- if .Values.restore.enabled -}}
+{{/*
+Restore Job. Runs as:
+  * pre-install hook (weight -10) when restore.enabled is true. On a fresh
+    install with no restore-fs/restore-db source the job initializes an
+    empty database; otherwise it restores the database and/or filestore
+    from the configured paths. Either way it writes the `restored` marker
+    file so workers can leave their `wait_for_restore` loop.
+  * pre-upgrade hook (weight -10) when restore.onUpdate is true. Rolls
+    back the database/filestore from the configured source before the
+    update Job runs.
+
+PVCs and Secrets are themselves pre-install/pre-upgrade hooks at weight -30
+so they are guaranteed to exist when this Job runs.
+*/}}
+{{- $hooks := list -}}
+{{- if .Values.restore.enabled -}}
+{{-   $hooks = append $hooks "pre-install" -}}
+{{- end -}}
+{{- if and .Values.restore.onUpdate (not .Values.setup) -}}
+{{-   $hooks = append $hooks "pre-upgrade" -}}
+{{- end -}}
+{{- if $hooks -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -9,13 +30,14 @@ metadata:
     app.kubernetes.io/version: {{ .Chart.AppVersion }}
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
   annotations:
-    # This is what defines this resource as a hook. Without this line, the
-    # job is considered part of the release.
-    "helm.sh/hook": post-install
+    "helm.sh/hook": {{ $hooks | join "," | quote }}
     "helm.sh/hook-weight": "-10"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
 spec:
   backoffLimit: 0
+  {{- with .Values.restore.activeDeadlineSeconds }}
+  activeDeadlineSeconds: {{ . }}
+  {{- end }}
   template:
     metadata:
       labels:

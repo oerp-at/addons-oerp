@@ -5,11 +5,27 @@
 replicaCount: 1
 maxCronReplicaCount: 1
 
+# odoo startup check. failureThreshold * periodSeconds defines the maximum
+# time the worker may take before liveness/readiness become active. The
+# default tolerates ~1 hour to cover the safety-net case where a worker
+# pod was restarted while a long-running restore (large database, slow
+# storage backend) is still in progress and ODOO_WAIT_FOR_RESTORE blocks
+# the server start. In the regular install flow the restore Job has
+# already completed before workers start, so the probe succeeds within
+# seconds.
+startupProbe:
+  enabled: true
+  path: '/web/health'
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 120
+
 # odoo live check
 livenessProbe:
   enabled: true
   path: '/web/health'
-  initialDelaySeconds: 600
+  initialDelaySeconds: 30
   periodSeconds: 30
   timeoutSeconds: 5
   failureThreshold: 6
@@ -19,7 +35,7 @@ livenessProbe:
 readinessProbe:
   enabled: true
   path: '/web/health'
-  initialDelaySeconds: 30
+  initialDelaySeconds: 10
   periodSeconds: 10
   timeoutSeconds: 5
   failureThreshold: 6
@@ -62,10 +78,26 @@ service:
 
 hosts: []
 
+# cert-manager Certificate. By default the produced TLS Secret is named
+# "<release>-tls" (resolved via the `odoo.tlsSecretName` helper) so multiple
+# instances of this chart can coexist in the same namespace without
+# collisions on the Certificate resource name or the Secret name.
 certmanager:
   enabled: false
   issuer: "letsencrypt-prod"
-  secretName: "odoo-tls"
+  # ClusterIssuer (cluster-scoped) or Issuer (namespace-scoped)
+  issuerKind: "ClusterIssuer"
+  # Override the auto-generated TLS Secret name. Leave empty to use
+  # "<release>-tls" (recommended for multi-instance namespaces).
+  secretName: ""
+  # Optional CN (deprecated by cert-manager; modern CAs ignore it and it
+  # is limited to 64 chars). Leave empty to omit; SANs in `dnsNames`
+  # cover all hosts.
+  commonName: ""
+  # Optional Certificate spec extras (passed through verbatim).
+  duration: ""
+  renewBefore: ""
+  privateKey: {}
   annotations: {}
 
 ingress:
@@ -74,14 +106,17 @@ ingress:
   maxBodySize: "512m"
   timeout: "720"
   className: ""
-  tlsSecretName: "odoo-tls"
+  # Leave empty to inherit from cert-manager when enabled, or to disable
+  # TLS entirely when no manual TLS Secret is provided.
+  tlsSecretName: ""
   annotations: {}
 
 ingressroute:
   enabled: false
   className: "traefik"
   certManagerIssuer: "letsencrypt-prod"
-  tlsSecretName: "odoo-tls"
+  # See `ingress.tlsSecretName` for resolution rules.
+  tlsSecretName: ""
   annotations: {}
 
 resources:

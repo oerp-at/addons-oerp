@@ -11,6 +11,7 @@ spec:
   selector:
     matchLabels:
       {{- include "odoo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -19,7 +20,8 @@ spec:
       {{- end }}
       labels:
         {{- include "odoo.labels" . | nindent 8 }}
-	{{- with .Values.podLabels }}
+        app.kubernetes.io/component: worker
+        {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
@@ -48,6 +50,16 @@ spec:
             - name: http-websocket
               containerPort: {{ .Values.service.websocketPort }}
               protocol: TCP
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.startupProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          {{- end }}
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
