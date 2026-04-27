@@ -203,7 +203,8 @@ Reusable composite actions for Odoo CI/CD pipelines, provided by
 
 | Action | Description |
 |--------|-------------|
-| `odoo-bump-chart-version` | Increments the `Chart.yaml` patch version and auto-commits the change |
+| `odoo-next-chart-version` | Reads the current `Chart.yaml` version and outputs the next patch-bumped version (read-only) |
+| `odoo-bump-chart-version` | Writes a given chart version into `Chart.yaml` and auto-commits the change |
 | `docker-build-push` | Logs in to a container registry, builds and pushes a Docker image |
 
 ---
@@ -241,12 +242,12 @@ When `version-tag` is provided, an additional raw tag with that value is added.
 
 ---
 
-## odoo-bump-chart-version
+## odoo-next-chart-version
 
-Reads the current chart `version` from a Helm `Chart.yaml`, increments its
-patch segment, and commits and pushes the change as `github-actions[bot]`.
-The new chart version is also exposed as an output so it can be reused as a
-Docker tag in the same workflow.
+Reads the current chart `version` from a Helm `Chart.yaml` and outputs the
+next version (patch segment incremented by 1). This action is **read-only**:
+it does not modify the file, commit, or push. Run it before a Docker build so
+the upcoming chart version can be used as an additional image tag.
 
 ### Inputs
 
@@ -258,7 +259,24 @@ Docker tag in the same workflow.
 
 | Output | Description |
 |--------|-------------|
-| `chart_version` | The new chart version after the bump (e.g. `19.0.4`) |
+| `current_chart_version` | The current chart version read from the file |
+| `chart_version` | The computed next chart version (e.g. `19.0.4`) |
+
+---
+
+## odoo-bump-chart-version
+
+Writes the given chart version into a Helm `Chart.yaml`, then commits and
+pushes the change as `github-actions[bot]`. Typically used **after** the
+Docker build, with the version computed by `odoo-next-chart-version`, so the
+chart is only bumped when the build succeeded.
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `chart-file` | no | `charts/odooi/Chart.yaml` | Path to the Helm `Chart.yaml` |
+| `chart-version` | **yes** | — | Chart version value to write into `Chart.yaml` (e.g. `19.0.4`) |
 
 ### Permissions
 
@@ -269,8 +287,9 @@ to succeed.
 
 ## Full Workflow Example
 
-A complete workflow that bumps the chart version on every push outside of
-`charts/**` and tags the resulting Docker image with the new chart version:
+A complete workflow that determines the next chart version, builds and pushes
+the Docker image tagged with that version, and only then commits the chart
+bump back to the repository:
 
 ```yaml
 name: Build Image
@@ -294,15 +313,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Bump Chart.yaml version
-        id: bump
-        uses: oerp-at/addons-oerp/.github/actions/odoo-bump-chart-version@19.0
+      - name: Determine next chart version
+        id: version
+        uses: oerp-at/addons-oerp/.github/actions/odoo-next-chart-version@19.0
 
       - name: Build and push Docker image
         uses: oerp-at/addons-oerp/.github/actions/docker-build-push@19.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          version-tag: ${{ steps.bump.outputs.chart_version }}
+          version-tag: ${{ steps.version.outputs.chart_version }}
+
+      - name: Bump Chart.yaml version
+        uses: oerp-at/addons-oerp/.github/actions/odoo-bump-chart-version@19.0
+        with:
+          chart-version: ${{ steps.version.outputs.chart_version }}
 ```
 
 The `paths-ignore: charts/**` filter prevents a second run from being triggered

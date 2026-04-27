@@ -1,0 +1,51 @@
+name: Odoo Next Chart Version
+description: >
+  Reads the current chart version from a Helm Chart.yaml and outputs the next
+  version (patch segment incremented by 1). Read-only: does not modify, commit
+  or push anything.
+
+inputs:
+  chart-file:
+    description: Path to the Helm Chart.yaml file
+    required: false
+    default: charts/odooi/Chart.yaml
+
+outputs:
+  current_chart_version:
+    description: The current chart version read from the Chart.yaml
+    value: ${{ steps.compute.outputs.current_chart_version }}
+  chart_version:
+    description: The computed next chart version (e.g. 19.0.4)
+    value: ${{ steps.compute.outputs.chart_version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compute next chart version
+      id: compute
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        CHART_FILE="${{ inputs.chart-file }}"
+
+        if [ ! -f "$CHART_FILE" ]; then
+          echo "::error::Chart file '$CHART_FILE' not found."
+          exit 1
+        fi
+
+        CURRENT_CHART_VERSION=$(grep '^version:' "$CHART_FILE" | sed 's/version: *//')
+        if [ -z "$CURRENT_CHART_VERSION" ]; then
+          echo "::error::Could not read current chart version from '$CHART_FILE'."
+          exit 1
+        fi
+
+        IFS='.' read -r CV_MAJOR CV_MINOR CV_PATCH <<< "$CURRENT_CHART_VERSION"
+        CV_PATCH=$((CV_PATCH + 1))
+        NEW_CHART_VERSION="${CV_MAJOR}.${CV_MINOR}.${CV_PATCH}"
+
+        echo "current_chart_version=${CURRENT_CHART_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "chart_version=${NEW_CHART_VERSION}" >> "$GITHUB_OUTPUT"
+
+        echo "Current chart version: ${CURRENT_CHART_VERSION}"
+        echo "Next chart version:    ${NEW_CHART_VERSION}"
