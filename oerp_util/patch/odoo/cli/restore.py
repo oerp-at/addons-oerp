@@ -15,7 +15,7 @@ import odoo.modules.neutralize
 from odoo.tools.config import config
 
 from . import Command
-from .assemble import CommandMixin, DatabaseMixin, ConfigException, RESTORED_FILE_NAME, DEFAULT_SLEEP, update_database
+from .assemble import CommandMixin, DatabaseMixin, ConfigException, RESTORED_FILE_NAME, DEFAULT_SLEEP, update_database, run_and_retry
 
 
 _logger = logging.getLogger(__name__)
@@ -63,6 +63,17 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             "--restore-zip",
             name="restore_zip",
             help="The database+filestore within zip for restore."
+        )
+        self.parser.add_argument(
+            "--backup-store",
+            name="backup_store",
+            help="The backup store from which the backup is fetched via restic "
+                 "(used only when --restore-fs and --restore-db are not set)."
+        )
+        self.parser.add_argument(
+            "--backup-path",
+            name="backup_path",
+            help="The local path the backup from --backup-store is restored to."
         )
         self.parser.add_argument(
             "--restore-zip-db",
@@ -121,6 +132,68 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             name="delete",
             default=False,
             help="Full sync of filestore, delete files that are not in the source.")
+
+    def restore_from_backup_store(self):
+        """ Pull a backup snapshot from a restic store into ``backup_path`` and
+        configure ``restore_fs`` / ``restore_db`` from the restored content.
+        """
+        backup_path = os.path.abspath(self.params.backup_path)
+        backup_store = self.params.backup_store
+
+        if not os.path.exists(backup_path):
+            _logger.info('Create backup path %s', backup_path)
+            os.makedirs(backup_path, exist_ok=True)
+
+        # verify access to backup store (repo missing/uninitialized, no permission, wrong password, ...)
+        check = subprocess.run(f"restic -r {backup_store} snapshots --no-lock --latest 1",
+                               shell=True, check=False, capture_output=True)
+        if check.returncode != 0:
+            _logger.warning("Cannot access backup store %s (returncode %s): %s",
+                            backup_store, check.returncode,
+                            check.stderr.decode(errors='replace').strip() or check.stdout.decode(errors='replace').strip())
+            return
+
+        _logger.info("Restore backup from store %s to %s", backup_store, backup_path)
+        try:
+            run_and_retry(f'restic -r {backup_store} restore latest --target {backup_path}')
+        except subprocess.CalledProcessError as e:
+            _logger.warning("Failed to restore backup from store %s: %s", backup_store, e)
+            return
+
+        # locate filestore directory and database dump within restored tree
+        restored_fs = None
+        restored_db = None
+        for root, dirs, files in os.walk(backup_path):
+            if not restored_fs and 'filestore' in dirs:
+                restored_fs = os.path.join(root, 'filestore')
+            if not restored_db:
+                for fname in files:
+                    if fname in ('db.dump', 'db.dump.gz', 'db.dump.bz2'):
+                        restored_db = os.path.join(root, fname)
+                        break
+            if restored_fs and restored_db:
+                break
+
+        if not restored_fs:
+            _logger.warning("No filestore found in restored backup at %s", backup_path)
+            return
+        if not restored_db:
+            _logger.warning("No database dump found in restored backup at %s", backup_path)
+            return
+
+        # decompress dump if needed (download_database only handles compression for remote sources)
+        if restored_db.endswith('.gz'):
+            _logger.info("Decompress restored database %s", restored_db)
+            subprocess.run(f"gzip -df {restored_db}", shell=True, check=True)
+            restored_db = restored_db[:-3]
+        elif restored_db.endswith('.bz2'):
+            _logger.info("Decompress restored database %s", restored_db)
+            subprocess.run(f"bzip2 -df {restored_db}", shell=True, check=True)
+            restored_db = restored_db[:-4]
+
+        _logger.info("Use restored filestore %s and database %s", restored_fs, restored_db)
+        self.params.restore_fs = restored_fs
+        self.params.restore_db = restored_db
 
     def restore_filestore(self, url):
         # prepare urls
@@ -435,6 +508,13 @@ class Restore(CommandMixin, Command, DatabaseMixin):
         if isinstance(db_name, list):
             db_name = db_name[0]
         self.db_name = db_name
+
+        # fetch backup from restic store if no explicit restore source is given
+        if self.params.backup_store and not self.params.restore_fs and not self.params.restore_db:
+            if not self.params.backup_path:
+                _logger.warning("Skip backup store restore: --backup-path is not set")
+            else:
+                self.restore_from_backup_store()
 
         if self.params.restore_zip:
             _logger.info("Restore from zip %s", self.params.restore_zip)
