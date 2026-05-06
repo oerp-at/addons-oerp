@@ -126,8 +126,11 @@ log_level = info
 data_dir = /data
 workers = 0
 max_cron_threads = {{ .Values.cronThreads }}
-{{- if .Values.queue }}
-server_wide_modules = web,queue_job
+{{- $modules := list "web" }}
+{{- if .Values.queue }}{{- $modules = append $modules "queue_job" }}{{- end }}
+{{- if .Values.sessionstore.db }}{{- $modules = append $modules "session_db" }}{{- end }}
+{{- if gt (len $modules) 1 }}
+server_wide_modules = {{ join "," $modules }}
 {{- end }}
 limit_time_real_cron = 0
 limit_time_real = 0
@@ -153,6 +156,16 @@ log_handler = [':INFO']
 log_level = info
 data_dir = /data
 workers = {{ .Values.workers }}
+{{- /*
+  Module selection for the worker pod.
+  - queue_job is loaded here only in single-process mode (workers == 0),
+    because then the worker pod also runs cron threads. When workers > 0
+    a dedicated cron pod runs (see deployment-cron.yaml) and queue_job
+    is enabled there exclusively (see odoo-cron.config above).
+  - session_db is loaded regardless of worker mode because every pod
+    that serves HTTP requests needs access to the shared session store.
+*/}}
+{{- $modules := list "web" }}
 {{- if gt (int .Values.workers) 0 }}
 max_cron_threads = {{ .Values.cronWorkers }}
 limit_time_real_cron = 0
@@ -162,9 +175,11 @@ limit_time_real_cron = 0
 limit_time_real = 0
 limit_memory_soft = 0
 limit_memory_hard = 0
-{{- if .Values.queue }}
-server_wide_modules = web,queue_job
+{{- if .Values.queue }}{{- $modules = append $modules "queue_job" }}{{- end }}
 {{- end }}
+{{- if .Values.sessionstore.db }}{{- $modules = append $modules "session_db" }}{{- end }}
+{{- if gt (len $modules) 1 }}
+server_wide_modules = {{ join "," $modules }}
 {{- end }}
 {{ include "odoo.addConfig" . }}
 {{- end }}

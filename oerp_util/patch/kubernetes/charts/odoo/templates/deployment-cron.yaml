@@ -52,8 +52,10 @@ spec:
             - name: {{ include "odoo.fullname" . }}-config-vol
               mountPath: /data/etc
               readOnly: true
+            {{- if not .Values.odooinit.sessionstore.db }}
             - name: {{ include "odoo.fullname" . }}-session-vol
               mountPath: /data/sessions
+            {{- end }}
             - name: {{ include "odoo.fullname" . }}-filestore-vol
               mountPath: /data/filestore
             {{- if .Values.odooinit.backup.volumeClaim }}
@@ -70,9 +72,11 @@ spec:
         - name: {{ include "odoo.fullname" . }}-config-vol
           secret:
             secretName: {{ include "odoo.fullname" . }}-config
+        {{- if not .Values.odooinit.sessionstore.db }}
         - name: {{ include "odoo.fullname" . }}-session-vol
           persistentVolumeClaim:
             claimName: {{ include "odoo.fullname" . }}-sessionstore
+        {{- end }}
         - name: {{ include "odoo.fullname" . }}-filestore-vol
           persistentVolumeClaim:
             claimName: {{ include "odoo.fullname" . }}-filestore

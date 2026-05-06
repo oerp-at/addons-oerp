@@ -119,6 +119,15 @@ filestore:
   storageClassName: "default"
 
 sessionstore:
+  # When true, sessions are stored in the PostgreSQL database via the
+  # OCA `session_db` module instead of the filesystem PVC. The
+  # `session_db` module must be available on the addons path.
+  db: false
+  # Optional override for SESSION_DB_URI when `db` is true. Leave empty
+  # to derive from pgHost/pgPort/pgUser/pgPassword/pgDatabase (uses the
+  # same database as Odoo). Set to a full PostgreSQL URI for a
+  # dedicated session database.
+  dbUri: ""
   size: 1Gi
   storageClassName: "default"
 
