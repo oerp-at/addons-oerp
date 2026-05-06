@@ -134,8 +134,9 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             help="Full sync of filestore, delete files that are not in the source.")
 
     def restore_from_backup_store(self):
-        """ Pull a backup snapshot from a restic store into ``backup_path`` and
-        configure ``restore_fs`` / ``restore_db`` from the restored content.
+        """ Pull the latest snapshot from the restic store into ``backup_path``.
+
+        Returns True if the snapshot was successfully restored, False otherwise.
         """
         backup_path = os.path.abspath(self.params.backup_path)
         backup_store = self.params.backup_store
@@ -151,16 +152,23 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             _logger.warning("Cannot access backup store %s (returncode %s): %s",
                             backup_store, check.returncode,
                             check.stderr.decode(errors='replace').strip() or check.stdout.decode(errors='replace').strip())
-            return
+            return False
 
         _logger.info("Restore backup from store %s to %s", backup_store, backup_path)
         try:
             run_and_retry(f'restic -r {backup_store} restore latest --target {backup_path}')
         except subprocess.CalledProcessError as e:
             _logger.warning("Failed to restore backup from store %s: %s", backup_store, e)
-            return
+            return False
 
-        # locate filestore directory and database dump within restored tree
+        return True
+
+    def _find_backup_path_content(self, backup_path):
+        """ Locate ``filestore`` directory and ``db.dump[.gz|.bz2]`` within ``backup_path``.
+
+        Returns a tuple ``(restored_fs, restored_db)`` where each entry is either
+        the resolved path or ``None`` if not found.
+        """
         restored_fs = None
         restored_db = None
         for root, dirs, files in os.walk(backup_path):
@@ -173,13 +181,36 @@ class Restore(CommandMixin, Command, DatabaseMixin):
                         break
             if restored_fs and restored_db:
                 break
+        return restored_fs, restored_db
+
+    def has_backup_path_content(self):
+        """ Check whether ``backup_path`` already contains a usable backup. """
+        backup_path = os.path.abspath(self.params.backup_path)
+        if not os.path.isdir(backup_path):
+            return False
+        restored_fs, restored_db = self._find_backup_path_content(backup_path)
+        return bool(restored_fs and restored_db)
+
+    def apply_backup_path(self, check_db=True):
+        """ Locate filestore and database dump within ``backup_path`` and assign
+        them to ``restore_fs`` / ``restore_db``.
+
+        :param check_db: when True, only assign ``restore_db`` if the target
+            database is not already ready (see ``is_database_ready``); the dump
+            is then skipped to keep the existing database untouched.
+
+        Returns True if both filestore and database dump were resolved (and
+        assigned, subject to ``check_db``), False otherwise.
+        """
+        backup_path = os.path.abspath(self.params.backup_path)
+        restored_fs, restored_db = self._find_backup_path_content(backup_path)
 
         if not restored_fs:
             _logger.warning("No filestore found in restored backup at %s", backup_path)
-            return
+            return False
         if not restored_db:
             _logger.warning("No database dump found in restored backup at %s", backup_path)
-            return
+            return False
 
         # decompress dump if needed (download_database only handles compression for remote sources)
         if restored_db.endswith('.gz'):
@@ -191,9 +222,14 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             subprocess.run(f"bzip2 -df {restored_db}", shell=True, check=True)
             restored_db = restored_db[:-4]
 
-        _logger.info("Use restored filestore %s and database %s", restored_fs, restored_db)
         self.params.restore_fs = restored_fs
-        self.params.restore_db = restored_db
+        if check_db and self.is_database_ready():
+            _logger.info("Database %s is already ready, skip restore from %s; use restored filestore %s",
+                         self.db_name, restored_db, restored_fs)
+        else:
+            _logger.info("Use restored filestore %s and database %s", restored_fs, restored_db)
+            self.params.restore_db = restored_db
+        return True
 
     def restore_filestore(self, url):
         # prepare urls
@@ -509,12 +545,15 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             db_name = db_name[0]
         self.db_name = db_name
 
-        # fetch backup from restic store if no explicit restore source is given
-        if self.params.backup_store and not self.params.restore_fs and not self.params.restore_db:
-            if not self.params.backup_path:
+        # derive restore sources from backup_path (and optionally restic store)
+        # when no explicit restore source is given
+        if not self.params.restore_fs and not self.params.restore_db:
+            if self.params.backup_path:
+                if not self.has_backup_path_content() and self.params.backup_store:
+                    self.restore_from_backup_store()
+                self.apply_backup_path()
+            elif self.params.backup_store:
                 _logger.warning("Skip backup store restore: --backup-path is not set")
-            else:
-                self.restore_from_backup_store()
 
         if self.params.restore_zip:
             _logger.info("Restore from zip %s", self.params.restore_zip)
