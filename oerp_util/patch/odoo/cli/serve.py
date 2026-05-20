@@ -57,6 +57,12 @@ class Serve(Command, DatabaseMixin):
             metavar="CONFIG",
             envvar=True,
             help="Specify the configuration")
+        parser.add_argument("--http-port",
+            name="http_port",
+            metavar="HTTP_PORT",
+            type=int,
+            envvar=True,
+            help="Specify the HTTP port")
 
         # additional arguments
         parser.add_argument("--wait-for-database",
@@ -80,6 +86,7 @@ class Serve(Command, DatabaseMixin):
             ('db_password', 'PGPASSWORD'),
             ('addons_path', 'ODOO_ADDONS_PATH'),
             ('config', 'ODOO_RC'),
+            ('http_port', 'ODOO_HTTP_PORT'),
             ):
             if hasattr(args, config_key):
                 value = getattr(args, config_key)
