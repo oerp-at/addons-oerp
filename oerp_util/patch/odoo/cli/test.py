@@ -63,6 +63,13 @@ class Test(CommandMixin, Command):
             required=False
         )
 
+        self.parser.add_argument(
+            "--test-server-port",
+            help="Port the test server listens on",
+            metavar="TEST_SERVER_PORT",
+            type=int,
+            required=False,
+        )
 
         self.parser.add_argument(
             "--xml-report",
@@ -179,6 +186,8 @@ class Test(CommandMixin, Command):
         config["test_enable"] = True
         config["stop_after_init"] = True
         config["test_server"] = config.get("test_server", self.params.test_server)
+        if self.params.test_server_port:
+            config["http_port"] = self.params.test_server_port
 
         module_name = self.params.module
         test_prefix = self.params.test_prefix
