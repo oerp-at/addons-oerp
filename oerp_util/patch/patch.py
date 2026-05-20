@@ -214,6 +214,12 @@ def patch_dist():
     )
 
     patch(
+        os.path.join(workspace_path, 'AGENTS.md'),
+        os.path.join(src_path, 'AGENTS.md'),
+        template_ctx=template_ctx
+    )
+
+    patch(
         os.path.join(workspace_path, '.gitignore'),
         os.path.join(src_path, '.gitignore'),
     )

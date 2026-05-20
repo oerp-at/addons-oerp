@@ -6,3 +6,5 @@ default:
     development: true
     update: true
     delete: true
+  test:
+    test_server_port: 10069
