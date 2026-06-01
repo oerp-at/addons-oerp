@@ -14,6 +14,7 @@ requests-mock = "*"
 parquet-tools = "*"
 unittest-xml-reporting = "*"
 websocket-client = "*"
+inotify = "*"
 
 [packages]
 pyyaml = "*"
