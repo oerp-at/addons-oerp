@@ -1,6 +1,6 @@
-# Agent Instructions – Odoo {{ odoo_version }}
+# Agent Instructions – Odoo 19.0
 
-Dieses Projekt ist eine **Odoo {{ odoo_version }} Distribution**: ein Monorepo mit Odoo-Core, Standard-Addons und lokal ausgecheckten Unterprojekten.
+Dieses Projekt ist eine **Odoo 19.0 Distribution**: ein Monorepo mit Odoo-Core, Standard-Addons und lokal ausgecheckten Unterprojekten.
 
 ## Projektstruktur
 
@@ -47,15 +47,23 @@ Folgende Verzeichnisse/Dateien sind generiert oder extern und sollen nicht manue
 
 ## Technologie
 
-- **Odoo:** Version **{{ short_version }}**
+- **Odoo:** Version **19**
 - **Python:** 3.12 (virtuelle Umgebung unter `.venv`)
 - **Abhängigkeiten:** Pipenv (`pipenv install` / `pipenv install --dev`)
 - **Patch:** Mit `./addons-oerp/oerp_util/patch/patch.py` wird das lokale Checkout einmalig vorbereitet (CLI-Erweiterungen, Workspace-Dateien, Docker-Setup).
 - **Assembly:** Nach `./odoo/odoo-bin assemble` stehen Befehle wie `odoo serve`, `odoo update`, `odoo test` zur Verfügung und der `assembly/`-Symlink-Baum wird aktualisiert. **Nach dem Anlegen neuer Module muss `odoo assemble` erneut ausgeführt werden.**
 
+### CLI über Pipenv ausführen
+
+Die CLI-Befehle (`odoo <cmd>`) **immer über `pipenv run` aufrufen**, z. B. `pipenv run odoo assemble`.
+
+- Das blanke `.venv/bin/odoo` zieht die System-`lxml` aus `/usr/lib/python3/dist-packages` und bricht mit `ImportError: lxml.html.clean module is now a separate project` ab.
+- `pipenv run` setzt die Umgebung korrekt auf und nutzt die Projekt-Dependencies.
+- Unterprojekt-Wechsel: `pipenv run odoo assemble` im jeweiligen `custom-addons-<name>/`-Verzeichnis ausführen (siehe [Unterprojekt wechseln](#unterprojekt-wechseln-mit-odoo-assemble)).
+
 ## CLI-Befehle
 
-Alle Befehle können mit `odoo <cmd>` aufgerufen werden (nach `assemble`). Die wichtigsten:
+Alle Befehle können mit `odoo <cmd>` aufgerufen werden (nach `assemble`; in dieser Umgebung als `pipenv run odoo <cmd>`). Die wichtigsten:
 
 | Befehl | Beschreibung |
 |--------|-------------|
@@ -118,6 +126,6 @@ Profile definieren Standardwerte (Datenbank, Sprache, etc.) und werden in dieser
 4. `<projekt>/custom-addons-<name>/.odoo-profile.yml` (lokales Override)
 5. `~/.odoo-profile.yml` (benutzerspezifisch)
 
-Der Profilname leitet sich vom Verzeichnisnamen ab: `{{ profile }}` bzw. `{{ profile }}-<subprojekt>`.
+Der Profilname leitet sich vom Verzeichnisnamen ab: `odoo-19.0-sh` bzw. `odoo-19.0-sh-<subprojekt>`.
 
 Bei Befehlen wie `odoo update`, `odoo serve`, `odoo test` die passende Datenbank angeben (`-d <database>`), sofern nicht durch Profil vorkonfiguriert.
