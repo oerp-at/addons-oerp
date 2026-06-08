@@ -138,11 +138,48 @@ class Po_Export(CommandMixin, Command):
             help="Export translation template"
         )
         self.parser.add_argument(
-            "--lang",
-            name="lang",
-            metavar="LANG",
-            help="Language to export"
+            "--keep-inherited",
+            name="keep_inherited",
+            action="store_true",
+            help="Keep translations of inherited/mixin fields and inherited model "
+                 "names (e.g. 'Created by', 'Messages')"
         )
+
+    def _is_inherited_term(self, env, module, ttype, name, res_id):
+        """Check if a translation term originates from another module.
+
+        Fields introduced by another module (magic columns, mail mixin, etc.)
+        have their _modules set to that source module, not the current one.
+        Likewise, model names inherit from the module that first defined them.
+        """
+        if ttype not in ('model', 'model_terms') or not res_id or '.' not in res_id:
+            return False
+        record = env.ref(res_id, raise_if_not_found=False)
+        if not record:
+            return False
+        record_model = record._name
+        if record_model == 'ir.model.fields':
+            # Magic fields (create_uid, write_date, id, display_name, etc.)
+            # are inherited from BaseModel by every model.
+            from odoo.orm.models import MAGIC_COLUMNS
+            MAGIC_FIELD_NAMES = frozenset(list(MAGIC_COLUMNS) + ['display_name', '__last_update'])
+            if record.name in MAGIC_FIELD_NAMES:
+                return True
+            field = env[record.model]._fields.get(record.name)
+            # _modules contains the mixin module for mixin fields
+            # (e.g. message_ids._modules == ('mail',)).
+            if field and field._modules and module not in field._modules:
+                return True
+            return False
+        if record_model == 'ir.model.fields.selection':
+            field_model = record.field_id.model
+            field = env[field_model]._fields.get(record.field_id.name)
+            return bool(field and field._modules) and module not in field._modules
+        if record_model == 'ir.model':
+            target = env.get(record.model)
+            return bool(target is not None and target._original_module) \
+                and target._original_module != module
+        return False
 
     def run_config(self):
         # check module
@@ -178,9 +215,15 @@ class Po_Export(CommandMixin, Command):
 
     def trans_export(self, lang, modules, buffer, cr, ignore, ignore_empty=False, only_empty=False):
         translations = TranslationModuleReader(cr, modules=modules, lang=lang)
-        modules = set(t[0] for t in translations)
-        writer = PoIgnoreFileWriter(buffer, modules, lang, ignore, ignore_empty=ignore_empty, only_empty=only_empty)
-        writer.write_rows(translations)
+        rows = list(translations)
+        if not self.params.keep_inherited:
+            from odoo import SUPERUSER_ID
+            from odoo.api import Environment
+            env = Environment(cr, SUPERUSER_ID, {})
+            rows = [r for r in rows if not self._is_inherited_term(env, r[0], r[1], r[2], r[3])]
+        export_modules = set(r[0] for r in rows)
+        writer = PoIgnoreFileWriter(buffer, export_modules, lang, ignore, ignore_empty=ignore_empty, only_empty=only_empty)
+        writer.write_rows(rows)
         del translations
 
     def load_ignore(self):
