@@ -38,6 +38,8 @@ custom-addons-<name>/
 
 Beim Bearbeiten von Modulen immer prüfen, in welchem **`custom-addons-*`**-Baum das Modul liegt; Abhängigkeiten und Imports beziehen sich auf diese Addon-Pfade.
 
+**⚠️ Wichtig: Wenn Kommandos direkt im Unterprojekt-Ordner ausgeführt werden, ist keine Angabe der Datenbank (`-d`) notwendig – das Profil des Unterprojekts stellt die Datenbank automatisch bereit.**
+
 ### Nicht bearbeiten
 
 Folgende Verzeichnisse/Dateien sind generiert oder extern und sollen nicht manuell geändert werden:
@@ -81,6 +83,16 @@ Alle Befehle können mit `odoo <cmd>` aufgerufen werden (nach `assemble`; in die
 | `odoo autoenv` | Umgebung automatisch einrichten |
 
 Datenbank `-d <database>` kann entfallen, wenn per Profil vorkonfiguriert.
+
+## Agent-Regeln (Cursor · Copilot · Claude)
+
+Die Coding- und Projektregeln werden für **drei** KI-Assistenten parallel gepflegt und aus einer gemeinsamen Quelle verteilt:
+
+- **Cursor** – `.cursor/rules/*.mdc` (Front-matter + Markdown, glob-/`alwaysApply`-gesteuert)
+- **GitHub Copilot** – `.github/instructions/*.instructions.md` (+ Zusammenfassung der immer aktiven Regeln in `.github/copilot-instructions.md`)
+- **Claude** – `CLAUDE.md` (kompakter Kontext im Root; diese `AGENTS.md` als Langform)
+
+**Wird eine Regel neu angelegt oder geändert, muss sie in allen drei Zielen gespiegelt werden** (gleicher Basisname/Scope, inhaltlich äquivalent). Verteilung und bidirektionale Synchronisation (`patch_back`) übernimmt `addons-oerp/oerp_util/patch/patch.py`; bearbeitet wird im Workspace. Details: `.cursor/rules/agent-rules-sync.mdc`.
 
 ## Konventionen für Addons
 

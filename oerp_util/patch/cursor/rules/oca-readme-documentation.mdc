@@ -1,0 +1,27 @@
+---
+description: Neue Funktionen unter readme/ dokumentieren (OCA-Struktur)
+alwaysApply: false
+---
+
+# OCA Readme-Dokumentation
+
+Neue Funktionen und Module werden wie von der **OCA-Struktur** vorgesehen unter dem Ordner **`readme/`** dokumentiert.
+
+## Ordnerstruktur
+
+Pro Modul ein Unterordner `readme/` mit optionalen Markdown-Dateien:
+
+- **DESCRIPTION.md** – Was das Modul macht, Zielgruppe, typische Anwendungsfälle (bei neuen Modulen oder neuen Features anpassen/ergänzen).
+- **USAGE.md** – Nutzung, Workflow, Beispiele.
+- **CONFIGURE.md** – Konfiguration (Einstellungen, Optionen).
+- **INSTALL.md** – Installationshinweise, falls nötig.
+- **CONTRIBUTORS.md** – Mitwirkende.
+- **ROADMAP.md**, **CREDITS.md** – optional.
+
+## Bei neuen Funktionen
+
+- **DESCRIPTION.md** aktualisieren, wenn sich Zweck oder Umfang des Moduls ändern.
+- **USAGE.md** erweitern, wenn neue Abläufe oder Nutzungsszenarien hinzukommen.
+- **CONFIGURE.md** ergänzen, wenn neue Einstellungen/Optionen eingeführt werden.
+
+Dateinamen nur Kleinbuchstaben und Unterstriche; Format Markdown (`.md`). Kurz und verständlich formulieren.

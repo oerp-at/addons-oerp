@@ -1,0 +1,13 @@
+---
+description: Neue Odoo-Module aus WOA-Template erstellen
+alwaysApply: false
+---
+
+# WOA Addon-Template für neue Module
+
+Für **neue Odoo-Module** wird das Template unter **`.cursor/templates/woa_addon`** verwendet.
+
+- Beim Anlegen eines neuen Moduls die Dateien und die Ordnerstruktur aus dem Template übernehmen.
+- Beide Icons kopieren: `static/description/icon.svg` **und** `static/description/icon.png`.
+- Modulnamen, `name`/`summary` im Manifest und ggf. Abhängigkeiten anpassen; Version auf 19.0.x.y.z setzen.
+- Zusätzlich die Projektkonventionen (OCA Coding Style, readme-Dokumentation unter `readme/`) beachten.

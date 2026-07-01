@@ -1,0 +1,19 @@
+
+---
+description: OCA Coding Style – bei Code-Erstellung einhalten
+alwaysApply: false
+---
+
+# OCA Coding Style
+
+Beim Erstellen von Code den **OCA Coding Style** einhalten. Referenz: [OCA Guidelines](https://github.com/OCA/odoo-community.org/blob/master/website/Contribution/CONTRIBUTING.rst).
+
+**Python:** PEP8/Flake8; Imports: stdlib → third party → odoo → lokale Imports (alphabetisch). Black/isort für Formatierung. Strings mit `%(name)s`, Exceptions aus `odoo.exceptions` (z.B. `UserError`). Methodennamen: `_compute_<field>`, `_inverse_<field>`, `_search_<field>`, `_onchange_<field>`, `_check_*`, Aktionen `action_*` + `self.ensure_one()`. Modelle: UpperCamelCase, Modellname z.B. `sale.order` (Singular). Kein `cr.commit()`, kein Raw-SQL wenn ORM reicht; SQL nur mit Platzhaltern `%s`. Ab Odoo 18 in Models: `self.env._()` statt `_()`.
+
+**Modul/Manifest:** Modulname Singular, `base_`/`l10n_CC_`/Erweiterungsname als Präfix. Version `19.0.x.y.z`, `author` inkl. ", Odoo Community Association (OCA)", `license`, `website` (OCA-Repo). Keine leeren Keys.
+
+**Struktur:** `models/`, `views/`, `controllers/`, `security/`, `data/`, `demo/`, `tests/`. Dateinamen nur `[a-z0-9_]`: z.B. `models/res_partner.py`, `views/res_partner_views.xml`, `data/res_partner_data.xml`; Controller einzeln: `main.py`.
+
+**XML:** 4 Leerzeichen; `id` vor `model`; Felder: `name` zuerst. xml_id ohne Modul-Präfix; Muster: `model_view_form`, `model_menu`, `model_action`. Demo-IDs mit Suffix `_demo`. Boolean/Numeric mit `eval="True"`/`eval="100"`. Kein `<openerp>`/veraltete Nodes; Odoo 18+ neues Chatter-Tag.
+
+**File Header:** Im File header werden möglichst keine Kommentare gesetzt.

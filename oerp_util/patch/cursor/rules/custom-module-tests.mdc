@@ -1,0 +1,47 @@
+---
+description: Test conventions for customer-specific Odoo modules (woa_<customer>_*)
+globs: custom-addons-*/woa_custom/**/tests/**
+alwaysApply: false
+---
+
+# Customer Module Tests (`woa_<customer>_*`)
+
+Customer modules (`woa_custom/woa_<customer>_*`) are deployed on a **known, fixed database**. Tests in these modules may **directly use existing database records** instead of creating synthetic test data.
+
+## Rules
+
+1. **Use DB data directly** – Query existing records (reports, accounts, journals, etc.) instead of creating new ones. The migration scripts and module data have already populated the database.
+2. **Tag with `-standard` and `custom`** – Always use `@tagged('-standard', 'custom')` so these tests only run on demand (`--test-tags=custom`), not in generic CI. No `post_install` / `-at_install` needed.
+3. **Don't load migration scripts** – Migrations have already run. Verify the **result**, not the script execution.
+4. **Use `TransactionCase`** – Prefer `TransactionCase` (or a fitting Common class) so each test rolls back automatically. Avoid modifying the DB state.
+
+## Example
+
+```python
+from odoo.tests import tagged
+from odoo.tests.common import TransactionCase
+
+
+@tagged('-standard', 'custom')
+class TestReportStructure(TransactionCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.report = cls.env['account.report'].search([
+            ('name', 'ilike', 'Bau'),
+        ], limit=1)
+
+    def test_hours_column_exists(self):
+        hours_col = self.report.column_ids.filtered(
+            lambda c: c.expression_label == 'hours',
+        )
+        self.assertEqual(len(hours_col), 1)
+```
+
+## Running
+
+```bash
+cd custom-addons-<subproject>/
+pipenv run odoo test <module> --test-tags=custom
+```

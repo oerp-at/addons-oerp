@@ -71,9 +71,10 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
             return True
         else:
             # compare with current and write only if different
-            with open(src_path, 'r', encoding='utf-8') as f:
+            # (read binary so the same code path also syncs non-text files)
+            with open(src_path, 'rb') as f:
                 src_content = f.read()
-            with open(dst_path, 'r', encoding='utf-8') as f:
+            with open(dst_path, 'rb') as f:
                 dst_content = f.read()
             if src_content == dst_content:
                 return False
@@ -141,6 +142,39 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
             return True
 
         return False
+
+def patch_tree(dst_dir, src_dir, patch_back=False, template_ctx=None, update=True):
+    """
+    Recursively patch every file of src_dir into dst_dir.
+
+    Directories are created as needed. Files that only exist in dst_dir are
+    left untouched, so project-local additions (e.g. an extra rule) survive.
+    With patch_back each file is kept in bidirectional sync just like patch().
+    """
+    if not os.path.isdir(src_dir):
+        raise PatchError(f'source tree not found: {src_dir}')
+
+    changed = False
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+        changed = True
+
+    for root, _dirs, files in os.walk(src_dir):
+        rel = os.path.relpath(root, src_dir)
+        target_root = dst_dir if rel == '.' else os.path.join(dst_dir, rel)
+        if not os.path.exists(target_root):
+            os.makedirs(target_root)
+            changed = True
+        for file_name in files:
+            if patch(
+                    os.path.join(target_root, file_name),
+                    os.path.join(root, file_name),
+                    patch_back=patch_back,
+                    template_ctx=template_ctx,
+                    update=update):
+                changed = True
+
+    return changed
 
 def patch_dist():
     """
@@ -214,15 +248,41 @@ def patch_dist():
     )
 
     patch(
-        os.path.join(workspace_path, 'AGENTS.md'),
-        os.path.join(src_path, 'AGENTS.md'),
-        template_ctx=template_ctx
-    )
-
-    patch(
         os.path.join(workspace_path, '.gitignore'),
         os.path.join(src_path, '.gitignore'),
     )
+
+    ## setup AI assistant rules (Cursor, GitHub Copilot, Claude)
+    #
+    # One shared rule set drives three assistants. All of these are kept in
+    # bidirectional sync (patch_back): edit them in the workspace and the
+    # changes are written back to this patch source, and vice versa.
+
+    # Claude: root context + long-form agent instructions
+    patch(
+        os.path.join(workspace_path, 'CLAUDE.md'),
+        os.path.join(src_path, 'CLAUDE.md'),
+        patch_back=True)
+
+    patch(
+        os.path.join(workspace_path, 'AGENTS.md'),
+        os.path.join(src_path, 'AGENTS.md'),
+        patch_back=True)
+
+    # Cursor: rule files (.mdc) – kept in sync per file
+    patch_tree(
+        os.path.join(workspace_path, '.cursor', 'rules'),
+        os.path.join(src_path, 'cursor', 'rules'),
+        patch_back=True)
+
+    # Cursor: addon templates – copied once (contains binary assets), not synced
+    patch(
+        os.path.join(workspace_path, '.cursor', 'templates'),
+        os.path.join(src_path, 'cursor', 'templates'),
+        copy_tree=True)
+
+    # GitHub: Copilot instructions (copilot-instructions.md + instructions/) and
+    # CI workflows – bootstrapped and kept in sync per file (see final block).
 
     ## setup development
     #
@@ -276,10 +336,11 @@ def patch_dist():
               os.path.join(src_path, 'kubernetes'),
               copy_tree=True)
 
-    # copy github workflows
-    patch(os.path.join(workspace_path, '.github'),
+    # setup github: CI workflows + Copilot instructions
+    # (kept in sync per file so new instruction files propagate both ways)
+    patch_tree(os.path.join(workspace_path, '.github'),
               os.path.join(src_path, 'github'),
-              copy_tree=True)
+              patch_back=True)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,40 @@
+---
+description: All field names and descriptions in code must be in English
+alwaysApply: true
+---
+
+# English in Code
+
+All **field names**, **string labels**, **help texts**, and **descriptions** in source code must be written in **English**.
+
+## Scope
+
+- **Python:** `string=` and `help=` on field definitions, `_description` on models, user-facing messages in code (e.g. `UserError`, wizard messages).
+- **XML:** `string=` and `help=` on field and view elements, button/label texts, menu titles, action names and descriptions.
+- **Manifest:** `name`, `description`, `summary` in `__manifest__.py` – in English.
+
+## Rationale
+
+- English is the standard language for code and identifiers; translations are handled via `po_export` / `po_import` and language modules.
+- Keeps the codebase consistent and easier to maintain and review.
+
+## Examples
+
+```python
+# ✅ GOOD
+name = fields.Char(string="Internal Reference", help="Unique internal reference.")
+description = fields.Text(string="Description")
+
+# ❌ BAD (German in code)
+name = fields.Char(string="Interne Referenz", help="Eindeutige interne Referenz.")
+```
+
+```xml
+<!-- ✅ GOOD -->
+<field name="date_start" string="Start Date" help="Start date of the period."/>
+
+<!-- ❌ BAD -->
+<field name="date_start" string="Startdatum" help="Startdatum des Zeitraums."/>
+```
+
+User-facing text that is only ever shown in the UI and is translated via `.po` files can stay in the default (e.g. German) in the PO files; the rule applies to the **source code** (Python/XML/manifest), which must use English.

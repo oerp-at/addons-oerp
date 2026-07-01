@@ -1,0 +1,52 @@
+
+---
+description: WOA Coding Style – keep names descriptive, short, and simple
+alwaysApply: true
+---
+
+# WOA Coding Style – Naming
+
+All names (variables, fields, methods, classes, modules, XML IDs, filenames) must be **descriptive, short, and as simple as possible**.
+
+## Rules
+
+1. **Descriptive** – The name clearly conveys what it represents. No guessing required.
+2. **Short** – Omit unnecessary words. Don't repeat context already implied by the model or module.
+3. **Simple** – Prefer commonly understood terms. Avoid abbreviations that aren't immediately obvious.
+
+## Examples
+
+```python
+# ❌ BAD – too long, redundant, unclear
+has_active_employee_contract_flag = fields.Boolean()
+compute_total_amount_of_all_lines_in_order = ...
+tmp_val = ...
+x = ...
+
+# ✅ GOOD – descriptive, short, simple
+is_contracted = fields.Boolean(string="Contracted")
+_compute_total = ...
+remaining_qty = ...
+line_count = ...
+```
+
+```xml
+<!-- ❌ BAD -->
+<record id="action_open_all_sale_order_records_list" ...>
+<field name="very_long_redundant_description_field_name" .../>
+
+<!-- ✅ GOOD -->
+<record id="sale_order_action" ...>
+<field name="description" .../>
+```
+
+## Quick Reference
+
+| Element | Style | Example |
+|---------|-------|---------|
+| Field | `snake_case`, no model name prefix | `start_date`, `total` |
+| Method | `_compute_*`, `action_*` – keep short | `_compute_total`, `action_confirm` |
+| Model class | `UpperCamelCase` | `SaleOrder` |
+| Model name | `dot.notation`, singular | `sale.order` |
+| XML ID | `model_view_type` | `sale_order_view_form` |
+| Module | `snake_case`, singular | `sale_subscription` |

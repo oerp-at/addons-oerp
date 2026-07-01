@@ -1,0 +1,22 @@
+---
+name: 'Assembly Directory is Read-Only'
+description: 'assembly/ is read-only (symlinks) – never edit there'
+applyTo: 'assembly/**'
+---
+
+# Assembly Directory is Read-Only
+
+The `assembly/` directory contains **symlinks** to the actual module source files. Never create or edit files inside `assembly/`.
+
+- **Source of truth**: `custom-addons-<subproject>/` directories
+- **Edit files** only in `custom-addons-<subproject>/`
+- Changes in the source are automatically reflected in `assembly/` via symlinks
+
+## Adding a New Module
+
+When a new module is added to a subproject, regenerate the assembly:
+
+```bash
+cd custom-addons-<subproject>/
+odoo assemble
+```
