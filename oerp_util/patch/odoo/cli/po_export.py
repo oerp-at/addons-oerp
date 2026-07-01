@@ -138,6 +138,12 @@ class Po_Export(CommandMixin, Command):
             help="Export translation template"
         )
         self.parser.add_argument(
+            "--lang",
+            name="lang",
+            metavar="LANG",
+            help="Language to export"
+        )
+        self.parser.add_argument(
             "--keep-inherited",
             name="keep_inherited",
             action="store_true",
