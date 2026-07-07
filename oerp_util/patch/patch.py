@@ -341,6 +341,7 @@ def patch_dist(force=False):
     patch(os.path.join(workspace_path, 'Dockerfile'),
               os.path.join(src_path, 'Dockerfile'))
 
+
     # setup github: CI workflows + Copilot instructions
     # (kept in sync per file so new instruction files propagate both ways)
     patch_tree(os.path.join(workspace_path, '.github'),
