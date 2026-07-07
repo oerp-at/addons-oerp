@@ -30,7 +30,7 @@ def replace_placeholders(value, context):
     value = PLACEHOLDER_PATTERN.sub(replace_match, value)
     return value
 
-def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_back=False, add_init=False, copy_tree=False, update=True):
+def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_back=False, add_init=False, copy_tree=False, update=True, force=False):
     """ A simple patch function with less library dependencies that it runs if python3 is installed."""
     if directory:
         if not os.path.exists(dst_path):
@@ -78,6 +78,12 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
                 dst_content = f.read()
             if src_content == dst_content:
                 return False
+
+            # force: always take the source, never patch back
+            if force:
+                _logger.warning('force update %s', file_name)
+                shutil.copy(src_path, dst_path)
+                return True
 
             src_mtime = os.path.getmtime(src_path)
             dst_mtime = os.path.getmtime(dst_path)
@@ -143,7 +149,7 @@ def patch(dst_path, src_path=None, directory=False, template_ctx=None, patch_bac
 
         return False
 
-def patch_tree(dst_dir, src_dir, patch_back=False, template_ctx=None, update=True):
+def patch_tree(dst_dir, src_dir, patch_back=False, template_ctx=None, update=True, force=False):
     """
     Recursively patch every file of src_dir into dst_dir.
 
@@ -171,14 +177,18 @@ def patch_tree(dst_dir, src_dir, patch_back=False, template_ctx=None, update=Tru
                     os.path.join(root, file_name),
                     patch_back=patch_back,
                     template_ctx=template_ctx,
-                    update=update):
+                    update=update,
+                    force=force):
                 changed = True
 
     return changed
 
-def patch_dist():
+def patch_dist(force=False):
     """
     Patch(back) the current cli/*.py to the current odoo distribution.
+
+    With force the source (addons-oerp) always wins: files are patched
+    into the workspace but never patched back.
     """
 
     # determine and check paths
@@ -234,7 +244,7 @@ def patch_dist():
         patch(
             os.path.join(odoo_path, 'odoo', 'cli', f'{cli_cmd}.py'),
             os.path.join(src_path, 'odoo', 'cli', f'{cli_cmd}.py'),
-            patch_back=True)
+            patch_back=True, force=force)
 
     patch(
         os.path.join(odoo_path, 'odoo-bin'),
@@ -262,18 +272,18 @@ def patch_dist():
     patch(
         os.path.join(workspace_path, 'CLAUDE.md'),
         os.path.join(src_path, 'CLAUDE.md'),
-        patch_back=True)
+        patch_back=True, force=force)
 
     patch(
         os.path.join(workspace_path, 'AGENTS.md'),
         os.path.join(src_path, 'AGENTS.md'),
-        patch_back=True)
+        patch_back=True, force=force)
 
     # Cursor: rule files (.mdc) – kept in sync per file
     patch_tree(
         os.path.join(workspace_path, '.cursor', 'rules'),
         os.path.join(src_path, 'cursor', 'rules'),
-        patch_back=True)
+        patch_back=True, force=force)
 
     # Cursor: addon templates – copied once (contains binary assets), not synced
     patch(
@@ -304,7 +314,7 @@ def patch_dist():
     # setup vscode workspace
     patch(os.path.join(workspace_path, 'odoo.code-workspace'),
           os.path.join(src_path, 'dev', 'odoo.code-workspace'),
-          patch_back=True)
+          patch_back=True, force=force)
 
     # setup vscode config
     if not patch(os.path.join(workspace_path, '.vscode'),
@@ -315,7 +325,7 @@ def patch_dist():
         # if vscode directory exists, patch (back) snippets
         patch(os.path.join(workspace_path, '.vscode', 'odoo.code-snippets'),
               os.path.join(src_path, 'dev', '.vscode', 'odoo.code-snippets'),
-              patch_back=True)
+              patch_back=True, force=force)
 
     # copy test config
     patch(os.path.join(workspace_path, '.config'), directory=True)
@@ -340,13 +350,13 @@ def patch_dist():
     # (kept in sync per file so new instruction files propagate both ways)
     patch_tree(os.path.join(workspace_path, '.github'),
               os.path.join(src_path, 'github'),
-              patch_back=True)
+              patch_back=True, force=force)
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     try:
-        patch_dist()
+        patch_dist(force='--force' in sys.argv[1:])
     except PatchError as e:
         _logger.error(e)
         sys.exit(1)
