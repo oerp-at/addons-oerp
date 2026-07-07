@@ -341,11 +341,6 @@ def patch_dist(force=False):
     patch(os.path.join(workspace_path, 'Dockerfile'),
               os.path.join(src_path, 'Dockerfile'))
 
-    # copy kubernetes
-    patch(os.path.join(workspace_path, 'kubernetes'),
-              os.path.join(src_path, 'kubernetes'),
-              copy_tree=True)
-
     # setup github: CI workflows + Copilot instructions
     # (kept in sync per file so new instruction files propagate both ways)
     patch_tree(os.path.join(workspace_path, '.github'),
