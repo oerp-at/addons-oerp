@@ -1,4 +1,4 @@
-FROM ubuntu:jammy
+FROM ubuntu:26.04
 
 # basic configuration
 
@@ -35,6 +35,9 @@ RUN apt-get install -y -f \
     libjs-underscore \
     lsb-base \
     postgresql-client \
+    liburing2 \
+    libseccomp2 \
+    libunwind8 \
     python3-babel \
     python3-chardet \
     python3-dateutil \
@@ -46,6 +49,7 @@ RUN apt-get install -y -f \
     python3-jinja2 \
     python3-libsass \
     python3-lxml \
+    python3-lxml-html-clean \
     python3-num2words \
     python3-ofxparse \
     python3-passlib \
@@ -54,7 +58,7 @@ RUN apt-get install -y -f \
     python3-psycopg2 \
     python3-pydot \
     python3-openssl \
-    python3-pypdf2 \
+    python3-pypdf \
     python3-rjsmin \
     python3-qrcode \
     python3-renderpm \
@@ -88,11 +92,20 @@ RUN apt-get install -y -f \
     python3-cbor2 \
     python3-asn1crypto \
     python3-openpyxl \
-    python3-behave
+    python3-behave \
+    python3-magic \
+    python3-h11
 
-# install whktmltopdf
+# install wkhtmltopdf (no build for ubuntu > jammy, the jammy build works fine)
 COPY docker/install /install
 RUN dpkg -i /install/wkhtmltox_0.12.6.1-2.jammy_amd64.deb ; apt-get install -f -y
+
+# install paper-muncher (long term replacement for wkhtmltopdf)
+# --force-depends: the deb declares "liburing" and "libunwind" which are not
+# real package names on ubuntu; the actual libs (liburing2, libseccomp2,
+# libunwind8) are installed above
+RUN dpkg -i --force-depends /install/paper-muncher_v0.6.0_plucky_amd64.deb
+ENV PATH="/opt/paper-muncher/bin:${PATH}"
 
 # fix imagemagick policy
 COPY docker/files/ImageMagick-6/policy.xml /etc/ImageMagick-6/policy.xml
@@ -101,7 +114,9 @@ COPY docker/files/ImageMagick-6/policy.xml /etc/ImageMagick-6/policy.xml
 COPY docker/files/odoo /usr/local/bin/odoo
 
 # setup odoo
-RUN useradd -ms /bin/bash odoo
+# ubuntu base images >= 23.10 ship a default "ubuntu" user with uid 1000,
+# remove it so odoo gets uid 1000 (matches /data ownership and volumes)
+RUN userdel -r ubuntu && useradd -ms /bin/bash -u 1000 odoo
 RUN mkdir /data
 RUN chown 1000:1000 /data
 
