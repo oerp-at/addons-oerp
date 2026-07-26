@@ -112,7 +112,8 @@ class Test(CommandMixin, Command):
             return OdooTestRunner()
 
     def _get_server(self):
-        server = ThreadedServer(odoo.http.root)
+        from odoo.http.router import root
+        server = ThreadedServer(root)
         return server
 
     def run_test(self,

@@ -325,6 +325,17 @@ class Po_Export(CommandMixin, Command):
             [("state", "=", "installed"), ("name", "=", self.params.module)]):
             _logger.error("No module %s installed!", self.params.module)
             return
+
+        # ensure the export language is activated
+        # (odoo >= 20 raises UserError on env access with an inactive lang)
+        if self.lang and not env["res.lang"]._lang_get(self.lang):
+            _logger.info("Activate language %s", self.lang)
+            env["res.lang"]._activate_lang(self.lang)
+            env["ir.module.module"]._load_module_terms(
+                [self.params.module], [self.lang])
+            # pylint: disable=invalid-commit
+            env.cr.commit()
+
         # set export file
         self.export_file = os.path.join(self.langdir, self.langfile)
         self.export_backup_file = (f'{self.export_file}.backup'
@@ -332,6 +343,16 @@ class Po_Export(CommandMixin, Command):
         # preprocessing
         self.create_backup()
 
+        try:
+            self._export(env)
+        except Exception:
+            # restore the original file, do not leave a truncated export
+            if self.export_backup_file:
+                self.restore_backup()
+                self.remove_backup()
+            raise
+
+    def _export(self, env):
         # write ignore file if enabled
         if self.params.ignore_file:
             with open(f'{self.export_file}.ignore', "wb") as export_stream:

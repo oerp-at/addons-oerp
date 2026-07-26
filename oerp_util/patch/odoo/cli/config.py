@@ -609,7 +609,7 @@ class ConfigCommand():
             config_args.append("--config")
             config_args.append(params.config)
 
-        config.parse_config(config_args)
+        config.parse_config(config_args, setup_logging=True)
         if not params.database:
             params.database = config.get('db_name')
 
