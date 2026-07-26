@@ -310,6 +310,27 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
     def pre_cleanup(self, cr):
         self.pre_cleanup_assets(cr)
         self.pre_cleanup_views(cr)
+        self.pre_cleanup_unaccent(cr)
+
+    def pre_cleanup_unaccent(self, cr):
+        # 'unaccent' must be IMMUTABLE, otherwise PostgreSQL cannot build the
+        # gin(unaccent(...) gin_trgm_ops) trigram indexes used by Odoo.
+        cr.execute("SELECT p.oid::regprocedure::text, p.provolatile FROM pg_proc p WHERE p.proname = 'unaccent'")
+        non_immutable = [sig for sig, vol in cr.fetchall() if vol != 'i']
+        if not non_immutable:
+            return
+        if self.params.fix:
+            for sig in non_immutable:
+                try:
+                    cr.execute('ALTER FUNCTION %s IMMUTABLE' % sig)
+                    _logger.info('[FIX] set %s IMMUTABLE', sig)
+                except psycopg2.Error as e:
+                    cr.execute('ROLLBACK')
+                    _logger.warning('[SKIP] cannot set %s IMMUTABLE: %s', sig, e)
+            cr.execute('COMMIT')
+        else:
+            for sig in non_immutable:
+                _logger.warning('[FOUND] %s not IMMUTABLE (trigram indexes ineffective)', sig)
 
     def pre_cleanup_assets(self, cr):
         cr.execute('SELECT id, path FROM ir_asset WHERE active')
