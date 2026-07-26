@@ -21,6 +21,5 @@
         'views/task_views.xml',
         'views/task_example.xml',
         'wizard/res_config_settings_views.xml'
-    ],
-    'installable': True
+    ]
 }

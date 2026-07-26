@@ -13,6 +13,5 @@
     'depends': ['base',
                 'mail'],
     'data': [
-    ],
-    'installable': True
+    ]
 }
