@@ -3,7 +3,7 @@
 # pylint: disable=license-allowed
 {
     'name': 'Utils',
-    'version': '19.5.2.0.0',
+    'version': '19.5.1.0.0',
     'summary': 'Base Utils for Testing, Development and Deployment',
     'category': 'Base',
     'author': 'martin-reisenhofer',
