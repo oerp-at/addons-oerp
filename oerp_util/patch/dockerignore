@@ -1,0 +1,14 @@
+# keep the docker build context small: only odoo/, addons-*/ sources and
+# docker/ are needed for the image
+**/.git
+.venv*
+.test
+.restore
+.config
+.vscode
+.cursor
+.github
+assembly
+addons-enterprise
+**/__pycache__
+**/*.pyc

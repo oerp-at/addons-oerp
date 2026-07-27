@@ -341,6 +341,9 @@ def patch_dist(force=False):
     patch(os.path.join(workspace_path, 'Dockerfile'),
               os.path.join(src_path, 'Dockerfile'))
 
+    patch(os.path.join(workspace_path, '.dockerignore'),
+              os.path.join(src_path, 'dockerignore'))
+
 
     # setup github: CI workflows + Copilot instructions
     # (kept in sync per file so new instruction files propagate both ways)
