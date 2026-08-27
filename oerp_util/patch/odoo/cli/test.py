@@ -196,6 +196,11 @@ class Test(CommandMixin, Command):
         test_position = self.params.test_position
         cr = env.cr
 
+        # qweb lazy rendering compares threading.current_thread().dbname
+        # with the cursor database; without the attribute PDF exports die
+        # in an AttributeError/__getattr__ recursion inside ir_qweb
+        threading.current_thread().dbname = cr.dbname
+
         if self.params.module:
             modules = [self.params.module]
         else:
