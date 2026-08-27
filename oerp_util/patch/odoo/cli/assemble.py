@@ -325,7 +325,15 @@ class Profile(argparse.ArgumentParser):
                 if is_addon_repository(package_dir):
                     package_paths.add(package_dir)
         # return package paths
-        return ",".join(package_paths) or None
+        # the most specific path has to come first: a repository that is
+        # checked out below another addons directory - woa_submodules/woa_account
+        # below woa_submodules - is otherwise resolved to the parent whenever it
+        # comes first, because odoo.tools.translate._get_module_from_path takes
+        # the first matching path. its modules then lose all their _() terms on
+        # a translation export. a set has no order and python randomizes string
+        # hashing per process, so sorting is also what makes the result
+        # reproducible at all.
+        return ",".join(sorted(package_paths, key=lambda p: (-len(p), p))) or None
 
     def get_envvar(self, envvar, default=None):
         """ :return: value of environment variable """
