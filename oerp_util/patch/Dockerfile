@@ -94,7 +94,8 @@ RUN apt-get install -y -f \
     python3-openpyxl \
     python3-behave \
     python3-magic \
-    python3-h11
+    python3-h11 \
+    python3-platformdirs
 
 # install wkhtmltopdf (no build for ubuntu > jammy, the jammy build works fine)
 COPY docker/install /install
