@@ -1,0 +1,50 @@
+---
+name: 'Restore Prepares the Development Database'
+description: 'What odoo restore already does for a local development database'
+---
+
+# Restore Prepares the Development Database
+
+`odoo restore` already prepares the restored database for local development. **Never redo any of
+it by hand.**
+
+The workspace profile (`odoo-profile.yml` in the project root) turns this on for every
+subproject:
+
+```yaml
+default:
+  restore:
+    development: true
+    update: true
+    delete: true
+```
+
+With `development: true` the CLI runs `prepare_local_development_before` and
+`prepare_local_development_after` (`addons-oerp/oerp_util/patch/odoo/cli/restore.py`), which
+
+- set `login = 'admin'` and `active = TRUE` on user id 2,
+- set the password of **every** active user to `admin`,
+- disable all cron jobs (`ir_cron.active = FALSE`),
+- disable MFA (`auth_totp.policy`) and clear every `totp_secret`,
+- neutralize the database — `development` implies `neutralize`.
+
+`update: true` updates all modules as part of the restore, so a separate `odoo update` is not
+needed afterwards.
+
+## Usage
+
+```bash
+cd custom-addons-<subproject>/
+pipenv run odoo restore --force-drop-db
+```
+
+Stop a running `odoo serve` on that database first — `--force-drop-db` drops it. Afterwards log
+in as `admin` / `admin`.
+
+## Do not
+
+- **Do not set the password** through `odoo shell`, SQL or the UI. It is already `admin`, and
+  setting it overwrites what the CLI just wrote.
+- **Do not run `odoo update`** after a restore; `update: true` already did it.
+- `--development` and `--neutralize` need not be passed; the profile sets them. Passing
+  `--neutralize` explicitly is harmless.

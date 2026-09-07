@@ -84,6 +84,34 @@ Alle Befehle können mit `odoo <cmd>` aufgerufen werden (nach `assemble`; in die
 
 Datenbank `-d <database>` kann entfallen, wenn per Profil vorkonfiguriert.
 
+### `odoo restore` bereitet die Entwicklungsdatenbank selbst vor
+
+Das Profil im Projektwurzelverzeichnis (`odoo-profile.yml`) setzt `restore.development: true`,
+`restore.update: true` und `restore.delete: true`. **Nichts davon von Hand nachholen.**
+
+Durch `development: true` laufen `prepare_local_development_before` und
+`prepare_local_development_after` aus `addons-oerp/oerp_util/patch/odoo/cli/restore.py`. Sie
+
+- setzen `login = 'admin'` und `active = TRUE` bei Benutzer-ID 2,
+- setzen das Passwort **aller** aktiven Benutzer auf `admin`,
+- schalten alle Cronjobs ab (`ir_cron.active = FALSE`),
+- schalten MFA ab (`auth_totp.policy`) und löschen jedes `totp_secret`,
+- neutralisieren die Datenbank — `development` impliziert `neutralize`.
+
+`update: true` aktualisiert alle Module im Zuge des Restores; ein separates `odoo update`
+entfällt.
+
+```bash
+cd custom-addons-<unterprojekt>/
+pipenv run odoo restore --force-drop-db
+```
+
+Einen laufenden `odoo serve` auf dieser Datenbank vorher beenden — `--force-drop-db` verwirft
+sie. Danach Anmeldung mit `admin` / `admin`.
+
+**Nicht tun:** Passwort per `odoo shell`, SQL oder Oberfläche setzen (überschreibt den
+CLI-Stand); `odoo update` nachschieben; `--development` oder `--neutralize` extra angeben.
+
 ## Agent-Regeln (Cursor · Copilot · Claude)
 
 Die Coding- und Projektregeln werden für **drei** KI-Assistenten parallel gepflegt und aus einer gemeinsamen Quelle verteilt:

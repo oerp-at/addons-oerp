@@ -29,6 +29,8 @@ CLI-Befehle **immer** mit `pipenv run odoo <cmd>` aufrufen (blankes `.venv/bin/o
 
 **`-d <db>` kann entfallen**, wenn per Profil (`odoo-profile.yml`) vorkonfiguriert. Kommandos im Unterprojekt-Ordner nutzen automatisch dessen Datenbank.
 
+**`odoo restore` bereitet die Dev-DB selbst vor** — das Profil setzt `restore.development/update/delete: true`. Die CLI setzt das Passwort **aller** aktiven Benutzer auf `admin`, bei uid 2 `login='admin'`, schaltet Cronjobs, MFA und TOTP ab, neutralisiert die Datenbank und aktualisiert alle Module. **Nichts davon von Hand nachholen:** kein Passwort per `odoo shell`/SQL/UI setzen, kein `odoo update` nachschieben. Aufruf `pipenv run odoo restore --force-drop-db` im Unterprojekt (laufenden `odoo serve` vorher beenden), danach Login `admin` / `admin`.
+
 ## Tests
 
 Aus dem Unterprojekt-Ordner (`custom-addons-<name>/`) heraus in der pipenv-Umgebung:
