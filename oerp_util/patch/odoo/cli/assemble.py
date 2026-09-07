@@ -36,6 +36,30 @@ PLACEHOLDER_PATTERN = re.compile(r'\{\{\s*([A-Za-z0-9_\-]+)\s*\}\}')
 RESTORED_FILE_NAME = 'restored'
 DEFAULT_SLEEP = 5
 
+# Erweiterungen, die eine frisch angelegte Datenbank braucht. Ueberschreibbar
+# ueber die Odoo-Konfiguration, z.B. "db_extensions = pg_trgm,unaccent,vector"
+# (im Helm-Chart ueber "add_config_db_extensions" gesetzt).
+DEFAULT_DB_EXTENSIONS = ['pg_trgm', 'unaccent']
+DB_EXTENSION_PATTERN = re.compile(r'^[A-Za-z0-9_\-]+$')
+
+
+def get_db_extensions():
+    """ Erweiterungen fuer eine neue Datenbank, aus der Konfiguration """
+    value = config.get('db_extensions')
+    if value is None:
+        return list(DEFAULT_DB_EXTENSIONS)
+    if isinstance(value, str):
+        value = value.split(',')
+    names = []
+    for name in value:
+        name = str(name).strip()
+        if not name:
+            continue
+        if not DB_EXTENSION_PATTERN.match(name):
+            raise ConfigException(f"Invalid database extension name {name}")
+        names.append(name)
+    return names
+
 
 def get_db_name(name):
     if isinstance(name, list):
@@ -793,11 +817,46 @@ class DatabaseMixin(object):
             cmd = f'pg_dump -F c -f {backup_file} {self.db_name}'
         return subprocess.run(cmd, shell=True, check=True, env=self.get_db_env(admin=True))
 
+    def run_sql(self, database, statement, admin=False):
+        """ SQL-Anweisung ausfuehren, bei fehlender Berechtigung mit dem
+            Admin-Zugang wiederholen.
+
+            Der erste Versuch laeuft bewusst mit dem Mandanten-Zugang: die
+            Odoo-Erweiterungen sind "trusted", der Datenbank-Eigentuemer darf
+            sie selbst anlegen und wird dabei Eigentuemer. Das ist noetig, weil
+            nur der Eigentuemer "ALTER FUNCTION unaccent(text) IMMUTABLE" setzen
+            darf. Nicht-trusted Erweiterungen wie "vector" gehen ausschliesslich
+            mit dem Admin-Zugang -- dafuer der zweite Versuch.
+        """
+        cmd = f"psql -d {database} -v ON_ERROR_STOP=1 -c '{statement}'"
+        res = subprocess.run(cmd, shell=True, check=False, capture_output=True,
+                             text=True, env=self.get_db_env(admin=admin))
+        if not res.returncode:
+            return True
+        if not admin and getattr(self, 'db_admin_env', None):
+            _logger.info("Retry as database admin: %s (%s)", statement, res.stderr.strip())
+            res = subprocess.run(cmd, shell=True, check=False, capture_output=True,
+                                 text=True, env=self.get_db_env(admin=True))
+            if not res.returncode:
+                return True
+        _logger.error("Unable to execute %s: %s", statement, res.stderr.strip())
+        return False
+
+    def create_extensions(self, database, admin=False):
+        """ Erweiterungen der neu angelegten Datenbank aktivieren """
+        extensions = get_db_extensions()
+        failed = [name for name in extensions
+                  if not self.run_sql(database, f'CREATE EXTENSION IF NOT EXISTS "{name}"', admin=admin)]
+        if failed:
+            raise ConfigException(f"Unable to create database extensions: {', '.join(failed)}")
+        if 'unaccent' in extensions:
+            # Odoo verlaesst sich darauf: ohne IMMUTABLE bricht der Restore am
+            # ersten Trigram-Index ab.
+            self.run_sql(database, 'ALTER FUNCTION unaccent(text) IMMUTABLE', admin=admin)
+
     def createdb(self, database, admin=False):
         res = subprocess.run(f"createdb {database}", shell=True, check=True, env=self.get_db_env(admin=admin))
-        subprocess.run(f"psql {database} -c \"CREATE EXTENSION IF NOT EXISTS pg_trgm;\"", shell=True, check=False, env=self.get_db_env(admin=admin))
-        subprocess.run(f"psql {database} -c \"CREATE EXTENSION IF NOT EXISTS unaccent;\"", shell=True, check=False, env=self.get_db_env(admin=admin))
-        subprocess.run(f"psql {database} -c \"ALTER FUNCTION unaccent(text) IMMUTABLE;\"", shell=True, check=False, env=self.get_db_env(admin=admin))
+        self.create_extensions(database, admin=admin)
         return res
 
     def restore_database(self, backup_file, admin=False, force=False):
@@ -808,7 +867,17 @@ class DatabaseMixin(object):
         self.createdb(self.db_name, admin=admin)
         db_env=self.get_db_env(admin=admin)
         try:
-            subprocess.run(f"pg_restore -d {self.db_name} < {backup_file}", shell=True, check=False, env=db_env)
+            # --no-comments: der Dump enthaelt "COMMENT ON EXTENSION", und das
+            # darf nur der Eigentuemer der Erweiterung setzen. Nicht-trusted
+            # Erweiterungen wie "vector" gehoeren zwangslaeufig dem Superuser,
+            # der Restore laeuft aber unter dem Mandanten -- ohne diesen
+            # Schalter bricht er mit "must be owner of extension" ab. Odoo
+            # nutzt keine SQL-Kommentare.
+            res = subprocess.run(f"pg_restore --no-comments -d {self.db_name} < {backup_file}",
+                                 shell=True, check=False, capture_output=True, text=True, env=db_env)
+            if res.stderr:
+                _logger.log(logging.WARNING if res.returncode else logging.INFO,
+                            "pg_restore output:\n%s", res.stderr.strip())
             self.check_database()
         except subprocess.CalledProcessError:
             subprocess.run(f"psql -d {self.db_name} -f {backup_file}", shell=True, check=False, env=db_env)
