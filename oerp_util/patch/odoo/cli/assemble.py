@@ -36,29 +36,10 @@ PLACEHOLDER_PATTERN = re.compile(r'\{\{\s*([A-Za-z0-9_\-]+)\s*\}\}')
 RESTORED_FILE_NAME = 'restored'
 DEFAULT_SLEEP = 5
 
-# Erweiterungen, die eine frisch angelegte Datenbank braucht. Ueberschreibbar
-# ueber die Odoo-Konfiguration, z.B. "db_extensions = pg_trgm,unaccent,vector"
-# (im Helm-Chart ueber "add_config_db_extensions" gesetzt).
-DEFAULT_DB_EXTENSIONS = ['pg_trgm', 'unaccent']
-DB_EXTENSION_PATTERN = re.compile(r'^[A-Za-z0-9_\-]+$')
-
-
-def get_db_extensions():
-    """ Erweiterungen fuer eine neue Datenbank, aus der Konfiguration """
-    value = config.get('db_extensions')
-    if value is None:
-        return list(DEFAULT_DB_EXTENSIONS)
-    if isinstance(value, str):
-        value = value.split(',')
-    names = []
-    for name in value:
-        name = str(name).strip()
-        if not name:
-            continue
-        if not DB_EXTENSION_PATTERN.match(name):
-            raise ConfigException(f"Invalid database extension name {name}")
-        names.append(name)
-    return names
+# Erweiterungen, die auf einer frisch angelegten Datenbank immer aktiviert
+# werden. "vector" ist nicht trusted und braucht daher den Admin-Zugang;
+# fehlt es am Server, bleibt es bei einer Warnung.
+DB_EXTENSIONS = ['pg_trgm', 'unaccent', 'vector']
 
 
 def get_db_name(name):
@@ -844,15 +825,13 @@ class DatabaseMixin(object):
 
     def create_extensions(self, database, admin=False):
         """ Erweiterungen der neu angelegten Datenbank aktivieren """
-        extensions = get_db_extensions()
-        failed = [name for name in extensions
+        failed = [name for name in DB_EXTENSIONS
                   if not self.run_sql(database, f'CREATE EXTENSION IF NOT EXISTS "{name}"', admin=admin)]
         if failed:
-            raise ConfigException(f"Unable to create database extensions: {', '.join(failed)}")
-        if 'unaccent' in extensions:
-            # Odoo verlaesst sich darauf: ohne IMMUTABLE bricht der Restore am
-            # ersten Trigram-Index ab.
-            self.run_sql(database, 'ALTER FUNCTION unaccent(text) IMMUTABLE', admin=admin)
+            _logger.warning("Database extensions not available: %s", ', '.join(failed))
+        # Odoo verlaesst sich darauf: ohne IMMUTABLE bricht der Restore am
+        # ersten Trigram-Index ab.
+        self.run_sql(database, 'ALTER FUNCTION unaccent(text) IMMUTABLE', admin=admin)
 
     def createdb(self, database, admin=False):
         res = subprocess.run(f"createdb {database}", shell=True, check=True, env=self.get_db_env(admin=admin))
