@@ -419,12 +419,46 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             if not os.path.exists(url.path):
                 raise ConfigException(f"No database file found at {str(url)}")
             elif os.path.isdir(url.path):
-                db_files = [f for f in os.listdir(url.path) if f.endswith(".dump") or f.endswith(".sql")]
+                names = os.listdir(url.path)
+                # an uncompressed dump wins: nothing to extract
+                db_files = [f for f in names if f.endswith(".dump") or f.endswith(".sql")]
+                if not db_files:
+                    db_files = [f for f in names if f.endswith(".dump.gz") or f.endswith(".dump.bz2")]
                 if not db_files:
                     raise ConfigException(f"No database file found at {str(url)}")
                 self.db_dump = os.path.join(url.path, db_files[0])
             else:
                 self.db_dump = url.path
+
+            # A local source is usually a backup directory that belongs to
+            # another instance, so the dump is extracted into restore_dir and
+            # never in place - unpacking in place would dissolve its
+            # db.dump.gz.
+            self.db_dump = self.extract_database(self.db_dump)
+
+    def extract_database(self, dump_path):
+        """ Decompress ``dump_path`` into ``restore_dir`` and return the new path.
+
+        Uncompressed dumps are returned unchanged. The source file stays
+        untouched (``-dc`` into a new file instead of ``-d``): a local dump
+        usually lives in a backup directory shared with the instance it was
+        taken from, and pg_restore/psql cannot read a compressed stream.
+        """
+        if dump_path.endswith('.gz'):
+            extract_cmd = 'gzip -dc %s > %s'
+        elif dump_path.endswith('.bz2'):
+            extract_cmd = 'bzip2 -dc %s > %s'
+        else:
+            return dump_path
+
+        dest_path = os.path.join(self.restore_dir, f'{self.db_name}.dump')
+        if os.path.exists(dest_path):
+            os.remove(dest_path)
+        _logger.info("Extract database %s to %s", dump_path, dest_path)
+        subprocess.run(extract_cmd % (dump_path, dest_path), shell=True, check=True)
+        if not os.path.exists(dest_path):
+            raise ConfigException(f"Extracted database not found at {dest_path}")
+        return dest_path
 
     def setup_db_env(self, admin_user=None, admin_password=None):
         super().setup_db_env(admin_user=admin_user, admin_password=admin_password)

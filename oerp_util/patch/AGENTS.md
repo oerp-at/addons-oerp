@@ -112,6 +112,26 @@ sie. Danach Anmeldung mit `admin` / `admin`.
 **Nicht tun:** Passwort per `odoo shell`, SQL oder Oberfläche setzen (überschreibt den
 CLI-Stand); `odoo update` nachschieben; `--development` oder `--neutralize` extra angeben.
 
+### Woher der Abzug kommt
+
+`restore_db`/`--restore-db` nimmt drei Formen, und sie verhalten sich unterschiedlich:
+
+| Quelle | Weg im Code | Komprimiert? |
+|---|---|---|
+| lokaler Pfad (Datei oder Verzeichnis) | direkt gelesen, vorher nach `<base_dir>/.restore` entpackt | `.gz`/`.bz2` möglich |
+| `kube://<pod-prefix>@<namespace>[.<context>]/<pfad>` | Kopie per `krsync.sh` nach `.restore`, dann entpackt | `.gz`/`.bz2` möglich |
+| `--backup-path` (restic-Ablage) | `apply_backup_path`, entpackt **an Ort und Stelle** | `.gz`/`.bz2` möglich |
+
+Zwei Dinge, die man dabei wissen muss:
+
+- ⚠️ Entpackt wird bei lokalen Quellen und `kube://` **nach `.restore`**, das Original bleibt
+  unangetastet (`gzip -dc` in eine neue Datei). Wichtig, weil ein lokaler Pfad meist in der
+  Sicherungsablage einer anderen Instanz liegt — dort an Ort und Stelle zu entpacken würde
+  deren `db.dump.gz` auflösen. `--backup-path` entpackt dagegen in seinem eigenen
+  Arbeitsverzeichnis und darf das.
+- Zeigt ein lokaler Pfad auf ein **Verzeichnis**, gewinnt ein unkomprimierter `db.dump`/`.sql`;
+  nur wenn keiner da ist, wird `db.dump.gz`/`db.dump.bz2` genommen.
+
 ## Agent-Regeln (Cursor · Copilot · Claude)
 
 Die Coding- und Projektregeln werden für **drei** KI-Assistenten parallel gepflegt und aus einer gemeinsamen Quelle verteilt:
