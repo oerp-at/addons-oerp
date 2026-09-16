@@ -84,6 +84,54 @@ Alle Befehle können mit `odoo <cmd>` aufgerufen werden (nach `assemble`; in die
 
 Datenbank `-d <database>` kann entfallen, wenn per Profil vorkonfiguriert.
 
+### `odoo restore` bereitet die Entwicklungsdatenbank selbst vor
+
+Das Profil im Projektwurzelverzeichnis (`odoo-profile.yml`) setzt `restore.development: true`,
+`restore.update: true` und `restore.delete: true`. **Nichts davon von Hand nachholen.**
+
+Durch `development: true` laufen `prepare_local_development_before` und
+`prepare_local_development_after` aus `addons-oerp/oerp_util/patch/odoo/cli/restore.py`. Sie
+
+- setzen `login = 'admin'` und `active = TRUE` bei Benutzer-ID 2,
+- setzen das Passwort **aller** aktiven Benutzer auf `admin`,
+- schalten alle Cronjobs ab (`ir_cron.active = FALSE`),
+- schalten MFA ab (`auth_totp.policy`) und löschen jedes `totp_secret`,
+- neutralisieren die Datenbank — `development` impliziert `neutralize`.
+
+`update: true` aktualisiert alle Module im Zuge des Restores; ein separates `odoo update`
+entfällt.
+
+```bash
+cd custom-addons-<unterprojekt>/
+pipenv run odoo restore --force-drop-db
+```
+
+Einen laufenden `odoo serve` auf dieser Datenbank vorher beenden — `--force-drop-db` verwirft
+sie. Danach Anmeldung mit `admin` / `admin`.
+
+**Nicht tun:** Passwort per `odoo shell`, SQL oder Oberfläche setzen (überschreibt den
+CLI-Stand); `odoo update` nachschieben; `--development` oder `--neutralize` extra angeben.
+
+### Woher der Abzug kommt
+
+`restore_db`/`--restore-db` nimmt drei Formen, und sie verhalten sich unterschiedlich:
+
+| Quelle | Weg im Code | Komprimiert? |
+|---|---|---|
+| lokaler Pfad (Datei oder Verzeichnis) | direkt gelesen, vorher nach `<base_dir>/.restore` entpackt | `.gz`/`.bz2` möglich |
+| `kube://<pod-prefix>@<namespace>[.<context>]/<pfad>` | Kopie per `krsync.sh` nach `.restore`, dann entpackt | `.gz`/`.bz2` möglich |
+| `--backup-path` (restic-Ablage) | `apply_backup_path`, entpackt **an Ort und Stelle** | `.gz`/`.bz2` möglich |
+
+Zwei Dinge, die man dabei wissen muss:
+
+- ⚠️ Entpackt wird bei lokalen Quellen und `kube://` **nach `.restore`**, das Original bleibt
+  unangetastet (`gzip -dc` in eine neue Datei). Wichtig, weil ein lokaler Pfad meist in der
+  Sicherungsablage einer anderen Instanz liegt — dort an Ort und Stelle zu entpacken würde
+  deren `db.dump.gz` auflösen. `--backup-path` entpackt dagegen in seinem eigenen
+  Arbeitsverzeichnis und darf das.
+- Zeigt ein lokaler Pfad auf ein **Verzeichnis**, gewinnt ein unkomprimierter `db.dump`/`.sql`;
+  nur wenn keiner da ist, wird `db.dump.gz`/`db.dump.bz2` genommen.
+
 ## Agent-Regeln (Cursor · Copilot · Claude)
 
 Die Coding- und Projektregeln werden für **drei** KI-Assistenten parallel gepflegt und aus einer gemeinsamen Quelle verteilt:

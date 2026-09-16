@@ -35,7 +35,7 @@ Please use the commit message format described in the [OCA Guidlines](https://gi
 ## Commands
 
 For simplifying the Odoo development/handling a smart/small extension was made to Odoo source.
-The command line extension `odoo/odoo/cli/config.py` and the odoo start/entry point `odoo/odoo-bin`.
+The command line extensions in `odoo/odoo/cli/` (see the command list in `patch.py`) and the odoo start/entry point `odoo/odoo-bin`.
 
 This extend the odoo for simple tasks like update and serve the odoo server or export/import and clean translations.
 

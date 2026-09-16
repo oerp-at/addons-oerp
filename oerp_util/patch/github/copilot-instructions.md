@@ -100,3 +100,18 @@ This project drives **three** AI assistants from one shared rule set. Whenever y
 - **Claude** → `CLAUDE.md` (root; long-form context in `AGENTS.md`)
 
 A new convention is not finished until it exists in all three. Reuse the same base name and scope, keep the content equivalent, and edit the files in the workspace — `addons-oerp/oerp_util/patch/patch.py` distributes them to new projects and keeps them in sync (`patch_back`). See `.github/instructions/agent-rules-sync.instructions.md`.
+
+---
+
+## 4. Restore Prepares the Development Database
+
+`odoo restore` already prepares the restored database for local development — the workspace
+profile sets `restore.development/update/delete: true`. The CLI sets the password of **every**
+active user to `admin`, sets `login='admin'` on user id 2, disables cron jobs, disables MFA and
+TOTP, neutralizes the database and updates all modules.
+
+**Never redo any of it by hand:** no password reset through `odoo shell`, SQL or the UI, and no
+`odoo update` afterwards. Run `pipenv run odoo restore --force-drop-db` from the subproject
+directory (stop a running `odoo serve` first) and log in as `admin` / `admin`.
+
+See `.github/instructions/odoo-restore-development.instructions.md`.
