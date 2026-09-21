@@ -55,6 +55,12 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             name="install",
             help="Install a specific module after restore.")
         self.parser.add_argument(
+            "--sql",
+            nargs='+',
+            name="sql",
+            help="SQL statement(s) to run on the restored database, after "
+                 "neutralization and before the module update.")
+        self.parser.add_argument(
             "--restore-fs",
             name="restore_fs",
             help="The filestore source for restore."
@@ -301,6 +307,41 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             cr.execute("""INSERT INTO ir_config_parameter (key, value)
                     VALUES ('database.development', 'True')
                     ON CONFLICT (key) DO UPDATE SET value = 'True';""")
+
+    def run_restore_sql(self):
+        """Run the statements of ``--sql`` on the freshly restored database.
+
+        The window is narrow on purpose: the dump is in and the database
+        is neutralized, but the module update has not started yet. That is
+        the only moment where a statement can still change what the update
+        does.
+
+        The case it was built for: a customer dump carries views that were
+        edited in his database (``ir_ui_view.arch_updated``). Odoo then
+        keeps that arch instead of reloading it from the file, and an
+        inheritance of a newer module version no longer finds its anchor --
+        the update dies with "element cannot be located in parent view".
+        Resetting the flag here lets the update refresh those views.
+
+        The flag is not enough when the file starts with
+        ``<data noupdate="1">``: such records are never re-read, whatever
+        the database says. There the statement has to delete the view --
+        what is missing is created again, because ``env.ref()`` checks
+        ``exists()`` before the noupdate branch bails out. Heirs first,
+        ``inherit_id`` is ``ondelete='restrict'`` and refuses otherwise.
+
+        Each statement is logged with the number of rows it touched, so
+        the restore log shows what really changed and what matched nothing.
+        """
+        if not self.params.sql:
+            return
+        _logger.info("Run %s SQL statement(s) on %s",
+                     len(self.params.sql), self.params.database)
+        with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
+            for statement in self.params.sql:
+                cr.execute(statement)
+                _logger.info("SQL affected %s row(s): %s",
+                             cr.rowcount, statement)
 
     def prepare_local_development_after(self, env):
         _logger.info("Prepare database %s for local development after update", self.params.database)
@@ -568,6 +609,9 @@ class Restore(CommandMixin, Command, DatabaseMixin):
                 self.neutralize()
             if self.params.development:
                 self.prepare_local_development_before()
+
+            # own statements: last chance to influence the update
+            self.run_restore_sql()
 
             # update database
             if self.params.update:
