@@ -131,6 +131,14 @@ Zwei Dinge, die man dabei wissen muss:
   Arbeitsverzeichnis und darf das.
 - Zeigt ein lokaler Pfad auf ein **Verzeichnis**, gewinnt ein unkomprimierter `db.dump`/`.sql`;
   nur wenn keiner da ist, wird `db.dump.gz`/`db.dump.bz2` genommen.
+- Gesucht wird nach `db.dump`, `db.dump.gz`, `db.dump.bz2` **und `dump.sql`**. Letzteres ist die
+  Sicherung, die Odoo selbst schreibt (ZIP mit `dump.sql` neben `filestore/`) — genau das, was
+  man von einem Kunden oder aus Odoo Online herunterlädt. `--restore-zip` kann sie damit direkt
+  einspielen.
+- ⚠️ Das Werkzeug wählt die Endung: `.sql` geht über `psql -f`, alles andere über `pg_restore`.
+  `pg_restore` kann reines SQL nicht lesen („Eingabedatei ist anscheinend ein Dump im
+  Textformat"), und der frühere Rückfall auf `psql` hing an einer Ausnahme, die wegen
+  `check=False` nie geworfen wurde — er griff also nie.
 
 ## Agent-Regeln (Cursor · Copilot · Claude)
 

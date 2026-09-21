@@ -20,6 +20,11 @@ from .assemble import CommandMixin, DatabaseMixin, ConfigException, RESTORED_FIL
 
 _logger = logging.getLogger(__name__)
 
+#: dump file names inside a backup, in the order they are preferred.
+#: ``db.dump*`` is ours (pg_dump archive), ``dump.sql`` is what Odoo
+#: writes into its own ZIP backup (plain SQL).
+DUMP_NAMES = ('db.dump', 'db.dump.gz', 'db.dump.bz2', 'dump.sql')
+
 NAMESPACE_CONTEXT_REGEX = re.compile(r'^([^\.]+)(\.(.+))?$')
 
 
@@ -164,7 +169,14 @@ class Restore(CommandMixin, Command, DatabaseMixin):
         return True
 
     def _find_backup_path_content(self, backup_path):
-        """ Locate ``filestore`` directory and ``db.dump[.gz|.bz2]`` within ``backup_path``.
+        """ Locate ``filestore`` directory and the database dump within ``backup_path``.
+
+        Two layouts are accepted: our own backup (``db.dump[.gz|.bz2]``,
+        a pg_dump archive) and the backup Odoo itself writes, which
+        carries a plain SQL file named ``dump.sql`` next to ``filestore``.
+        Both are named here because the caller cannot know which one it
+        was handed - a downloaded ZIP from the client is always the
+        latter.
 
         Returns a tuple ``(restored_fs, restored_db)`` where each entry is either
         the resolved path or ``None`` if not found.
@@ -175,8 +187,8 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             if not restored_fs and 'filestore' in dirs:
                 restored_fs = os.path.join(root, 'filestore')
             if not restored_db:
-                for fname in files:
-                    if fname in ('db.dump', 'db.dump.gz', 'db.dump.bz2'):
+                for fname in DUMP_NAMES:
+                    if fname in files:
                         restored_db = os.path.join(root, fname)
                         break
             if restored_fs and restored_db:

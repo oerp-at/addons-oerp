@@ -845,6 +845,22 @@ class DatabaseMixin(object):
         _logger.info("Restore database %s from %s", self.db_name, backup_file)
         self.createdb(self.db_name, admin=admin)
         db_env=self.get_db_env(admin=admin)
+        if backup_file.endswith('.sql'):
+            # Odoo writes plain SQL into its own ZIP backup; pg_restore
+            # cannot read that ("input file appears to be a text format
+            # dump"), it needs psql. Decided by the file name on purpose:
+            # trying pg_restore first and falling back looks safer but is
+            # not -- it runs with check=False and never raises, so the
+            # fallback below never fired.
+            _logger.info("Restore plain SQL dump %s with psql", backup_file)
+            res = subprocess.run(f"psql -q -d {self.db_name} -f {backup_file}",
+                                 shell=True, check=False, capture_output=True, text=True, env=db_env)
+            if res.stderr:
+                _logger.log(logging.WARNING if res.returncode else logging.INFO,
+                            "psql output:\n%s", res.stderr.strip()[-4000:])
+            self.check_database()
+            _logger.info("Restored database from %s", backup_file)
+            return
         try:
             # --no-comments: der Dump enthaelt "COMMENT ON EXTENSION", und das
             # darf nur der Eigentuemer der Erweiterung setzen. Nicht-trusted
