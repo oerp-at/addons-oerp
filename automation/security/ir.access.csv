@@ -1,0 +1,13 @@
+id,name,model_id,group_id/id,operation,domain
+access_automation_task_user_group,automation.task: Aufgaben der eigenen Gruppen,automation.task,group_automation_user,ru,"[('group_id','in',[g.id for g in user.group_ids])]"
+access_automation_task_user_own,automation.task: eigene Aufgaben,automation.task,group_automation_user,crud,"[('owner_id','=',user.id)]"
+access_automation_task_manager,automation.task: Manager,automation.task,group_automation_manager,crud,
+access_automation_task_system,automation.task: System,automation.task,base.group_system,crud,
+access_automation_task_stage_user,automation.task.stage: User,automation.task.stage,group_automation_user,r,
+access_automation_task_stage_manager,automation.task.stage: Manager,automation.task.stage,group_automation_manager,r,
+access_automation_task_stage_system,automation.task.stage: System,automation.task.stage,base.group_system,crud,
+access_automation_task_log_user,automation.task.log: User,automation.task.log,group_automation_user,r,
+access_automation_task_log_manager,automation.task.log: Manager,automation.task.log,group_automation_manager,r,
+access_automation_task_log_system,automation.task.log: System,automation.task.log,base.group_system,crud,
+access_automation_task_token_system,automation.task.token: System,automation.task.token,base.group_system,crud,
+access_automation_task_example,automation.task.example: System,automation.task.example,base.group_system,crud,

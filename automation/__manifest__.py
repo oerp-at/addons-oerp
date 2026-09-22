@@ -13,7 +13,7 @@
                 'mail'],
     'data': [
         'security/security.xml',
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         'data/example_task.xml',
         'data/ir_cron.xml',
         'views/automation_menu.xml',
