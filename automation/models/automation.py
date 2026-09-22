@@ -286,10 +286,10 @@ class AutomationTask(models.Model):
         if self.env.context.get('task_unqueued_run'):
             return True
 
-        param = self.env['ir.config_parameter'].sudo().get_param('automation.task_unqueued_run')
-        if not param:
-            return False
-        return param.lower() in ('true', '1', 'yes', 'on')
+        # Odoo 20: get_param/set_param sind durch typisierte Zugriffe ersetzt.
+        # res.config.settings schreibt das Boolean-Feld ueber set_bool, also
+        # liest get_bool es typrichtig zurueck - eigenes Parsen entfaellt.
+        return self.env['ir.config_parameter'].sudo().get_bool('automation.task_unqueued_run')
 
     def _task_enqueue(self):
         """ queue task """
