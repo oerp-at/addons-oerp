@@ -131,6 +131,51 @@ Zwei Dinge, die man dabei wissen muss:
   Arbeitsverzeichnis und darf das.
 - Zeigt ein lokaler Pfad auf ein **Verzeichnis**, gewinnt ein unkomprimierter `db.dump`/`.sql`;
   nur wenn keiner da ist, wird `db.dump.gz`/`db.dump.bz2` genommen.
+- Gesucht wird nach `db.dump`, `db.dump.gz`, `db.dump.bz2` **und `dump.sql`**. Letzteres ist die
+  Sicherung, die Odoo selbst schreibt (ZIP mit `dump.sql` neben `filestore/`) — genau das, was
+  man von einem Kunden oder aus Odoo Online herunterlädt. `--restore-zip` kann sie damit direkt
+  einspielen.
+- ⚠️ Das Werkzeug wählt die Endung: `.sql` geht über `psql -f`, alles andere über `pg_restore`.
+  `pg_restore` kann reines SQL nicht lesen („Eingabedatei ist anscheinend ein Dump im
+  Textformat"), und der frühere Rückfall auf `psql` hing an einer Ausnahme, die wegen
+  `check=False` nie geworfen wurde — er griff also nie.
+
+### Eigene SQL-Befehle zwischen Einspielen und Update
+
+`restore.sql` im Profil (oder `--sql` auf der Kommandozeile) nimmt eine Liste von
+SQL-Anweisungen. Sie laufen in einem schmalen Fenster: der Abzug ist eingespielt und die
+Datenbank neutralisiert, das Modul-Update hat aber noch nicht begonnen. Nur dort lässt sich
+noch beeinflussen, was das Update tut. Jede Anweisung wird mit der Zahl der betroffenen
+Zeilen protokolliert — man sieht also, was wirklich griff und was ins Leere lief.
+
+```yaml
+default:
+  restore:
+    restore_zip: /pfad/zur/kundensicherung.zip
+    sql:
+      - "UPDATE ir_ui_view SET arch_updated = false WHERE arch_updated AND arch_fs IS NOT NULL"
+```
+
+Der Fall, für den es gebaut wurde: Ein Kundenabzug bringt Ansichten mit, die in seiner
+Datenbank bearbeitet wurden (`ir_ui_view.arch_updated`). Odoo behält dann deren alten Arch,
+statt ihn aus der Datei zu laden — und eine Vererbung der neueren Modulfassung findet ihren
+Anker nicht mehr. Das Update stirbt mit „Element kann nicht in der übergeordneten Ansicht
+lokalisiert werden". Zwei Flags müssen weg: `ir_ui_view.arch_updated` und `noupdate` am
+`ir_model_data`-Eintrag.
+
+⚠️ Das reicht nicht, wenn die Datei mit `<data noupdate="1">` beginnt — solche Datensätze
+liest das Update grundsätzlich nicht erneut, egal was in der Datenbank steht. Dort hilft nur
+**löschen**: Was fehlt, wird neu angelegt, weil der noupdate-Zweig in `odoo/tools/convert.py`
+nur aussteigt, wenn `env.ref()` etwas findet — und `env.ref()` prüft `exists()`. Dabei die
+Erben zuerst löschen, `inherit_id` ist `ondelete='restrict'` und verweigert sonst. Das ist
+Absicht: ein Fremdschlüssel, der laut abbricht, ist besser als eine Kaskade, die still
+eigene Ansichten des Kunden mitnimmt. Als Filter die XML-ID nehmen, nicht die Datensatz-ID —
+IDs sind je Abzug andere.
+
+```yaml
+      - "DELETE FROM ir_ui_view WHERE inherit_id IN (SELECT res_id FROM ir_model_data WHERE model = 'ir.ui.view' AND module = 'project_todo' AND name = 'todo_user_onboarding')"
+      - "DELETE FROM ir_ui_view WHERE id IN (SELECT res_id FROM ir_model_data WHERE model = 'ir.ui.view' AND module = 'project_todo' AND name = 'todo_user_onboarding')"
+```
 
 ## Agent-Regeln (Cursor · Copilot · Claude)
 
