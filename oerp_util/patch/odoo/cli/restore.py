@@ -20,6 +20,11 @@ from .assemble import CommandMixin, DatabaseMixin, ConfigException, RESTORED_FIL
 
 _logger = logging.getLogger(__name__)
 
+#: dump file names inside a backup, in the order they are preferred.
+#: ``db.dump*`` is ours (pg_dump archive), ``dump.sql`` is what Odoo
+#: writes into its own ZIP backup (plain SQL).
+DUMP_NAMES = ('db.dump', 'db.dump.gz', 'db.dump.bz2', 'dump.sql')
+
 NAMESPACE_CONTEXT_REGEX = re.compile(r'^([^\.]+)(\.(.+))?$')
 
 
@@ -49,6 +54,12 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             nargs='+',
             name="install",
             help="Install a specific module after restore.")
+        self.parser.add_argument(
+            "--sql",
+            nargs='+',
+            name="sql",
+            help="SQL statement(s) to run on the restored database, after "
+                 "neutralization and before the module update.")
         self.parser.add_argument(
             "--restore-fs",
             name="restore_fs",
@@ -164,7 +175,14 @@ class Restore(CommandMixin, Command, DatabaseMixin):
         return True
 
     def _find_backup_path_content(self, backup_path):
-        """ Locate ``filestore`` directory and ``db.dump[.gz|.bz2]`` within ``backup_path``.
+        """ Locate ``filestore`` directory and the database dump within ``backup_path``.
+
+        Two layouts are accepted: our own backup (``db.dump[.gz|.bz2]``,
+        a pg_dump archive) and the backup Odoo itself writes, which
+        carries a plain SQL file named ``dump.sql`` next to ``filestore``.
+        Both are named here because the caller cannot know which one it
+        was handed - a downloaded ZIP from the client is always the
+        latter.
 
         Returns a tuple ``(restored_fs, restored_db)`` where each entry is either
         the resolved path or ``None`` if not found.
@@ -175,8 +193,8 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             if not restored_fs and 'filestore' in dirs:
                 restored_fs = os.path.join(root, 'filestore')
             if not restored_db:
-                for fname in files:
-                    if fname in ('db.dump', 'db.dump.gz', 'db.dump.bz2'):
+                for fname in DUMP_NAMES:
+                    if fname in files:
                         restored_db = os.path.join(root, fname)
                         break
             if restored_fs and restored_db:
@@ -289,6 +307,41 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             cr.execute("""INSERT INTO ir_config_parameter (key, value)
                     VALUES ('database.development', 'True')
                     ON CONFLICT (key) DO UPDATE SET value = 'True';""")
+
+    def run_restore_sql(self):
+        """Run the statements of ``--sql`` on the freshly restored database.
+
+        The window is narrow on purpose: the dump is in and the database
+        is neutralized, but the module update has not started yet. That is
+        the only moment where a statement can still change what the update
+        does.
+
+        The case it was built for: a customer dump carries views that were
+        edited in his database (``ir_ui_view.arch_updated``). Odoo then
+        keeps that arch instead of reloading it from the file, and an
+        inheritance of a newer module version no longer finds its anchor --
+        the update dies with "element cannot be located in parent view".
+        Resetting the flag here lets the update refresh those views.
+
+        The flag is not enough when the file starts with
+        ``<data noupdate="1">``: such records are never re-read, whatever
+        the database says. There the statement has to delete the view --
+        what is missing is created again, because ``env.ref()`` checks
+        ``exists()`` before the noupdate branch bails out. Heirs first,
+        ``inherit_id`` is ``ondelete='restrict'`` and refuses otherwise.
+
+        Each statement is logged with the number of rows it touched, so
+        the restore log shows what really changed and what matched nothing.
+        """
+        if not self.params.sql:
+            return
+        _logger.info("Run %s SQL statement(s) on %s",
+                     len(self.params.sql), self.params.database)
+        with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
+            for statement in self.params.sql:
+                cr.execute(statement)
+                _logger.info("SQL affected %s row(s): %s",
+                             cr.rowcount, statement)
 
     def prepare_local_development_after(self, env):
         _logger.info("Prepare database %s for local development after update", self.params.database)
@@ -556,6 +609,9 @@ class Restore(CommandMixin, Command, DatabaseMixin):
                 self.neutralize()
             if self.params.development:
                 self.prepare_local_development_before()
+
+            # own statements: last chance to influence the update
+            self.run_restore_sql()
 
             # update database
             if self.params.update:
