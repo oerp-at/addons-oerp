@@ -53,6 +53,7 @@ pipenv run odoo test <module> [--test-case=<Class>] [--test-prefix=<method>]
 **Odoo 20 – häufige Fehler vermeiden** (siehe [odoo-code-pitfalls.mdc](.cursor/rules/odoo-code-pitfalls.mdc)):
 - Kein `attrs=` mehr → inline `invisible="state != 'done'"` (Python-Ausdruck, keine Domain-Liste).
 - Kein `t-esc` → `t-out` (Server-QWeb ignoriert `t-esc`, gibt nichts aus). Kein `_()` in Models → `self.env._()`.
+- Kein `get_param`/`set_param` (gibt es nicht mehr) → `get_str/get_bool/get_int/get_float`, `set_*`.
 - Kein `_sql_constraints` (wird ignoriert) → `models.Constraint(...)` / `models.Index(...)` als Klassenattribut.
 - Search-`<group>` nimmt **keine** Attribute. Datumsfilter über `date="<field>"` / `default_period=` (auch `today`, `this_week`, `this_month` …).
 - `string=` weglassen, wenn es dem Auto-Label entspricht. `help=` in Endnutzer-Sprache (keine technischen Feldnamen).

@@ -111,6 +111,26 @@ Multiple ids can be combined with commas (e.g. `month-1,year-1`).
         ]"/>
 ```
 
+## System Parameters: Typed `get_*` / `set_*`
+
+`ir.config_parameter` has **no** `get_param()` / `set_param()` any more. Use the typed accessors; they convert the value and take the default as second argument.
+
+```python
+# ✅ GOOD
+ICP = self.env["ir.config_parameter"].sudo()
+url = ICP.get_str("web.base.url")
+limit = ICP.get_int("my_module.batch_size", 100)
+enabled = ICP.get_bool("my_module.enabled")
+ICP.set_str("my_module.api_url", "https://example.com")
+
+# ❌ BAD – AttributeError in Odoo 20
+url = ICP.get_param("web.base.url")
+limit = int(ICP.get_param("my_module.batch_size", 100))
+ICP.set_param("my_module.api_url", "https://example.com")
+```
+
+Available: `get_str`, `get_bool`, `get_int`, `get_float` and `set_str`, `set_bool`, `set_int`, `set_float`.
+
 ## Constraints and Indexes: `models.Constraint` / `models.Index`
 
 `_sql_constraints` and `_constraints` are **no longer supported**. Odoo only logs a warning and creates **no** constraint in the database. Declare constraints and indexes as class attributes; the attribute name becomes the constraint name.
