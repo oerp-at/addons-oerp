@@ -48,6 +48,7 @@ RUN apt-get update && apt-get install -y -f \
     python3-libsass \
     python3-lxml \
     python3-lxml-html-clean \
+    python3-markdown2 \
     python3-num2words \
     python3-ofxparse \
     python3-passlib \
