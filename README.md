@@ -260,7 +260,7 @@ the upcoming chart version can be used as an additional image tag.
 | Output | Description |
 |--------|-------------|
 | `current_chart_version` | The current chart version read from the file |
-| `chart_version` | The computed next chart version (e.g. `19.0.4`) |
+| `chart_version` | The computed next chart version (e.g. `20.0.4`) |
 
 ---
 
@@ -276,7 +276,7 @@ chart is only bumped when the build succeeded.
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `chart-file` | no | `charts/odooi/Chart.yaml` | Path to the Helm `Chart.yaml` |
-| `chart-version` | **yes** | — | Chart version value to write into `Chart.yaml` (e.g. `19.0.4`) |
+| `chart-version` | **yes** | — | Chart version value to write into `Chart.yaml` (e.g. `20.0.4`) |
 
 ### Permissions
 
@@ -311,20 +311,20 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Determine next chart version
         id: version
-        uses: oerp-at/addons-oerp/.github/actions/odoo-next-chart-version@19.0
+        uses: oerp-at/addons-oerp/.github/actions/odoo-next-chart-version@20.0
 
       - name: Build and push Docker image
-        uses: oerp-at/addons-oerp/.github/actions/docker-build-push@19.0
+        uses: oerp-at/addons-oerp/.github/actions/docker-build-push@20.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           version-tag: ${{ steps.version.outputs.chart_version }}
 
       - name: Bump Chart.yaml version
-        uses: oerp-at/addons-oerp/.github/actions/odoo-bump-chart-version@19.0
+        uses: oerp-at/addons-oerp/.github/actions/odoo-bump-chart-version@20.0
         with:
           chart-version: ${{ steps.version.outputs.chart_version }}
 ```

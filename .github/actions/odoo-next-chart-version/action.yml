@@ -15,7 +15,7 @@ outputs:
     description: The current chart version read from the Chart.yaml
     value: ${{ steps.compute.outputs.current_chart_version }}
   chart_version:
-    description: The computed next chart version (e.g. 19.0.4)
+    description: The computed next chart version (e.g. 20.0.4)
     value: ${{ steps.compute.outputs.chart_version }}
 
 runs:

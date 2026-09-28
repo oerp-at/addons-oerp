@@ -10,7 +10,7 @@ inputs:
     required: false
     default: charts/odooi/Chart.yaml
   chart-version:
-    description: New chart version value to write into Chart.yaml (e.g. 19.0.4)
+    description: New chart version value to write into Chart.yaml (e.g. 20.0.4)
     required: true
 
 runs:
