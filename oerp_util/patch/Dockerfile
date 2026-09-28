@@ -1,29 +1,27 @@
 FROM ubuntu:26.04
 
-# basic configuration
-
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     DEBIAN_FRONTEND=noninteractive \
     TZ=Europe/Berlin
 
-
-# configure default locale
-
-RUN apt-get clean && apt-get update && apt-get install -y locales && \
+# os packages in one layer, cleaned up in the same layer: a later "rm" does
+# not shrink the image. docker/install is bind-mounted instead of copied, so
+# the .deb files never end up in a layer.
+# - wkhtmltopdf: no build for ubuntu > jammy, the jammy build works fine
+# - paper-muncher: odoo report engine (module base_report_paper_muncher)
+RUN --mount=type=bind,source=docker/install,target=/install \
+    apt-get update && \
+    apt-get install -y --no-install-recommends locales && \
     locale-gen de_DE.UTF-8 && \
     echo 'LANG="de_DE.UTF-8"' > /etc/default/locale && \
-    update-locale LANG=de_DE.UTF-8
-
-
-# install os python dependencies
-# (apt-get update again: the locale layer may come from an older build cache)
-
-RUN apt-get update && apt-get install -y -f \
+    update-locale LANG=de_DE.UTF-8 && \
+    apt-get install -y --no-install-recommends \
     gzip \
     rsync \
     restic \
     fonts-dejavu-core \
+    fonts-liberation \
     fonts-freefont-ttf \
     fonts-freefont-otf \
     fonts-noto-core \
@@ -94,15 +92,9 @@ RUN apt-get update && apt-get install -y -f \
     python3-behave \
     python3-magic \
     python3-h11 \
-    python3-platformdirs
-
-# install wkhtmltopdf (no build for ubuntu > jammy, the jammy build works fine)
-COPY docker/install /install
-RUN dpkg -i /install/wkhtmltox_0.12.6.1-2.jammy_amd64.deb ; apt-get install -f -y
-
-# install paper-muncher (odoo's report engine, see module base_report_paper_muncher)
-# the resolute build declares its real dependencies, so apt resolves them
-RUN apt-get install -y /install/paper-muncher_v0.8.0_resolute_amd64.deb
+    python3-platformdirs && \
+    apt-get install -y --no-install-recommends /install/wkhtmltox_0.12.6.1-2.jammy_amd64.deb /install/paper-muncher_v0.8.0_resolute_amd64.deb && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 ENV PATH="/opt/paper-muncher/bin:${PATH}"
 
 # fix imagemagick policy
@@ -135,11 +127,6 @@ RUN mkdir /data/sessions
 COPY addons-design-themes /home/odoo/addons-design-themes
 COPY addons-oerp /home/odoo/addons-oerp
 COPY odoo /home/odoo/odoo
-
-# switch to root and cleanup
-USER root
-RUN rm -rf /install
-RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # expose
 EXPOSE 8069 8072
