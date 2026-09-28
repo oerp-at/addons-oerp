@@ -9,7 +9,7 @@ Dieses Projekt ist eine **Odoo 19.0 Distribution**: ein Monorepo mit Odoo-Core, 
 - **`addons-design-themes/`** – Odoo Design-Themes.
 - **`custom-addons-*`** – Eigene Unterprojekte mit Odoo-Modulen. Jedes Verzeichnis kann mehrere Addon-Repositories enthalten (verschachtelte Struktur, siehe unten).
 - **`assembly/`** – **Generiert, nicht manuell bearbeiten.** Enthält einen Symlink-Baum, der alle Module unter `assembly/odoo/addons/` zusammenführt. Wird von `odoo assemble` erstellt und dient der IDE (Pyright/Pylance) zur Auflösung von `odoo.addons.*`-Imports.
-- **`docker/`**, **`kubernetes/`**, **`odoo-gitops/`** – Deployment-Konfiguration.
+- **`docker/`**, **`odoo-gitops/`** – Deployment-Konfiguration.
 - **`.venv/`** – Virtuelle Python-Umgebung (pipenv).
 - **`.vscode/`** – VSCode/Cursor Debug-Konfiguration (`launch.json`), Snippets.
 - **`odoo.code-workspace`** – Workspace-Datei mit Pylint- und Pyright-Konfiguration. Definiert `assembly/` als `extraPaths` für die Code-Analyse.

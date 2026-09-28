@@ -367,7 +367,7 @@ class Restore(CommandMixin, Command, DatabaseMixin):
         rsync_cmd = "rsync"
         if url.scheme == 'kube':
             base_dir = self._parser.base_dir
-            krsync_path = os.path.join(base_dir, 'kubernetes', 'sbin', 'krsync.sh')
+            krsync_path = os.path.join(base_dir, 'addons-oerp', 'oerp_util', 'bin', 'krsync.sh')
             if not os.path.exists(krsync_path):
                 raise ConfigException(f"krsync.sh not found at {krsync_path}")
 

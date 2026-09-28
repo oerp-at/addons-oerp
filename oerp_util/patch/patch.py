@@ -291,6 +291,12 @@ def patch_dist(force=False):
         os.path.join(src_path, 'cursor', 'templates'),
         copy_tree=True)
 
+    # Cursor: ignore file for local plans – kept in sync
+    patch(
+        os.path.join(workspace_path, '.cursor', '.gitignore'),
+        os.path.join(src_path, 'cursor', '.gitignore'),
+        patch_back=True, force=force)
+
     # GitHub: Copilot instructions (copilot-instructions.md + instructions/) and
     # CI workflows – bootstrapped and kept in sync per file (see final block).
 
