@@ -30,7 +30,7 @@ Finally install the Wkhtml package for report generation
 
 ## Commit Messages
 
-Please use the commit message format described in the [OCA Guidlines](https://github.com/OCA/odoo-community.org/blob/master/website/Contribution/CONTRIBUTING.rst#commit-message) or described in the [Odoo Development Guidlines](https://www.odoo.com/documentation/16.0/developer/misc/other/guidelines.html)
+Please use the commit message format described in the [OCA Guidlines](https://github.com/OCA/odoo-community.org/blob/master/website/Contribution/CONTRIBUTING.rst#commit-message) or described in the [Odoo Development Guidlines](https://www.odoo.com/documentation/master/contributing/development/git_guidelines.html)
 
 ## Commands
 

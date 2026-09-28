@@ -1,4 +1,4 @@
-# Coding Standards – Odoo 19.0
+# Coding Standards – Odoo 20.0
 
 Always-on coding conventions for this project. These apply to all code changes.
 

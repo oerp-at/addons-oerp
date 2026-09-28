@@ -1,10 +1,10 @@
 ---
-name: 'Odoo 19 – Common AI Pitfalls'
-description: 'Odoo 19 – common AI errors to avoid (XML, Python, model structure)'
+name: 'Odoo 20 – Common AI Pitfalls'
+description: 'Odoo 20 – common AI errors to avoid (XML, Python, model structure)'
 applyTo: '**/*.xml, **/*.py'
 ---
 
-# Odoo 19 – Common AI Pitfalls
+# Odoo 20 – Common AI Pitfalls
 
 ## Search View `<group>` (Group By)
 
@@ -22,12 +22,12 @@ The `<group>` element inside `<search>` is a **plain container** for `group_by` 
 </group>
 ```
 
-## No `attrs=` in Odoo 18+
+## No `attrs=` / `states=` (removed since Odoo 17)
 
-The `attrs` attribute was **removed** in Odoo 17+. Use inline Python expressions directly.
+View validation rejects `attrs` and `states`. Use inline Python expressions directly.
 
 ```xml
-<!-- ✅ GOOD (Odoo 18+) -->
+<!-- ✅ GOOD -->
 <field name="amount" invisible="state != 'done'" readonly="state == 'done'"/>
 
 <!-- ❌ BAD – attrs is removed -->
@@ -75,7 +75,7 @@ For period-based filtering (month, quarter, year) on date fields, use the built-
                  ('date', '&lt;', ...)]"/>
 ```
 
-### Preselect a Period: `default_period="<id>"` (Odoo 19)
+### Preselect a Period: `default_period="<id>"`
 
 To have a specific period preselected when the date filter is active, set `default_period` on the filter. Combine with `search_default_<filter_name>` in the action context to activate the filter by default.
 
@@ -91,9 +91,229 @@ Generator ids follow the format `unit` or `unit<sign><offset>` (see `web/static/
 | This year | `year` |
 | Last year | `year-1` |
 
+The relative filters ("Today", "This Week", …) have fixed ids that work the same way:
+`today`, `this_week`, `this_month`, `this_quarter`, `this_year`.
+
 Multiple ids can be combined with commas (e.g. `month-1,year-1`).
 
 ```xml
 <!-- ✅ GOOD – declarative preselection with default_period -->
 <filter name="date_filter" string="Date" date="date" default_period="month-1"/>
+
+<!-- action: activate the filter by default -->
+<field name="context">{'search_default_date_filter': 1}</field>
+
+<!-- ❌ BAD – extra custom filter with hand-built last-month domain -->
+<filter name="last_month" string="Last Month"
+        domain="[
+            ('date', '&gt;=', (context_today() + relativedelta(months=-1, day=1)).strftime('%Y-%m-%d')),
+            ('date', '&lt;=', (context_today() + relativedelta(day=1, days=-1)).strftime('%Y-%m-%d')),
+        ]"/>
 ```
+
+## Constraints and Indexes: `models.Constraint` / `models.Index`
+
+`_sql_constraints` and `_constraints` are **no longer supported**. Odoo only logs a warning and creates **no** constraint in the database. Declare constraints and indexes as class attributes; the attribute name becomes the constraint name.
+
+```python
+# ✅ GOOD
+_code_unique = models.Constraint(
+    "UNIQUE(code, company_id)",
+    "The code must be unique per company.",
+)
+_draft_idx = models.Index("(journal_id, date) WHERE state = 'draft'")
+
+# ❌ BAD – silently ignored, no constraint in the database
+_sql_constraints = [
+    ("code_unique", "UNIQUE(code, company_id)", "The code must be unique per company."),
+]
+```
+
+For Python-level checks use `@api.constrains(...)`.
+
+## Module `__init__.py`: Never import `tests`
+
+The `tests/` package is **auto-discovered** by the Odoo test runner. Importing it in the module's root `__init__.py` causes test code to execute at module load time.
+
+```python
+# ✅ GOOD
+from . import models
+
+# ❌ BAD – tests must not be imported
+from . import models
+from . import tests
+```
+
+## Python: Imports at Top of File
+
+All imports must be at the **top of the file**. Never use inline `__import__()` or local imports inside methods (except for circular-dependency workarounds).
+
+```python
+# ✅ GOOD
+import base64
+from odoo import api, fields, models
+
+# ❌ BAD – inline import
+data = __import__("base64").b64encode(content)
+
+# ❌ BAD – local import in method (unless circular dependency)
+def my_method(self):
+    import base64
+    ...
+```
+
+## Field `string=`: Skip When It Matches the Auto-Label
+
+Odoo auto-derives a field's label from its technical name: underscores become spaces and each word is title-cased (e.g. `time_type` → `Time Type`, `date_start` → `Date Start`). Setting `string=` to that exact same value is **redundant** and just adds noise. Only set `string=` when you need a label that differs from the default.
+
+```python
+# ✅ GOOD – auto-derived label is already "Time Type"
+time_type = fields.Selection(
+    [("work", "Work"), ("vacation", "Vacation")],
+    default="work",
+    required=True,
+)
+
+# ✅ GOOD – override needed (label differs from auto)
+date_start = fields.Date(string="Week Start")
+total_hours = fields.Float(string="Hours (Actual)")
+
+# ❌ BAD – redundant, equals the auto-generated label
+time_type = fields.Selection(
+    [("work", "Work"), ("vacation", "Vacation")],
+    string="Time Type",
+    default="work",
+    required=True,
+)
+date_end = fields.Date(string="Date End")
+```
+
+The same applies to view declarations: `<field name="time_type"/>` already shows "Time Type"; do not add `string="Time Type"` there either.
+
+## Field `help=""`: Plain Language for End Users, Not Developers
+
+The `help=""` text is shown as a **tooltip** to whoever uses the form. That audience is HR clerks, accountants, project managers – people **without** any Odoo, Python or database knowledge. Write it like a sentence in a user manual, not like a code comment.
+
+Rules:
+
+1. **No technical field names.** Don't reference `total_hours`, `line_ids`, `time_type='none'`, `_compute_…`, `noupdate=1`, etc. The user has no idea what those are. If you need to refer to another field, use its **user-visible label** (the same text the user sees on screen).
+2. **Short and concrete.** One or two sentences explaining *what the field means in business terms* and, if relevant, *what changes when it is set*. Avoid implementation details.
+3. **Formulas are fine for transparency** – but written with user-visible labels, not field names. `"Hours (Actual) − Hours (Target)"` is great; `"total_hours - target_hours"` is not.
+4. **No dependency chains, recompute notes, or migration behaviour.** That belongs in `AGENTS.md` of the module – it's documentation for the next developer, not for the form's tooltip.
+5. **Same rule for view-level `help=""`** on `<field>`, `<filter>`, etc.
+
+```python
+# ✅ GOOD – business meaning, plain language
+time_type = fields.Selection(
+    [("work", "Work"), ("none", "No Work")],
+    default="work",
+    required=True,
+    help="What kind of time this entry represents. "
+         "Work counts as actual working hours. "
+         "No Work (compensation time) does not count toward the day's total.",
+)
+
+# ✅ GOOD – formula kept for transparency, but using user-visible labels
+diff_hours = fields.Float(
+    string="Diff",
+    compute="_compute_diff_hours",
+    store=True,
+    help="Difference between Hours (Actual) and Hours (Target). "
+         "Positive means overworked, negative means underworked.",
+)
+
+# ❌ BAD – formula written with technical field names
+diff_hours = fields.Float(
+    string="Diff",
+    compute="_compute_diff_hours",
+    store=True,
+    help="total_hours - target_hours",
+)
+
+# ❌ BAD – references technical field names and computation details
+time_type = fields.Selection(
+    [("work", "Work"), ("none", "No Work")],
+    default="work",
+    required=True,
+    help="Categorises lines into work / vacation / holiday / sick / "
+         "none (compensation time) for day breakdown totals. Lines with "
+         "time_type='none' are subtracted from total_hours and "
+         "total_work_hours.",
+)
+```
+
+```xml
+<!-- ✅ GOOD -->
+<field name="date_end" help="Last day covered by this report."/>
+
+<!-- ❌ BAD – exposes the compute and clamping logic -->
+<field name="date_end"
+       help="Computed from date_start. Clamped to last day of month so a
+             single record never spans two months."/>
+```
+
+Implementation mechanics – dependency chains, migration behaviour, naming conventions, internal field references – go in the module's `AGENTS.md`, where developers will look for them.
+
+## HTTP Requests: Use `requests`
+
+For outbound HTTP calls, use the **`requests`** library. That is what Odoo itself uses and expects (dependency is available). Avoid low-level **`urllib`** (`urllib.request`, etc.) or ad-hoc stacks unless you have a rare, documented exception.
+
+```python
+# ✅ GOOD
+import requests
+
+response = requests.get(url, timeout=30)
+response.raise_for_status()
+data = response.json()
+
+# ❌ BAD – urllib instead of requests
+import urllib.request
+
+with urllib.request.urlopen(url) as resp:
+    data = resp.read()
+```
+
+## QWeb: `t-out` instead of `t-esc`
+
+Use **`t-out`** for all QWeb output. The server-side engine (`ir.qweb`: reports, mail templates, website) has no `t-esc` directive any more: it logs "Unknown directives" and renders **nothing**. Owl templates still accept `t-esc`, but only with a deprecation warning.
+
+```xml
+<!-- ✅ GOOD -->
+<span t-out="user.name"/>
+<t t-out="title or 'Default'"/>
+
+<!-- ❌ BAD – ignored by server-side QWeb, deprecated in Owl -->
+<span t-esc="user.name"/>
+<t t-esc="title"/>
+```
+
+## Wizard Files Live Under `wizards/`
+
+Wizard Python (`TransientModel`) **and** their form XML always live in the module's `wizards/` directory. The XML file is **always** named `<name>_wizard.xml`. The Python file matches the model name (`<name>.py`). Do **not** put wizard forms under `views/`.
+
+```
+✅ GOOD
+my_module/
+  wizards/
+    __init__.py
+    my_thing_wizard.py            # TransientModel `my.thing.wizard`
+    my_thing_wizard.xml           # form view + action
+
+❌ BAD
+my_module/
+  wizards/
+    my_thing.py
+  views/
+    my_thing_views.xml            # wizard form belongs in wizards/
+```
+
+Manifest references the file accordingly:
+
+```python
+# ✅ GOOD
+'data': [
+    'wizards/my_thing_wizard.xml',
+],
+```
+
+The action that opens the wizard belongs in the same `_wizard.xml` file. Buttons in other views (e.g. on the form of a related model) reference it via `%(my_module.action_my_thing)d`.

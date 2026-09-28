@@ -1,6 +1,6 @@
-# Agent Instructions – Odoo 19.0
+# Agent Instructions – Odoo 20.0
 
-Dieses Projekt ist eine **Odoo 19.0 Distribution**: ein Monorepo mit Odoo-Core, Standard-Addons und lokal ausgecheckten Unterprojekten.
+Dieses Projekt ist eine **Odoo 20.0 Distribution**: ein Monorepo mit Odoo-Core, Standard-Addons und lokal ausgecheckten Unterprojekten.
 
 ## Projektstruktur
 
@@ -49,8 +49,8 @@ Folgende Verzeichnisse/Dateien sind generiert oder extern und sollen nicht manue
 
 ## Technologie
 
-- **Odoo:** Version **19**
-- **Python:** 3.12 (virtuelle Umgebung unter `.venv`)
+- **Odoo:** Version **20**
+- **Python:** 3.14 (virtuelle Umgebung unter `.venv`)
 - **Abhängigkeiten:** Pipenv (`pipenv install` / `pipenv install --dev`)
 - **Patch:** Mit `./addons-oerp/oerp_util/patch/patch.py` wird das lokale Checkout einmalig vorbereitet (CLI-Erweiterungen, Workspace-Dateien, Docker-Setup).
 - **Assembly:** Nach `./odoo/odoo-bin assemble` stehen Befehle wie `odoo serve`, `odoo update`, `odoo test` zur Verfügung und der `assembly/`-Symlink-Baum wird aktualisiert. **Nach dem Anlegen neuer Module muss `odoo assemble` erneut ausgeführt werden.**
@@ -191,7 +191,7 @@ Die Coding- und Projektregeln werden für **drei** KI-Assistenten parallel gepfl
 
 - Ein Modul = ein Verzeichnis mit `__manifest__.py` (und typisch `__init__.py`, Models, Views, etc.).
 - Imports folgen dem Schema `from odoo.addons.<module> import ...` – der `assembly/`-Ordner stellt sicher, dass die IDE diese auflösen kann.
-- Commit-Messages: OCA- oder Odoo-Entwicklerrichtlinien (z. B. [OCA](https://github.com/OCA/odoo-community.org/blob/master/website/Contribution/CONTRIBUTING.rst#commit-message), [Odoo Guidelines](https://www.odoo.com/documentation/16.0/developer/misc/other/guidelines.html)).
+- Commit-Messages: OCA- oder Odoo-Entwicklerrichtlinien (z. B. [OCA](https://github.com/OCA/odoo-community.org/blob/master/website/Contribution/CONTRIBUTING.rst#commit-message), [Odoo Guidelines](https://www.odoo.com/documentation/master/contributing/development/git_guidelines.html)).
 - Übersetzungen: Export `odoo po_export -d <database> <module>`, Import `odoo po_import -d <database> <module>` (Standardsprache z. B. in `odoo-profile.yml`, z. B. `de_DE`).
 
 ### Tests
@@ -231,6 +231,6 @@ Profile definieren Standardwerte (Datenbank, Sprache, etc.) und werden in dieser
 4. `<projekt>/custom-addons-<name>/.odoo-profile.yml` (lokales Override)
 5. `~/.odoo-profile.yml` (benutzerspezifisch)
 
-Der Profilname leitet sich vom Verzeichnisnamen ab: `odoo-19.0-sh` bzw. `odoo-19.0-sh-<subprojekt>`.
+Der Profilname leitet sich vom Verzeichnisnamen ab: `odoo-20.0-sh` bzw. `odoo-20.0-sh-<subprojekt>`.
 
 Bei Befehlen wie `odoo update`, `odoo serve`, `odoo test` die passende Datenbank angeben (`-d <database>`), sofern nicht durch Profil vorkonfiguriert.

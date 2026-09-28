@@ -1,6 +1,6 @@
-# CLAUDE.md — Odoo 19.0 Distribution
+# CLAUDE.md — Odoo 20.0 Distribution
 
-Monorepo einer **Odoo-19.0-Distribution**: Odoo-Core, Standard-Addons und lokal ausgecheckte Unterprojekte.
+Monorepo einer **Odoo-20.0-Distribution**: Odoo-Core, Standard-Addons und lokal ausgecheckte Unterprojekte.
 Vollständige Doku in [AGENTS.md](AGENTS.md); Coding-Regeln unter [.cursor/rules/](.cursor/rules/).
 
 ## Struktur
@@ -50,17 +50,18 @@ pipenv run odoo test <module> [--test-case=<Class>] [--test-prefix=<method>]
 - **English in code**: Feldnamen, `string=`, `help=`, `_description`, Manifest-`name/summary/description`, User-Errors — alles Englisch. UI-Übersetzungen laufen über `.po`.
 - **Naming (WOA)**: beschreibend, kurz, einfach. Felder `snake_case` ohne Modell-Präfix; Methoden `_compute_*`, `action_*`; Modellname `dot.notation` singular; XML-ID `model_view_type`.
 
-**Odoo 19 – häufige Fehler vermeiden** (siehe [odoo-code-pitfalls.mdc](.cursor/rules/odoo-code-pitfalls.mdc)):
+**Odoo 20 – häufige Fehler vermeiden** (siehe [odoo-code-pitfalls.mdc](.cursor/rules/odoo-code-pitfalls.mdc)):
 - Kein `attrs=` mehr → inline `invisible="state != 'done'"` (Python-Ausdruck, keine Domain-Liste).
-- Kein `t-esc` → `t-out`. Kein `_()` in Models → `self.env._()`.
-- Search-`<group>` nimmt **keine** Attribute. Datumsfilter über `date="<field>"` / `default_period=`.
+- Kein `t-esc` → `t-out` (Server-QWeb ignoriert `t-esc`, gibt nichts aus). Kein `_()` in Models → `self.env._()`.
+- Kein `_sql_constraints` (wird ignoriert) → `models.Constraint(...)` / `models.Index(...)` als Klassenattribut.
+- Search-`<group>` nimmt **keine** Attribute. Datumsfilter über `date="<field>"` / `default_period=` (auch `today`, `this_week`, `this_month` …).
 - `string=` weglassen, wenn es dem Auto-Label entspricht. `help=` in Endnutzer-Sprache (keine technischen Feldnamen).
 - `__init__.py` importiert **nie** `tests`. Imports am Dateikopf. HTTP via `requests`.
 - Wizards liegen unter `wizards/`, XML als `<name>_wizard.xml`.
 
 **Struktur & Manifest:**
 - OCA Coding Style (PEP8, Import-Reihenfolge, `models/ views/ controllers/ security/ data/ demo/ tests/`, Dateinamen `[a-z0-9_]`).
-- **Manifest-Version** bei jeder Änderung anpassen: `19.0.<Major>.<Minor>.<Patch>` — Code-only → Patch; neue Felder/Views → Minor (Patch=0); entfernt/umbenannt → Major (Minor/Patch=0, Major startet bei 1).
+- **Manifest-Version** bei jeder Änderung anpassen: `20.0.<Major>.<Minor>.<Patch>` — Code-only → Patch; neue Felder/Views → Minor (Patch=0); entfernt/umbenannt → Major (Minor/Patch=0, Major startet bei 1).
 - **Neue Module** aus Template `.cursor/templates/woa_addon` (beide Icons kopieren).
 - **Modul-`AGENTS.md`**: jedes Modul hat eine im Root (neben `__manifest__.py`), bei jeder Änderung aktuell halten (kurz, Englisch, Bullet/Tabellen).
 - **readme/**: neue Features unter `readme/` dokumentieren (DESCRIPTION.md, USAGE.md, CONFIGURE.md …).

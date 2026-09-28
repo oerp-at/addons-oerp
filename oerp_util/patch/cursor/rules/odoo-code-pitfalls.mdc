@@ -1,10 +1,10 @@
 ---
-description: Odoo 19 – häufige KI-Fehler vermeiden (XML, Python, Model structure)
+description: Odoo 20 – häufige KI-Fehler vermeiden (XML, Python, Model structure)
 globs: "**/*.{xml,py}"
 alwaysApply: false
 ---
 
-# Odoo 19 – Common AI Pitfalls
+# Odoo 20 – Common AI Pitfalls
 
 ## Search View `<group>` (Group By)
 
@@ -22,12 +22,12 @@ The `<group>` element inside `<search>` is a **plain container** for `group_by` 
 </group>
 ```
 
-## No `attrs=` in Odoo 18+
+## No `attrs=` / `states=` (removed since Odoo 17)
 
-The `attrs` attribute was **removed** in Odoo 17+. Use inline Python expressions directly.
+View validation rejects `attrs` and `states`. Use inline Python expressions directly.
 
 ```xml
-<!-- ✅ GOOD (Odoo 18+) -->
+<!-- ✅ GOOD -->
 <field name="amount" invisible="state != 'done'" readonly="state == 'done'"/>
 
 <!-- ❌ BAD – attrs is removed -->
@@ -75,7 +75,7 @@ For period-based filtering (month, quarter, year) on date fields, use the built-
                  ('date', '&lt;', ...)]"/>
 ```
 
-### Preselect a Period: `default_period="<id>"` (Odoo 19)
+### Preselect a Period: `default_period="<id>"`
 
 To have a specific period preselected when the date filter is active, set `default_period` on the filter. Combine with `search_default_<filter_name>` in the action context to activate the filter by default.
 
@@ -90,6 +90,9 @@ Generator ids follow the format `unit` or `unit<sign><offset>` (see `web/static/
 | Last quarter | `quarter-1` |
 | This year | `year` |
 | Last year | `year-1` |
+
+The relative filters ("Today", "This Week", …) have fixed ids that work the same way:
+`today`, `this_week`, `this_month`, `this_quarter`, `this_year`.
 
 Multiple ids can be combined with commas (e.g. `month-1,year-1`).
 
@@ -107,6 +110,26 @@ Multiple ids can be combined with commas (e.g. `month-1,year-1`).
             ('date', '&lt;=', (context_today() + relativedelta(day=1, days=-1)).strftime('%Y-%m-%d')),
         ]"/>
 ```
+
+## Constraints and Indexes: `models.Constraint` / `models.Index`
+
+`_sql_constraints` and `_constraints` are **no longer supported**. Odoo only logs a warning and creates **no** constraint in the database. Declare constraints and indexes as class attributes; the attribute name becomes the constraint name.
+
+```python
+# ✅ GOOD
+_code_unique = models.Constraint(
+    "UNIQUE(code, company_id)",
+    "The code must be unique per company.",
+)
+_draft_idx = models.Index("(journal_id, date) WHERE state = 'draft'")
+
+# ❌ BAD – silently ignored, no constraint in the database
+_sql_constraints = [
+    ("code_unique", "UNIQUE(code, company_id)", "The code must be unique per company."),
+]
+```
+
+For Python-level checks use `@api.constrains(...)`.
 
 ## Module `__init__.py`: Never import `tests`
 
@@ -250,16 +273,16 @@ with urllib.request.urlopen(url) as resp:
     data = resp.read()
 ```
 
-## QWeb: `t-out` instead of `t-esc` (Odoo 19)
+## QWeb: `t-out` instead of `t-esc`
 
-`t-esc` is **removed** in Odoo 19. Use **`t-out`** for all QWeb output.
+Use **`t-out`** for all QWeb output. The server-side engine (`ir.qweb`: reports, mail templates, website) has no `t-esc` directive any more: it logs "Unknown directives" and renders **nothing**. Owl templates still accept `t-esc`, but only with a deprecation warning.
 
 ```xml
-<!-- ✅ GOOD (Odoo 19) -->
+<!-- ✅ GOOD -->
 <span t-out="user.name"/>
 <t t-out="title or 'Default'"/>
 
-<!-- ❌ BAD – t-esc does not exist in Odoo 19 -->
+<!-- ❌ BAD – ignored by server-side QWeb, deprecated in Owl -->
 <span t-esc="user.name"/>
 <t t-esc="title"/>
 ```

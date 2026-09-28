@@ -12,7 +12,7 @@ When changing an Odoo module, update the `version` in `__manifest__.py` accordin
 
 `<Odoo Version>.<Odoo Intermediate Release (default 0)>.<Major>.<Minor>.<Patch>`
 
-Example: `19.0.1.0.0`
+Example: `20.0.1.0.0`
 
 ## When to Bump Which Part
 
@@ -31,6 +31,6 @@ Example: `19.0.1.0.0`
 
 ## Example
 
-- Before: `19.0.1.2.3`
-- You add a new field and a new view → bump Minor, reset Patch: `19.0.1.3.0`
-- You remove a field later → bump Major, reset Minor and Patch: `19.0.2.0.0`
+- Before: `20.0.1.2.3`
+- You add a new field and a new view → bump Minor, reset Patch: `20.0.1.3.0`
+- You remove a field later → bump Major, reset Minor and Patch: `20.0.2.0.0`
