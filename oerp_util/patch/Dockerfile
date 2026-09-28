@@ -17,8 +17,9 @@ RUN apt-get clean && apt-get update && apt-get install -y locales && \
 
 
 # install os python dependencies
+# (apt-get update again: the locale layer may come from an older build cache)
 
-RUN apt-get install -y -f \
+RUN apt-get update && apt-get install -y -f \
     gzip \
     rsync \
     restic \
@@ -35,9 +36,6 @@ RUN apt-get install -y -f \
     libjs-underscore \
     lsb-base \
     postgresql-client \
-    liburing2 \
-    libseccomp2 \
-    libunwind8 \
     python3-babel \
     python3-chardet \
     python3-dateutil \
@@ -101,11 +99,9 @@ RUN apt-get install -y -f \
 COPY docker/install /install
 RUN dpkg -i /install/wkhtmltox_0.12.6.1-2.jammy_amd64.deb ; apt-get install -f -y
 
-# install paper-muncher (long term replacement for wkhtmltopdf)
-# --force-depends: the deb declares "liburing" and "libunwind" which are not
-# real package names on ubuntu; the actual libs (liburing2, libseccomp2,
-# libunwind8) are installed above
-RUN dpkg -i --force-depends /install/paper-muncher_v0.6.0_plucky_amd64.deb
+# install paper-muncher (odoo's report engine, see module base_report_paper_muncher)
+# the resolute build declares its real dependencies, so apt resolves them
+RUN apt-get install -y /install/paper-muncher_v0.8.0_resolute_amd64.deb
 ENV PATH="/opt/paper-muncher/bin:${PATH}"
 
 # fix imagemagick policy
