@@ -378,7 +378,7 @@ class AutomationTask(models.Model):
                     # check concurrent
                     self.env.cr.execute(
                         "SELECT MIN(id) FROM automation_task WHERE res_model=%s AND state IN ('queued','run')",
-                        (resource._model._name, ),
+                        (resource._name, ),
                     )
 
                     active_task_id = self.env.cr.fetchone()[0]
