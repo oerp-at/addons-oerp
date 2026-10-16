@@ -438,7 +438,7 @@ msgstr ""
 #: code:addons/automation/models/status.py:0
 #, python-format
 msgid "Started"
-msgstr ""
+msgstr "Gestartet"
 
 #. module: automation
 #: model:ir.model.fields,field_description:automation.field_automation_task__state
@@ -604,3 +604,9 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:automation.form_automation_task
 msgid "Warnings"
 msgstr ""
+
+#. module: automation
+#. odoo-python
+#: code:addons/automation/models/automation.py:0
+msgid "Unexpected error, see logs"
+msgstr "Unerwarteter Fehler, siehe Protokoll"
