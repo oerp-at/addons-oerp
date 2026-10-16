@@ -359,9 +359,23 @@ class AutomationTask(models.Model):
             if self.state == 'queued':
                 self._process_task()
 
+    def _get_run_lang(self):
+        """ Language a task runs in: the one of its owner (or creator).
+
+        A task started by the cron would otherwise run without a language,
+        its log and chatter messages would be written in English (13795).
+        Returns None if the user has no active language.
+        """
+        self.ensure_one()
+        lang = self.owner_id.lang or self.create_uid.lang
+        if lang and self.env['res.lang']._lang_get(lang):
+            return lang
+        return None
+
     def _process_task(self):
         self.ensure_one()
-        task = self
+        lang = self._get_run_lang()
+        task = self.with_context(lang=lang) if lang else self
 
         if task and task.state == "queued":
             error_count = 0
@@ -433,7 +447,7 @@ class AutomationTask(models.Model):
                     self._rollback_state()
 
                     _logger.exception("Task execution failed")
-                    task = self.browse(task.id)  # reload task after rollback
+                    task = task.browse(task.id)  # reload task after rollback, keeps the language
 
                     # securely try to get message
                     error = None
@@ -447,7 +461,7 @@ class AutomationTask(models.Model):
 
                     #if there is no message
                     if not error:
-                        error = "Unexpected error, see logs"
+                        error = task.env._("Unexpected error, see logs")
 
                     # write error
                     task.write({
