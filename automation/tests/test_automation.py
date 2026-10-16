@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from odoo.tests.common import TransactionCase
 from odoo.tests import tagged
 
@@ -73,3 +75,28 @@ class TestAutomation(TransactionCase):
         task.task_id.with_context(lang=None)._process_task()
 
         self.assertIn('Started', self._log_messages(task))
+
+    def _patch_singleton(self):
+        ''' Turn the example into a quick singleton task '''
+        example = type(self.env['automation.task.example'])
+        for name, method in (
+            ('_run_options', lambda task: {'singleton': True}),
+            ('_run', lambda task, taskc: taskc.log('Singleton run')),
+        ):
+            patcher = patch.object(example, name, method, create=True)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_singleton_task_runs(self):
+        ''' The concurrency check of a singleton task crashed on Odoo 19,
+        resource._model is gone (12450) '''
+        self._patch_singleton()
+        task = self.env['automation.task.example'].create({
+            'name': 'Singleton Task'
+        })
+
+        task.action_queue()
+        task.task_id._process_task()
+
+        self.assertEqual(task.state, 'done')
+        self.assertFalse(task.error)
