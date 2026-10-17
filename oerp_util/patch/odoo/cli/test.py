@@ -116,12 +116,18 @@ class Test(CommandMixin, Command):
         server = ThreadedServer(root)
         return server
 
+    # Modules holding cross-module tests (odoo.tests.CrossModule): their
+    # tests run for the tested module, e.g. the hoot JS unit tests of web
+    # (WebSuite) only pick the .test.js files of that module.
+    CROSS_MODULE_HOSTS = ("web",)
+
     def run_test(self,
                  module_name,
                  test_prefix=None,
                  test_case=None,
                  test_tags=None,
-                 test_position=None):
+                 test_position=None,
+                 available_modules=None):
 
         # before running tests ensure all imports
         import odoo.tests.loader
@@ -146,19 +152,38 @@ class Test(CommandMixin, Command):
         module.current_test = module_name
 
         # query modules, tests and run
-        config_tags = TagsSelector(test_tags) if test_tags else None
-        position_tag = TagsSelector(test_position) if test_position else None
+        # A cross-module test is skipped by the selector unless it knows
+        # the installed modules (odoo/tests/tag_selector.py).
+        config_tags = TagsSelector(test_tags, available_modules) if test_tags else None
+        position_tag = TagsSelector(test_position, available_modules) if test_position else None
         test_server_enabled = config.get('test_server', False)
+
+        # The cross-module tests of the host modules, restricted to the
+        # tested module (last check wins: it sets the module list).
+        # Only for modules shipping JS unit tests, so a run over all
+        # modules does not start one HTTP case per module for nothing.
+        module_tag = TagsSelector(f"/{module_name}", available_modules)
+        module_path = module.get_module_path(module_name, display_warning=False) or ""
+        cross_mods = []
+        if glob.glob(os.path.join(module_path, "static", "tests", "**", "*.test.js"),
+                     recursive=True):
+            for host in self.CROSS_MODULE_HOSTS:
+                if host != module_name and host in (available_modules or ()):
+                    cross_mods.extend(odoo.tests.loader.get_test_modules(host))
+
+        def select(t, cross=False):
+            if cross and not hasattr(t, "_cross_module"):
+                return False
+            return ((not position_tag or position_tag.check(t))
+                    and (not config_tags or config_tags.check(t))
+                    and (not cross or module_tag.check(t))
+                    and match_filter(t)
+                    and (not isinstance(t, odoo.tests.common.HttpCase) or test_server_enabled))
+
         results = []
-        for m in mods:
+        for m in list(mods) + cross_mods:
             tests = get_module_test_cases(m)
-            suite = OdooSuite(
-                t for t in tests
-                if (not position_tag or position_tag.check(t))
-                   and (not config_tags or config_tags.check(t))
-                   and match_filter(t)
-                   and (not isinstance(t, odoo.tests.common.HttpCase) or test_server_enabled)
-            )
+            suite = OdooSuite(t for t in tests if select(t, cross=m in cross_mods))
 
             if suite.countTestCases():
                 t0 = time.time()
@@ -236,9 +261,12 @@ class Test(CommandMixin, Command):
                     odoo.service.server.server = server
 
             # run tests
+            cr.execute(
+                "SELECT name from ir_module_module WHERE state = 'installed' ")
+            installed = {name for (name, ) in cr.fetchall()}
             for module_name in modules:
                 results.extend(self.run_test(module_name, test_prefix, test_case,
-                                   test_tags, test_position))
+                                   test_tags, test_position, installed))
 
 
         if not results:
