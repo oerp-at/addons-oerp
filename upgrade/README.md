@@ -22,3 +22,23 @@ Our own modules keep their scripts in `<module>/migrations/<version>/`.
 Update upgrade-util:
 
     git subtree pull --squash --prefix=addons-oerp/upgrade/upgrade-util upgrade-util master
+
+## Steps of `odoo migrate`
+
+1. `migrate` – `odoo update` of base with the upgrade path above
+2. `cleanup` – the fixes of `odoo cleanup --fix`: unavailable modules are
+   uninstalled, invalid views and assets removed
+3. `update` – a regular `odoo update` on the cleaned database
+
+Any error in a step stops the migration and sets the marker
+`oerp.migration.state` to `failed`. At the end every step reports its errors
+and warnings, and each warning left after the final update is listed.
+`--no-cleanup` runs step 1 only.
+
+Partial migration for local tests: `--no-drop` uninstalls installed modules
+that are not available (and the modules depending on them) instead of stopping.
+The cleanup keeps their tables and columns, so the data is still there once
+the module is ported:
+
+    pipenv run odoo migrate --source odoo19_x -d odoo20_x --force-drop-db --no-drop \
+        --addons-path <paths without the modules to leave out>
