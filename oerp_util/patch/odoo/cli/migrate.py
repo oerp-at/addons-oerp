@@ -292,3 +292,26 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
         except MigrationError as e:
             _logger.error(str(e))
             raise SystemExit(1)
+
+
+def run_migration_if_needed(database, debug=False):
+    """ called by odoo update: migrate in place when the database is on the
+    previous major version. Returns True if a migration ran. """
+    command = Migrate()
+    command.params = argparse.Namespace(
+        database=database, source=None, in_place=True, dry_run=False,
+        force_drop_db=False, extra_upgrade_path=None, no_cleanup=False,
+        debug=debug, exit_error=True)
+    command.setup_db_env()
+    con = command.connect_database(database=database)
+    try:
+        with con.cursor() as cr:
+            source_version = migration_needed(cr)
+    finally:
+        con.close()
+    if not source_version:
+        return False
+    _logger.warning("Database %s is on %s, migrating to %s instead of updating",
+                    database, source_version, odoo.release.major_version)
+    command.run_config()
+    return True

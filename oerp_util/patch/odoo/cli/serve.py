@@ -16,6 +16,25 @@ _logger = logging.getLogger(__name__)
 class Serve(Command, DatabaseMixin):
     """ Quick start the Odoo server for your Project """
 
+    def get_migration_state(self):
+        """ oerp.migration.state of the database, None if not set or unknown """
+        if not self.db_name:
+            return None
+        try:
+            con = self.connect_database()
+        except Exception:  # noqa: BLE001 - no database yet, nothing to protect
+            return None
+        try:
+            with con.cursor() as cr:
+                cr.execute("SELECT value FROM ir_config_parameter WHERE key = %s",
+                           ['oerp.migration.state'])
+                row = cr.fetchone()
+                return row[0] if row else None
+        except Exception:  # noqa: BLE001 - e.g. a fresh database without tables
+            return None
+        finally:
+            con.close()
+
     def run(self, cmdargs):
         progname = sys.argv[0].rsplit(os.path.sep, maxsplit=1)[-1]
         parser = Profile(self.name,
@@ -73,6 +92,10 @@ class Serve(Command, DatabaseMixin):
             name="wait_for_restore",
             action="store_true",
             envvar=True)
+        parser.add_argument("--ignore-migration-state",
+            name="ignore_migration_state",
+            action="store_true",
+            help="Serve even if odoo migrate marked the database as running or failed")
 
         # parse
         args, other_args = parser.parse_known_args(args=cmdargs)
@@ -112,6 +135,15 @@ class Serve(Command, DatabaseMixin):
                 while not self.is_database_ready():
                     _logger.warning('Waiting %s for database %s...', DEFAULT_SLEEP, self.db_name)
                     time.sleep(DEFAULT_SLEEP)
+
+            # never serve a half migrated database (marker of odoo migrate)
+            if not args.ignore_migration_state:
+                self.setup_db_env()
+                state = self.get_migration_state()
+                if state in ('running', 'failed'):
+                    _logger.critical('Migration state of %s is %s, not serving it '
+                                     '(--ignore-migration-state to override)', self.db_name, state)
+                    sys.exit(1)
 
         # install configuration hook and start server
         server_cli.report_configuration = report_configuration_hook

@@ -5,9 +5,21 @@ from odoo.tools.config import config
 
 from . import Command
 from .assemble import CommandMixin, update_database
+from .migrate import MigrationError, run_migration_if_needed
 
 
 _logger = logging.getLogger(__name__)
+
+
+def update_or_migrate_database(database, modules=None, debug=False):
+    """ a database on the previous major version is migrated instead """
+    try:
+        if run_migration_if_needed(database, debug=debug):
+            return
+    except MigrationError as e:
+        _logger.error(str(e))
+        raise SystemExit(1)
+    update_database(database, modules=modules)
 
 
 class Update(CommandMixin, Command):
@@ -67,8 +79,9 @@ class Update(CommandMixin, Command):
                          self.params.threads)
 
             pool = Pool(processes=self.params.threads)
-            pool.map(update_database, self.get_databases())
+            pool.map(update_or_migrate_database, self.get_databases())
 
         else:
             # update single databasee
-            update_database(self.params.database, modules=self.params.module)
+            update_or_migrate_database(self.params.database, modules=self.params.module,
+                                       debug=self.params.debug)

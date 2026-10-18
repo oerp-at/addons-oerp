@@ -943,6 +943,9 @@ class DatabaseMixin(object):
                     version = fetch_value()
                     cr.execute("SELECT COUNT(*) FROM ir_module_module WHERE state LIKE %s", ['to %'])
                     changes = fetch_value()
+                    cr.execute("SELECT value FROM ir_config_parameter WHERE key = %s",
+                               ['oerp.migration.state'])
+                    migration = fetch_value()
                 finally:
                     cr.close()
             finally:
@@ -960,6 +963,10 @@ class DatabaseMixin(object):
             return False
         if changes:
             _logger.warning('Database %s is currently being updated', self.db_name)
+            return False
+        if migration in ('running', 'failed'):
+            # set by odoo migrate: a half migrated database must not be served
+            _logger.warning('Database %s has migration state %s', self.db_name, migration)
             return False
         # everything fine
         return True
