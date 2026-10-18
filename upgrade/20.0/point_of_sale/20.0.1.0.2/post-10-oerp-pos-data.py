@@ -9,6 +9,13 @@ fields are dropped at the end of the update.
    (``account.move.pos_session_sales_id``)
 3. the cash balances of a session live on its cash statement in 20.0; one
    statement per session gets the 19.0 balances and cash lines
+4. ``pos.config.default_partner_id`` is new and required. Its default runs on
+   the existing configs before the data file creates the partner
+   ``point_of_sale.default_session_closing_partner``, so each config gets a
+   second "Odoo POS" partner without xmlid. The configs are moved to the
+   xmlid partner and the duplicate is removed. Like 20.0 itself, the partner
+   gets the POS receivable of each company, otherwise the closing entries
+   would book on the general receivable.
 
 Payment providers are checked in the end script, the modules adding them
 (e.g. orderjim_pos) load after point_of_sale.
@@ -98,7 +105,29 @@ def _create_cash_statements(cr):
     _logger.info("%s cash statements created for 19.0 sessions", len(statements))
 
 
+def _merge_default_partner(cr):
+    env = util.env(cr)
+    partner = env.ref("point_of_sale.default_session_closing_partner", raise_if_not_found=False)
+    if not partner:
+        return
+    configs = env["pos.config"].with_context(active_test=False).search([])
+    for company in configs.company_id:
+        if company.account_default_pos_receivable_account_id:
+            partner.with_company(company).property_account_receivable_id = (
+                company.account_default_pos_receivable_account_id
+            )
+    duplicates = configs.default_partner_id.filtered(
+        lambda p: p != partner and p.name == partner.name and not p.get_external_id().get(p.id)
+    )
+    if not duplicates:
+        return
+    configs.filtered(lambda c: c.default_partner_id in duplicates).default_partner_id = partner
+    duplicates.unlink()
+    _logger.info("pos.config: default partner set to %s, %s duplicates removed", partner.id, len(duplicates))
+
+
 def migrate(cr, version):
     _fill_payment_method_type(cr)
     _link_closing_moves(cr)
     _create_cash_statements(cr)
+    _merge_default_partner(cr)

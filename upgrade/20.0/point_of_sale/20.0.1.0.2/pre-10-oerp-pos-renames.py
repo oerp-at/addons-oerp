@@ -5,9 +5,13 @@ Journals swap their roles in 20.0:
 - 19.0 ``journal_id`` (session entries) is 20.0 ``closing_journal_id``
 - 19.0 ``invoice_journal_id`` (invoices) is 20.0 ``journal_id``
 
-Renamed in this order, the closing entries keep their 19.0 journal. 20.0 only
-offers sale journals for closing in the form, the 19.0 general journal still
-works for posting.
+Renamed in this order, the closing entries keep their 19.0 journal.
+
+20.0 closes a session with a customer invoice in the closing journal and looks
+the POS journal up by code and type ``sale``. The 19.0 journal (``POSS``) is a
+general journal, so 20.0 would try to create a second ``POSS`` and closing
+fails on the unique code. The closing journal therefore becomes a sale journal;
+code, name and the posted 19.0 entries stay as they are.
 """
 import logging
 
@@ -34,9 +38,39 @@ def _field_exists(cr, model, name):
     return bool(cr.rowcount)
 
 
+def _closing_journals_to_sale(cr):
+    """Turn the general closing journals of 19.0 into sale journals.
+
+    A sale journal needs a default income account, taken from the first sale
+    journal of the same company.
+    """
+    cr.execute(
+        """
+        UPDATE account_journal j
+           SET type = 'sale',
+               default_account_id = COALESCE(j.default_account_id, (
+                   SELECT s.default_account_id
+                     FROM account_journal s
+                    WHERE s.company_id = j.company_id
+                      AND s.type = 'sale'
+                      AND s.default_account_id IS NOT NULL
+                    ORDER BY s.sequence, s.id
+                    LIMIT 1))
+         WHERE j.type = 'general'
+           AND j.id IN (SELECT closing_journal_id FROM pos_config
+                         WHERE closing_journal_id IS NOT NULL)
+     RETURNING j.id, j.code
+        """
+    )
+    for journal_id, code in cr.fetchall():
+        _logger.info("account.journal %s (%s): closing journal is now a sale journal", journal_id, code)
+
+
 def migrate(cr, version):
     for model, table, old, new in RENAMES:
         exists = util.column_exists(cr, table, old) if table else _field_exists(cr, model, old)
         if exists:
             util.rename_field(cr, model, old, new)
             _logger.info("%s: %s renamed to %s", model, old, new)
+    if util.column_exists(cr, "pos_config", "closing_journal_id"):
+        _closing_journals_to_sale(cr)
