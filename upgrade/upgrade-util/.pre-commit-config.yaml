@@ -1,0 +1,36 @@
+repos:
+  - repo: local
+    hooks:
+      - id: compile23
+        name: Compile python files using the expected runtime version
+        entry: ./tools/compile23.py
+        language: script
+        require_serial: true
+        verbose: true
+      - id: bad-import-000
+        name: Incompatible import with old versions in tests and `0.0.0` scripts
+        language: pygrep
+        entry: '(from|import) odoo.upgrade\b'
+        files: '^src/\w+/(tests|0\.0\.0)/.*\.py$'
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.7
+    hooks:
+    - id: ruff
+      name: Check code with Ruff, apply automatic fixes
+      args: [ --exit-non-zero-on-fix ]
+    - id: ruff-format
+      name: Format code with Ruff
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.50.1
+    hooks:
+      - id: typos
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+    - id: check-xml
+    - id: check-yaml
+    - id: end-of-file-fixer
+    - id: trailing-whitespace
+    - id: check-symlinks
+    - id: debug-statements

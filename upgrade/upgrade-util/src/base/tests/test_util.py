@@ -1,0 +1,3695 @@
+import ast
+import json
+import operator
+import re
+import sys
+import threading
+import unittest
+import uuid
+from ast import literal_eval
+from contextlib import contextmanager
+
+from lxml import etree
+
+try:
+    from unittest import mock
+except ImportError:
+    import mock
+
+from odoo import SUPERUSER_ID, api, modules
+from odoo.tools import mute_logger
+
+try:
+    from odoo.sql_db import db_connect
+except ImportError:
+    from openerp.sql_db import db_connect
+
+from odoo.addons.base.maintenance.migrations import util
+from odoo.addons.base.maintenance.migrations.testing import UnitTestCase, parametrize
+from odoo.addons.base.maintenance.migrations.util import snippets
+from odoo.addons.base.maintenance.migrations.util.domains import (
+    FALSE_LEAF,
+    TRUE_LEAF,
+    _adapt_one_domain,
+    _model_of_path,
+)
+from odoo.addons.base.maintenance.migrations.util.exceptions import MigrationError
+from odoo.addons.base.maintenance.migrations.util.misc import ast_unparse
+
+USE_ORM_DOMAIN = util.misc.version_gte("saas~18.2")
+NOTNOT = () if USE_ORM_DOMAIN else ("!", "!")
+
+
+@contextmanager
+def without_testing():
+    thread = threading.current_thread()
+    testing = getattr(modules.module, "current_test", False) or getattr(thread, "testing", False)
+    try:
+        modules.module.current_test = False
+        thread.testing = False
+        yield
+    finally:
+        thread.testing = testing
+        modules.module.current_test = testing
+
+
+class TestAdaptOneDomain(UnitTestCase):
+    def setUp(self):
+        super(TestAdaptOneDomain, self).setUp()
+        self.mock_adapter = mock.Mock()
+
+    def test_adapt_renamed_field(self):
+        term = ("user_ids.partner_id.user_ids.partner_id", "=", False)
+        match_term = ("renamed_user_ids.partner_id.renamed_user_ids.partner_id", "=", False)
+
+        Filter = self.env["ir.filters"]
+        filter1 = Filter.create(
+            {"name": "Test filter for adapt domain", "model_id": "res.partner", "domain": str([term])}
+        )
+        assert [term] == ast.literal_eval(filter1.domain)
+
+        base_exp = "context.get('context_value') in (1, 2) and [{0}] or ['!', {0}]"
+        base_exp_fallback = "(((context.get('context_value') in (1, 2)) and [{0}]) or ['!', {0}])"
+        filter2 = Filter.create(
+            {"name": "Test filter for adapt domain2", "model_id": "res.partner", "domain": base_exp.format(term)}
+        )
+
+        util.invalidate(Filter)
+        util.rename_field(self.cr, "res.partner", "user_ids", "renamed_user_ids")
+
+        new_domain = ast.literal_eval(filter1.domain)
+        self.assertEqual([match_term], new_domain)
+
+        self.assertIn(filter2.domain, [base_exp.format(match_term), base_exp_fallback.format(match_term)])
+
+    @parametrize(
+        [
+            ("res.currency", [], "res.currency"),
+            ("res.currency", ["rate_ids"], "res.currency.rate"),
+            ("res.currency", ("rate_ids", "company_id"), "res.company"),
+            ("res.currency", ["rate_ids", "company_id", "user_ids"], "res.users"),
+            ("res.currency", ("rate_ids", "company_id", "user_ids", "partner_id"), "res.partner"),
+            ("res.users", ["partner_id"], "res.partner"),
+            ("res.users", ["nonexistent_field"], None),
+            ("res.users", ("partner_id", "active"), None),
+            ("res.users", ("partner_id", "active", "name"), None),
+            ("res.users", ("partner_id", "removed_field"), None),
+        ]
+    )
+    def test_model_of_path(self, model, path, expected):
+        cr = self.env.cr
+        self.assertEqual(_model_of_path(cr, model, path), expected)
+
+    def test_change_no_leaf(self):
+        # testing plan: updata path of a domain where the last element is not changed
+
+        # no adapter
+        domain = [("partner_id.user_id.partner_id.user_id.partner_id", "=", False)]
+        match_domain = [("partner_id.friend_id.partner_id.friend_id.partner_id", "=", False)]
+        new_domain = _adapt_one_domain(self.cr, "res.partner", "user_id", "friend_id", "res.users", domain)
+        self.assertEqual(match_domain, new_domain)
+
+        # with adapter, verify it's not called
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.assertEqual(match_domain, new_domain)
+        self.mock_adapter.assert_not_called()
+
+    def test_change_leaf(self):
+        # testing plan: update path of a domain where the last element is changed
+
+        # no adapter
+        domain = [("partner_id.user_id.partner_id.user_id", "=", False)]
+        match_domain = [("partner_id.friend_id.partner_id.friend_id", "=", False)]
+
+        new_domain = _adapt_one_domain(self.cr, "res.partner", "user_id", "friend_id", "res.users", domain)
+        self.assertEqual(match_domain, new_domain)
+
+        # with adapter, verify it's called even if nothing was changed on the path
+        self.mock_adapter.return_value = domain  # adapter won't update anything
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "user_id", "res.users", domain, adapter=self.mock_adapter
+        )  # even if new==old the adapter must be called
+        self.mock_adapter.assert_called_once()
+        # Ignore `boolean-positional-value-in-call` lint violations in the whole file
+        # ruff: noqa: FBT003
+        self.mock_adapter.assert_called_with(domain[0], False, False)
+        self.assertEqual(None, new_domain)
+
+        # path is changed even if adapter doesn't touch it
+        self.mock_adapter.reset_mock()
+        match_domain = [("partner_id.friend_id.partner_id.friend_id", "=", False)]
+        self.mock_adapter.return_value = domain  # adapter won't update anything
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_once()
+        self.mock_adapter.assert_called_with(domain[0], False, False)
+        self.assertEqual(match_domain, new_domain)  # updated path even if adapter didn't
+
+    def test_adapter_calls(self):
+        # testing plan: ensure the adapter is called with the right parameters
+
+        self.mock_adapter.return_value = [("partner_id.friend_id", "=", 2)]
+
+        # '&' domain
+        domain = ["&", ("partner_id.user_id", "=", 1), ("name", "=", False)]
+        match_domain = ["&", ("partner_id.friend_id", "=", 2), ("name", "=", False)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(domain[1], False, False)
+        self.assertEqual(match_domain, new_domain)
+
+        # '|' domain
+        self.mock_adapter.reset_mock()
+        domain = ["|", ("partner_id.user_id", "=", 1), ("name", "=", False)]
+        match_domain = ["|", ("partner_id.friend_id", "=", 2), ("name", "=", False)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(domain[1], True, False)
+        self.assertEqual(match_domain, new_domain)
+
+        # '!' domain
+        self.mock_adapter.reset_mock()
+        domain = ["!", ("partner_id.user_id", "=", 1)]
+        match_domain = ["!", ("partner_id.friend_id", "=", 2)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(domain[1], False, True)
+        self.assertEqual(match_domain, new_domain)
+
+        # '&' '!' domain
+        self.mock_adapter.reset_mock()
+        domain = ["|", "!", ("partner_id.user_id", "=", 1), ("name", "=", False)]
+        match_domain = ["|", "!", ("partner_id.friend_id", "=", 2), ("name", "=", False)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(domain[2], True, True)
+        self.assertEqual(match_domain, new_domain)
+
+        # '|' '!' domain
+        self.mock_adapter.reset_mock()
+        domain = ["|", "!", ("partner_id.user_id", "=", 1), ("name", "=", False)]
+        match_domain = ["|", "!", ("partner_id.friend_id", "=", 2), ("name", "=", False)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(domain[2], True, True)
+        self.assertEqual(match_domain, new_domain)
+
+    def test_adapter_more_domains(self):
+        # testing plan: check more complex domains
+
+        self.mock_adapter.return_value = [("partner_id.friend_id", "=", 2)]
+        term = ("partner_id.user_id", "=", 1)
+
+        # double '!'
+        self.mock_adapter.reset_mock()
+        domain = ["!", "!", ("partner_id.user_id", "=", 1)]
+        match_domain = [*NOTNOT, ("partner_id.friend_id", "=", 2)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(term, False, False)
+        self.assertEqual(match_domain, new_domain)
+
+        # triple '!'
+        self.mock_adapter.reset_mock()
+        domain = ["!", "!", "!", ("partner_id.user_id", "=", 1)]
+        match_domain = [*NOTNOT, "!", ("partner_id.friend_id", "=", 2)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(term, False, True)
+        self.assertEqual(match_domain, new_domain)
+
+        # '|' double '!'
+        self.mock_adapter.reset_mock()
+        domain = ["|", "!", "!", ("partner_id.user_id", "=", 1), ("name", "=", False)]
+        match_domain = ["|", *NOTNOT, ("partner_id.friend_id", "=", 2), ("name", "=", False)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(term, True, False)
+        self.assertEqual(match_domain, new_domain)
+
+        # '&' double '!'
+        self.mock_adapter.reset_mock()
+        domain = ["&", "!", "!", ("partner_id.user_id", "=", 1), ("name", "=", False)]
+        match_domain = ["&", *NOTNOT, ("partner_id.friend_id", "=", 2), ("name", "=", False)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(term, False, False)
+        self.assertEqual(match_domain, new_domain)
+
+        # mixed domains
+        self.mock_adapter.reset_mock()
+        domain = ["|", "&", ("partner_id.user_id", "=", 1), ("name", "=", False), ("name", "=", False)]
+        match_domain = ["|", "&", ("partner_id.friend_id", "=", 2), ("name", "=", False), ("name", "=", False)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(term, False, False)
+        self.assertEqual(match_domain, new_domain)
+
+        self.mock_adapter.reset_mock()
+        domain = ["&", "|", ("partner_id.user_id", "=", 1), ("name", "=", False), ("name", "=", False)]
+        match_domain = ["&", "|", ("partner_id.friend_id", "=", 2), ("name", "=", False), ("name", "=", False)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(term, True, False)
+        self.assertEqual(match_domain, new_domain)
+
+        self.mock_adapter.reset_mock()
+        domain = ["|", "&", "!", ("partner_id.user_id", "=", 1), ("name", "=", False), ("name", "=", False)]
+        match_domain = ["|", "&", "!", ("partner_id.friend_id", "=", 2), ("name", "=", False), ("name", "=", False)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(term, False, True)
+        self.assertEqual(match_domain, new_domain)
+
+        self.mock_adapter.reset_mock()
+        domain = ["&", "|", "!", ("partner_id.user_id", "=", 1), ("name", "=", False), ("name", "=", False)]
+        match_domain = ["&", "|", "!", ("partner_id.friend_id", "=", 2), ("name", "=", False), ("name", "=", False)]
+        new_domain = _adapt_one_domain(
+            self.cr, "res.partner", "user_id", "friend_id", "res.users", domain, adapter=self.mock_adapter
+        )
+        self.mock_adapter.assert_called_with(term, True, True)
+        self.assertEqual(match_domain, new_domain)
+
+    @parametrize(
+        [
+            # first and last position in path at the same time
+            ("partner_id", "res.users"),
+            # first and last position in path
+            ("partner_id.user_id.partner_id", "res.users"),
+            # last position
+            ("user_id.partner_id", "res.partner"),
+            # middle
+            ("user_id.partner_id.user.id", "res.partner"),
+            # last position, longer domain
+            ("company_id.partner_id.user_id.partner_id", "res.partner"),
+        ]
+    )
+    def test_force_adapt(self, left, model, target_model="res.users", old="partner_id"):
+        # simulate the adapter used for removal of a field
+        # this is the main use case for force_adapt=True
+        self.mock_adapter.return_value = [TRUE_LEAF]
+        domain = [(left, "=", False)]
+        res = _adapt_one_domain(
+            self.cr, target_model, old, "ignored", model, domain, adapter=self.mock_adapter, force_adapt=True
+        )
+        self.mock_adapter.assert_called_once()
+        self.assertEqual(res, self.mock_adapter.return_value)
+
+    @parametrize(
+        [
+            ("partner_id.old", "new"),
+            ("partner_id.user_id.partner_id.old", "partner_id.user_id.new"),
+            ("partner_id.old.foo", "new.foo"),
+            # from another model
+            ("user_id.partner_id.old", "user_id.new", "res.partner"),
+            # no change expected
+            ("old", None),
+            ("partner_id", None),
+            ("partner_id.name", None),
+        ]
+    )
+    def test_dotted_old(self, left, expected, model="res.users"):
+        domain = [(left, "=", "test")]
+        new_domain = _adapt_one_domain(self.cr, "res.users", "partner_id.old", "new", model, domain)
+        if expected is not None:
+            self.assertEqual(new_domain, [(expected, "=", "test")])
+        else:
+            self.assertIsNone(new_domain)
+
+    @unittest.skipUnless(util.version_gte("17.0"), "`any` operator only supported from Odoo 17")
+    def test_any_operator(self):
+        domain = [("partner_id", "any", [("complete_name", "=", "Odoo")])]
+        expected = [("partner_id", "any", [("full_name", "=", "Odoo")])]
+
+        new_domain = _adapt_one_domain(self.cr, "res.partner", "complete_name", "full_name", "res.company", domain)
+        self.assertEqual(new_domain, expected)
+
+        # test it also works recursively
+        account_number = "account_number" if util.version_gte("saas~19.2") else "acc_number"
+        domain = [("partner_id", "any", [("bank_ids", "not any", [(account_number, "like", "S.A.")])])]
+        expected = [("partner_id", "any", [("bank_ids", "not any", [("acc_nbr", "like", "S.A.")])])]
+
+        new_domain = _adapt_one_domain(self.cr, "res.partner.bank", account_number, "acc_nbr", "res.company", domain)
+        self.assertEqual(new_domain, expected)
+
+
+class TestAdaptDomainView(UnitTestCase):
+    def test_adapt_domain_view(self):
+        tag = "list" if util.version_gte("saas~17.5") else "tree"
+        view_form = self.env["ir.ui.view"].create(
+            {
+                "name": "test_adapt_domain_view_form",
+                "model": "res.currency",
+                "arch": f"""\
+                <form>
+                  <field name="rate_ids">
+                    <{tag}>
+                      <field name="company_id" domain="[('email', '!=', False)]"/>
+                      <field name="company_id" domain="[('email', 'not like', 'odoo.com')]"/>
+                    </{tag}>
+                  </field>
+                </form>
+            """,
+            }
+        )
+
+        view_search_1 = self.env["ir.ui.view"].create(
+            {
+                "name": "test_adapt_domain_view_search",
+                "model": "res.company",
+                "arch": """\
+                <search>
+                  <field name="email" string="Mail" filter_domain="[('email', '=', self)]"/>
+                </search>
+            """,
+            }
+        )
+
+        view_search_2 = self.env["ir.ui.view"].create(
+            {
+                "name": "test_adapt_domain_view_search",
+                "model": "res.company",
+                "arch": """\
+                <search>
+                  <filter name="mail" string="Mail" domain="[('email', '=', self)]"/>
+                </search>
+            """,
+            }
+        )
+
+        util.adapt_domains(self.env.cr, "res.partner", "email", "courriel")
+        util.invalidate(view_form | view_search_1 | view_search_2)
+
+        self.assertIn("email", view_form.arch)
+        self.assertIn("email", view_search_1.arch)
+        self.assertIn("email", view_search_2.arch)
+
+        util.adapt_domains(self.env.cr, "res.company", "email", "courriel")
+        util.invalidate(view_form | view_search_1 | view_search_2)
+
+        self.assertIn("courriel", view_form.arch)
+        self.assertIn("courriel", view_search_1.arch)
+        self.assertIn("courriel", view_search_2.arch)
+
+
+@unittest.skipUnless(
+    util.version_gte("13.0"), "This test is incompatible with old style odoo.addons.base.maintenance.migrations.util"
+)
+class TestReplaceReferences(UnitTestCase):
+    def setUp(self):
+        super().setUp()
+        self.env.cr.execute(
+            """
+            CREATE TABLE dummy_model(
+                             id serial PRIMARY KEY,
+                             res_id int,
+                             res_model varchar,
+                             extra varchar,
+                             CONSTRAINT uniq_constr UNIQUE(res_id, res_model, extra)
+                         );
+
+            INSERT INTO dummy_model(res_model, res_id, extra)
+                 VALUES -- the target is there with same res_id
+                        ('res.users', 1, 'x'),
+                        ('res.partner', 1, 'x'),
+
+                        -- two with same target and the target is there
+                        ('res.users', 2, 'x'),
+                        ('res.users', 3, 'x'),
+                        ('res.partner', 2, 'x'),
+
+                        -- two with same target and the target is not there
+                        ('res.users', 4, 'x'),
+                        ('res.users', 5, 'x'),
+
+                        -- target is there different res_id
+                        ('res.users', 6, 'x'),
+                        ('res.partner', 4, 'x')
+            """
+        )
+
+    def _ir_dummy(self, cr, bound_only=True):
+        yield util.IndirectReference("dummy_model", "res_model", "res_id")
+
+    def test_replace_record_references_batch__full_unique(self):
+        cr = self.env.cr
+        mapping = {1: 1, 2: 2, 3: 2, 4: 3, 5: 3, 6: 4}
+        with mock.patch("odoo.upgrade.util.records.indirect_references", self._ir_dummy):
+            util.replace_record_references_batch(cr, mapping, "res.users", "res.partner")
+
+        cr.execute("SELECT res_model, res_id, extra FROM dummy_model ORDER BY res_id, res_model")
+        data = cr.fetchall()
+        expected = [
+            ("res.partner", 1, "x"),
+            ("res.partner", 2, "x"),
+            ("res.partner", 3, "x"),
+            ("res.partner", 4, "x"),
+        ]
+        self.assertEqual(data, expected)
+
+
+class TestRemoveFieldDomains(UnitTestCase):
+    @parametrize(
+        [
+            ([("updated", "=", 0)], [TRUE_LEAF]),
+            # operator is not relevant
+            ([("updated", "!=", 0)], [TRUE_LEAF]),
+            # if negate we should end with "not false"
+            (["!", ("updated", "!=", 0)], [TRUE_LEAF] if USE_ORM_DOMAIN else ["!", FALSE_LEAF]),
+            # multiple !, we should still end with a true leaf
+            (["!", "!", ("updated", ">", 0)], [*NOTNOT, TRUE_LEAF]),
+            # with operator
+            ([("updated", "=", 0), ("state", "=", "done")], ["&", TRUE_LEAF, ("state", "=", "done")]),
+            (["&", ("updated", "=", 0), ("state", "=", "done")], ["&", TRUE_LEAF, ("state", "=", "done")]),
+            (["|", ("updated", "=", 0), ("state", "=", "done")], ["|", FALSE_LEAF, ("state", "=", "done")]),
+            # in second operand
+            (["&", ("state", "=", "done"), ("updated", "=", 0)], ["&", ("state", "=", "done"), TRUE_LEAF]),
+            (["|", ("state", "=", "done"), ("updated", "=", 0)], ["|", ("state", "=", "done"), FALSE_LEAF]),
+            # combination with !
+            (
+                ["&", "!", ("updated", "=", 0), ("state", "=", "done")],
+                ["&", TRUE_LEAF, ("state", "=", "done")]
+                if USE_ORM_DOMAIN
+                else ["&", "!", FALSE_LEAF, ("state", "=", "done")],
+            ),
+            (
+                ["|", "!", ("updated", "=", 0), ("state", "=", "done")],
+                ["|", FALSE_LEAF, ("state", "=", "done")]
+                if USE_ORM_DOMAIN
+                else ["|", "!", TRUE_LEAF, ("state", "=", "done")],
+            ),
+            # here, the ! apply on the whole &/| and should not invert the replaced leaf
+            (
+                ["!", "&", ("updated", "=", 0), ("state", "=", "done")],
+                ["|", FALSE_LEAF, ("state", "!=", "done")]
+                if USE_ORM_DOMAIN
+                else ["!", "&", TRUE_LEAF, ("state", "=", "done")],
+            ),
+            (
+                ["!", "|", ("updated", "=", 0), ("state", "=", "done")],
+                ["&", TRUE_LEAF, ("state", "!=", "done")]
+                if USE_ORM_DOMAIN
+                else ["!", "|", FALSE_LEAF, ("state", "=", "done")],
+            ),
+        ]
+    )
+    def test_remove_field(self, domain, expected):
+        self._test_remove_field(domain, expected)
+
+    def _test_remove_field(self, domain, expected, **kw):
+        cr = self.env.cr
+        cr.execute(
+            "INSERT INTO ir_filters(name, model_id, domain, context, sort)"
+            "     VALUES ('test', 'base.module.update', %s, '{}', '[]') RETURNING id",
+            [str(domain)],
+        )
+        (filter_id,) = cr.fetchone()
+
+        util.remove_field(cr, "base.module.update", "updated", **kw)
+
+        cr.execute("SELECT domain FROM ir_filters WHERE id = %s", [filter_id])
+        altered_domain = literal_eval(cr.fetchone()[0])
+
+        self.assertEqual(altered_domain, expected)
+
+    def test_remove_field_no_update_references(self):
+        domain = [("updated", "=", 0)]
+        self._test_remove_field(domain, domain, update_references=False)
+
+    @parametrize([(False, [("added", "=", 0)]), (True, [TRUE_LEAF])])
+    def test_remove_field_related_path(self, remove_target_first, expected):
+        cr = self.env.cr
+        cr.execute(
+            "UPDATE ir_model_fields SET related = 'added' WHERE model = 'base.module.update' AND name = 'updated'"
+        )
+        if remove_target_first:
+            util.remove_field(cr, "base.module.update", "added")
+        self._test_remove_field([("updated", "=", 0)], expected)
+
+
+class TestIrExports(UnitTestCase):
+    def setUp(self):
+        super().setUp()
+        self.export = self.env["ir.exports"].create(
+            [
+                {
+                    "name": "Test currency export",
+                    "resource": "res.currency",
+                    "export_fields": [
+                        (0, 0, {"name": "full_name"}),
+                        (0, 0, {"name": "rate_ids/company_id/user_ids/name"}),
+                        (0, 0, {"name": "rate_ids/company_id/user_ids/partner_id/user_ids/name"}),
+                        (0, 0, {"name": "rate_ids/name"}),
+                        (0, 0, {"name": "rate_ids/company_id/user_ids/partner_id/user_ids/.id"}),
+                    ],
+                }
+            ]
+        )
+        util.flush(self.export)
+
+    def _invalidate(self):
+        util.invalidate(self.export.export_fields)
+        util.invalidate(self.export)
+
+    def test_rename_field(self):
+        util.rename_field(self.cr, "res.partner", "user_ids", "renamed_user_ids")
+        self._invalidate()
+        self.assertEqual(
+            self.export.export_fields[2].name, "rate_ids/company_id/user_ids/partner_id/renamed_user_ids/name"
+        )
+        self.assertEqual(
+            self.export.export_fields[4].name, "rate_ids/company_id/user_ids/partner_id/renamed_user_ids/.id"
+        )
+
+        util.rename_field(self.cr, "res.users", "name", "new_name")
+        self._invalidate()
+        self.assertEqual(self.export.export_fields[1].name, "rate_ids/company_id/user_ids/new_name")
+
+    def test_remove_field(self):
+        util.remove_field(self.cr, "res.currency.rate", "company_id")
+        self._invalidate()
+        self.assertEqual(len(self.export.export_fields), 2)
+        self.assertEqual(self.export.export_fields[0].name, "full_name")
+        self.assertEqual(self.export.export_fields[1].name, "rate_ids/name")
+
+    @mute_logger(util.pg._logger.name)
+    def test_rename_model(self):
+        util.rename_model(self.cr, "res.currency", "res.currency2")
+        self._invalidate()
+        self.assertEqual(self.export.resource, "res.currency2")
+
+    def test_remove_model(self):
+        util.remove_model(self.cr, "res.currency.rate")
+        self._invalidate()
+        self.assertEqual(len(self.export.export_fields), 1)
+        self.assertEqual(self.export.export_fields[0].name, "full_name")
+
+        util.remove_model(self.cr, "res.currency")
+        self.cr.execute("SELECT * FROM ir_exports WHERE id = %s", [self.export.id])
+        self.assertFalse(self.cr.fetchall())
+
+
+class TestBaseImportMappings(UnitTestCase):
+    def setUp(self):
+        super().setUp()
+        self.import_mapping = self.env["base_import.mapping"].create(
+            [
+                {"res_model": "res.currency", "column_name": "Column name", "field_name": path}
+                for path in [
+                    "full_name",
+                    "rate_ids/company_id/user_ids/name",
+                    "rate_ids/company_id/user_ids/partner_id/user_ids/name",
+                    "rate_ids/name",
+                ]
+            ]
+        )
+
+        util.flush(self.import_mapping)
+
+    def test_rename_field(self):
+        util.rename_field(self.cr, "res.partner", "user_ids", "renamed_user_ids")
+        util.invalidate(self.import_mapping)
+
+        self.assertEqual(
+            self.import_mapping[2].field_name, "rate_ids/company_id/user_ids/partner_id/renamed_user_ids/name"
+        )
+
+        util.rename_field(self.cr, "res.users", "name", "new_name")
+        util.invalidate(self.import_mapping)
+
+        self.assertEqual(self.import_mapping[1].field_name, "rate_ids/company_id/user_ids/new_name")
+
+    def test_remove_field(self):
+        prev_mappings = self.env["base_import.mapping"].search([])
+
+        util.remove_field(self.cr, "res.currency.rate", "company_id")
+        util.invalidate(self.import_mapping)
+
+        removed_mappings = prev_mappings - self.env["base_import.mapping"].search([])
+        remaining_mappings = self.import_mapping - removed_mappings
+
+        self.assertEqual(len(removed_mappings), 2)
+        self.assertEqual(remaining_mappings[0].field_name, "full_name")
+        self.assertEqual(remaining_mappings[1].field_name, "rate_ids/name")
+
+    @mute_logger(util.pg._logger.name)
+    def test_rename_model(self):
+        util.rename_model(self.cr, "res.currency", "res.currency2")
+        util.invalidate(self.import_mapping)
+
+        self.assertEqual(self.import_mapping[0].res_model, "res.currency2")
+
+    def test_remove_model(self):
+        prev_mappings = self.env["base_import.mapping"].search([])
+
+        util.remove_model(self.cr, "res.currency.rate")
+        util.invalidate(self.import_mapping)
+
+        removed_mappings = prev_mappings - self.env["base_import.mapping"].search([])
+        remaining_mappings = self.import_mapping - removed_mappings
+
+        self.assertEqual(len(removed_mappings), 3)
+        self.assertEqual(remaining_mappings[0].field_name, "full_name")
+
+        util.remove_model(self.cr, "res.currency")
+        self.cr.execute("SELECT * FROM base_import_mapping WHERE id = %s", [remaining_mappings.id])
+        self.assertFalse(self.cr.fetchall())
+
+
+class TestIterBrowse(UnitTestCase):
+    def test_iter_browse_iter(self):
+        cr = self.env.cr
+        cr.execute("SELECT id FROM res_country")
+        ids = [c for (c,) in cr.fetchall()]
+        chunk_size = 10
+
+        Country = type(self.env["res.country"])
+        func = "fetch" if util.version_gte("saas~16.2") else "_read" if util.version_gte("saas~12.5") else "read"
+        with mock.patch.object(Country, func, autospec=True, side_effect=getattr(Country, func)) as read:
+            for c in util.iter_browse(self.env["res.country"], ids, logger=None, chunk_size=chunk_size):
+                c.name  # noqa: B018
+        expected = (len(ids) + chunk_size - 1) // chunk_size
+        self.assertEqual(read.call_count, expected)
+
+    def test_iter_browse_iter_chunks(self):
+        cr = self.env.cr
+        cr.execute("SELECT id FROM res_country")
+        ids = [c for (c,) in cr.fetchall()]
+        chunk_size = 10
+
+        res_chunks = list(
+            util.iter_browse(self.env["res.country"], ids, logger=None, chunk_size=chunk_size, yield_chunks=True)
+        )
+        no_chunks = (len(ids) + chunk_size - 1) // chunk_size
+        self.assertEqual(len(res_chunks), no_chunks)
+        self.assertEqual(len(res_chunks[0]), chunk_size)
+
+    def test_iter_browse_call(self):
+        cr = self.env.cr
+        cr.execute("SELECT id FROM res_country")
+        ids = [c for (c,) in cr.fetchall()]
+        chunk_size = 10
+
+        Country = type(self.env["res.country"])
+        with mock.patch.object(Country, "write", autospec=True, side_effect=Country.write) as write:
+            ib = util.iter_browse(self.env["res.country"], ids, logger=None, chunk_size=chunk_size)
+            ib.write({"vat_label": "VAT"})
+
+        expected = (len(ids) + chunk_size - 1) // chunk_size
+        self.assertEqual(write.call_count, expected)
+
+    def test_iter_browse_ids_gen(self):
+        cr = self.env.cr
+        cr.execute("SELECT id FROM res_country")
+        ids = (c for (c,) in cr.fetchall())
+        ids_len = cr.rowcount
+        chunk_size = 10
+
+        res_chunks = list(
+            util.iter_browse(
+                self.env["res.country"], ids, size=ids_len, logger=None, chunk_size=chunk_size, yield_chunks=True
+            )
+        )
+        no_chunks = (ids_len + chunk_size - 1) // chunk_size
+        self.assertEqual(len(res_chunks), no_chunks)
+        self.assertEqual(len(res_chunks[0]), chunk_size)
+
+    def test_iter_browse_ids_query(self):
+        cr = self.env.cr
+        query = "SELECT id FROM res_country"
+        cr.execute(query)
+        ids_len = cr.rowcount
+        chunk_size = 10
+
+        res_chunks = list(
+            util.iter_browse(
+                self.env["res.country"], None, query=query, logger=None, chunk_size=chunk_size, yield_chunks=True
+            )
+        )
+        no_chunks = (ids_len + chunk_size - 1) // chunk_size
+        self.assertEqual(len(res_chunks), no_chunks)
+        self.assertEqual(len(res_chunks[0]), chunk_size)
+
+    def test_iter_browse_create_non_empty(self):
+        RP = self.env["res.partner"]
+        with self.assertRaises(ValueError):
+            util.iter_browse(RP, [42]).create([{}])
+
+    @parametrize([(True,), (False,)])
+    def test_iter_browse_create(self, multi):
+        chunk_size = 2
+        RP = self.env["res.partner"]
+
+        names = [f"Name {i}" for i in range(7)]
+        ib = util.iter_browse(RP, [], chunk_size=chunk_size)
+        records = ib.create([{"name": name} for name in names], multi=multi)
+        self.assertEqual([t.name for t in records], names)
+
+    @parametrize([(True,), (False,)])
+    def test_iter_browse_create_val_gen(self, multi):
+        chunk_size = 2
+        RP = self.env["res.partner"]
+
+        names = [f"Name {i}" for i in range(7)]
+        ib = util.iter_browse(RP, [], chunk_size=chunk_size)
+        records = ib.create(({"name": name} for name in names), size=7, multi=multi)
+        self.assertEqual([t.name for t in records], names)
+
+    @parametrize([(True,), (False,)])
+    def test_iter_browse_create_val_query(self, multi):
+        with db_connect(self.env.cr.dbname).cursor() as cr, mute_logger("odoo.sql_db"):
+            env = api.Environment(cr, SUPERUSER_ID, {})
+            chunk_size = 2
+            RP = env["res.partner"]
+
+            query = "SELECT 'Name ' || i AS name FROM GENERATE_SERIES(0, 6) AS i"
+            ib = util.iter_browse(RP, [], chunk_size=chunk_size)
+            records = ib.create(query=query, multi=multi)
+            names = []
+            for r in records:
+                names.append(r.name)
+                r.unlink()
+
+        self.assertEqual(names, [f"Name {i}" for i in range(7)])
+
+    def test_iter_browse_iter_twice(self):
+        cr = self.env.cr
+        cr.execute("SELECT id FROM res_country")
+        ids = [c for (c,) in cr.fetchall()]
+        chunk_size = 10
+
+        ib = util.iter_browse(self.env["res.country"], ids, logger=None, chunk_size=chunk_size)
+        for c in ib:
+            c.name  # noqa: B018
+
+        with self.assertRaises(RuntimeError):
+            for c in ib:
+                c.name  # noqa: B018
+
+    def test_iter_browse_call_twice(self):
+        cr = self.env.cr
+        cr.execute("SELECT id FROM res_country")
+        ids = [c for (c,) in cr.fetchall()]
+        chunk_size = 10
+
+        ib = util.iter_browse(self.env["res.country"], ids, logger=None, chunk_size=chunk_size)
+        ib.write({"vat_label": "VAT"})
+
+        with self.assertRaises(RuntimeError):
+            ib.write({"name": "FAIL"})
+
+
+class TestPG(UnitTestCase):
+    @parametrize(
+        [
+            # explicit conversions
+            ("boolean", "bool"),
+            ("smallint", "int2"),
+            ("integer", "int4"),
+            ("bigint", "int8"),
+            ("real", "float4"),
+            ("double precision", "float8"),
+            ("character varying", "varchar"),
+            ("timestamp with time zone", "timestamptz"),
+            ("timestamp without time zone", "timestamp"),
+            # noop for existing types
+            ("bool", "bool"),
+            ("int4", "int4"),
+            ("varchar", "varchar"),
+            # and unspecified/unknown types
+            ("jsonb", "jsonb"),
+            ("foo", "foo"),
+            # keep suffix (for arrays and sized limited varchar)
+            ("int4[]", "int4[]"),
+            ("varchar(2)", "varchar(2)"),
+            # but also convert types
+            ("integer[]", "int4[]"),
+            ("character varying(16)", "varchar(16)"),
+        ]
+    )
+    def test__normalize_pg_type(self, type_, expected):
+        self.assertEqual(util.pg._normalize_pg_type(type_), expected)
+
+    @parametrize(
+        [
+            ("res_country", "name", False, "jsonb" if util.version_gte("16.0") else "varchar"),  # translated field
+            ("res_country", "code", False, "varchar"),
+            ("res_country", "code", True, "varchar(2)"),
+            ("res_currency", "active", False, "bool"),
+            ("res_currency", "active", True, "bool"),
+            ("res_country", "create_date", False, "timestamp"),
+            ("res_currency", "create_uid", False, "int4"),
+            ("res_country", "name_position", False, "varchar"),
+            ("res_country", "name_position", True, "varchar"),
+            ("res_country", "address_format", False, "text"),
+            ("res_partner", "does_not_exists", False, None),
+        ]
+    )
+    def test_column_type(self, table, column, sized, expected):
+        value = util.column_type(self.env.cr, table, column, sized=sized)
+        if expected is None:
+            self.assertIsNone(value)
+        else:
+            self.assertEqual(value, expected)
+
+    def test_alter_column_type(self):
+        cr = self.env.cr
+        cr.execute(
+            """
+            ALTER TABLE res_partner_bank ADD COLUMN x bool;
+            ALTER TABLE res_partner_bank ADD COLUMN y varchar(4);
+
+            UPDATE res_partner_bank
+               SET x = CASE id % 3
+                           WHEN 1 THEN NULL
+                           WHEN 2 THEN True
+                           ELSE False
+                       END
+            """
+        )
+        self.assertEqual(util.column_type(cr, "res_partner_bank", "x"), "bool")
+        util.alter_column_type(cr, "res_partner_bank", "x", "int", using="CASE {0} WHEN True THEN 2 ELSE 1 END")
+        self.assertEqual(util.column_type(cr, "res_partner_bank", "x"), "int4")
+        cr.execute("SELECT id, x FROM res_partner_bank")
+        data = cr.fetchall()
+        self.assertTrue(
+            all(x == 1 or (x == 2 and id_ % 3 == 2) for id_, x in data),
+            "Some values where not casted correctly via USING",
+        )
+
+        self.assertEqual(util.column_type(cr, "res_partner_bank", "y"), "varchar")
+        self.assertEqual(util.column_type(cr, "res_partner_bank", "y", sized=True), "varchar(4)")
+        util.alter_column_type(cr, "res_partner_bank", "y", "varchar")
+        self.assertEqual(util.column_type(cr, "res_partner_bank", "y"), "varchar")
+        self.assertEqual(util.column_type(cr, "res_partner_bank", "y", sized=True), "varchar")
+        util.alter_column_type(cr, "res_partner_bank", "y", "varchar(12)")
+        self.assertEqual(util.column_type(cr, "res_partner_bank", "y"), "varchar")
+        self.assertEqual(util.column_type(cr, "res_partner_bank", "y", sized=True), "varchar(12)")
+
+    @parametrize(
+        [
+            ("test", "<p>test</p>"),
+            ("<p>test</p>", "<p>test</p>"),
+            ("<div>test</div>", "<div>test</div>"),
+            # escapings
+            ("r&d", "<p>r&amp;d</p>"),
+            ("!<(^_^)>!", "<p>!&lt;(^_^)&gt;!</p>"),
+            ("'quoted'", "<p>'quoted'</p>"),
+            # and with links
+            (
+                "Go to https://upgrade.odoo.com/?debug=1&version=14.0 and follow the instructions.",
+                '<p>Go to <a href="https://upgrade.odoo.com/?debug=1&amp;version=14.0" target="_blank" rel="noreferrer noopener">https://upgrade.odoo.com/?debug=1&amp;version=14.0</a> and follow the instructions.</p>',
+            ),
+        ]
+    )
+    def test_pg_text2html(self, value, expected):
+        cr = self.env.cr
+        uid = self.env.user.id
+        cr.execute("UPDATE res_users SET signature=%s WHERE id=%s", [value, uid])
+        cr.execute("SELECT {} FROM res_users WHERE id=%s".format(util.pg_text2html("signature")), [uid])
+        result = cr.fetchone()[0]
+        self.assertEqual(result, expected)
+
+    @parametrize(
+        [
+            ("{parallel_filter}", "…"),
+            ("{{parallel_filter}}", "{parallel_filter}"),
+            ("{}", "{}"),
+            ("{0}", "{0}"),
+            ("{{0}}", "{0}"),
+            ("{x}", "{x}"),
+            ("{{x}}", "{x}"),
+            ("{{}}", "{}"),
+            ("{{", "{"),
+            ("test", "test"),
+            ("", ""),
+            ("WHERE {parallel_filter} AND true", "WHERE … AND true"),
+            ("WHERE {parallel_filter} AND {other}", "WHERE … AND {other}"),
+            ("WHERE {parallel_filter} AND {other!r}", "WHERE … AND {other!r}"),
+            ("WHERE {parallel_filter} AND {{other}}", "WHERE … AND {other}"),
+            ("WHERE {parallel_filter} AND {}", "WHERE … AND {}"),
+            ("WHERE {parallel_filter} AND {{}}", "WHERE … AND {}"),
+            ("WHERE {parallel_filter} AND {parallel_filter}", "WHERE … AND …"),
+            ("using { with other things inside } and {parallel_filter}", "using { with other things inside } and …"),
+        ]
+    )
+    def test_ExplodeFormatter(self, value, expected):
+        formatted = util.pg._ExplodeFormatter().format(value, parallel_filter="…")
+        self.assertEqual(formatted, expected)
+        # retro-compatibility test
+        try:
+            std_formatted = value.format(parallel_filter="…")
+        except (IndexError, KeyError):
+            # ignore string that weren't valid
+            pass
+        else:
+            # assert that the new formatted output match the old one.
+            self.assertEqual(formatted, std_formatted)
+
+    def _get_cr(self):
+        cr = self.registry.cursor()
+        self.addCleanup(cr.close)
+        return cr
+
+    def test_explode_mult_filters(self):
+        cr = self._get_cr()
+        queries = util.explode_query_range(
+            cr,
+            """
+            WITH cte1 AS (
+                SELECT id,
+                       login
+                  FROM res_users
+                 WHERE {parallel_filter}
+            ), cte2 AS (
+                SELECT id,
+                       login
+                  FROM res_users
+                 WHERE {parallel_filter}
+            ) SELECT u.login = cte1.login AND u.login = cte2.login
+                FROM cte1
+           LEFT JOIN cte2
+                  ON cte2.id = cte1.id
+                JOIN res_users u
+                  ON u.id = cte1.id
+            """,
+            table="res_users",
+            bucket_size=4,
+        )
+        for q in queries:
+            cr.execute(q)
+            self.assertTrue(all(x for (x,) in cr.fetchall()))
+
+    @mute_logger(util.pg._logger.getChild("explode_query_range").name)
+    def test_explode_query_range(self):
+        cr = self.env.cr
+
+        cr.execute("SELECT count(id) FROM res_partner_category")
+        count = cr.fetchone()[0]
+        # ensure there start with at least 10 records
+        for _ in range(10 - count):
+            count += 1
+            self.env["res.partner.category"].create({"name": "x"})
+
+        # set one record with very high id
+        tid = self.env["res.partner.category"].create({"name": "x"}).id
+        count += 1
+        cr.execute("UPDATE res_partner_category SET id = 10000000 WHERE id = %s", [tid])
+
+        cr.execute(
+            """
+            WITH rp3 AS (
+                SELECT id, row_number() OVER () AS rn
+                  FROM res_partner
+                 LIMIT 3
+            ), rc3 AS (
+                SELECT id, row_number() OVER () AS rn
+                  FROM res_country
+                 LIMIT 3
+            )
+            UPDATE res_partner AS rp
+               SET country_id = rc3.id
+              FROM rp3
+              JOIN rc3
+                ON rp3.rn = rc3.rn
+             WHERE rp.id = rp3.id
+            """,
+        )
+
+        qs = util.explode_query_range(cr, "SELECT 1", table="res_partner_category", bucket_size=count)
+        self.assertEqual(len(qs), 1)  # one bucket should be enough for all records
+
+        qs = util.explode_query_range(cr, "SELECT 1", table="res_partner_category", bucket_size=count - 1)
+        self.assertEqual(len(qs), 1)  # 10% rule for second bucket, 1 <= 0.1(count - 1) since count >= 11
+
+        qs = util.explode_query_range(cr, "SELECT 1", table="res_partner", alias="rp", explode_on="country_id")
+        self.assertIn('rp."country_id" IS NOT NULL', qs[0])
+
+        qs = util.explode_query_range(
+            cr, "SELECT 1", table="res_partner", alias="rp", explode_on="country_id", bucket_size=2
+        )
+        self.assertIn('rp."country_id" BETWEEN', qs[0])
+
+    def test_parallel_rowcount(self):
+        cr = self._get_cr()
+        cr.execute("SELECT count(*) FROM res_lang")
+        [expected] = cr.fetchone()
+
+        # util.parallel_execute will `commit` the cursor and create new ones
+        # as we are in a test, we should not commit as we are in a subtransaction
+        with mock.patch.object(cr, "commit", lambda: ...):
+            query = "UPDATE res_lang SET name = name"
+            rowcount = util.explode_execute(cr, query, table="res_lang", bucket_size=10)
+        self.assertEqual(rowcount, expected)
+
+    def test_parallel_rowcount_threaded(self):
+        with without_testing():
+            self.test_parallel_rowcount()
+
+    def test_parallel_execute_retry_on_serialization_failure(self):
+        TEST_TABLE_NAME = "_upgrade_serialization_failure_test_table"
+        N_ROWS = 10
+
+        cr = self._get_cr()
+
+        cr.execute(
+            util.format_query(
+                cr,
+                """
+                DROP TABLE IF EXISTS {table};
+
+                CREATE TABLE {table} (
+                    id SERIAL PRIMARY KEY,
+                    other_id INTEGER,
+                    FOREIGN KEY (other_id) REFERENCES {table} ON DELETE CASCADE
+                );
+
+                INSERT INTO {table} SELECT GENERATE_SERIES(1, %s);
+
+                -- map odd numbers `n` to `n + 1` and viceversa (`n + 1` to `n`)
+                UPDATE {table} SET other_id = id + (MOD(id, 2) - 0.5)*2;
+                """
+                % N_ROWS,
+                table=TEST_TABLE_NAME,
+            )
+        )
+
+        # exploded queries will generate a SerializationFailed error, causing some of the queries to be retried
+        with without_testing(), mute_logger(util.pg._logger.name, "odoo.sql_db"):
+            util.explode_execute(
+                cr, util.format_query(cr, "DELETE FROM {}", TEST_TABLE_NAME), TEST_TABLE_NAME, bucket_size=1
+            )
+
+        if hasattr(self, "_savepoint_id"):
+            # `explode_execute` causes the cursor to be committed, losing the automatic checkpoint
+            # Force a new one to avoid issues when cleaning up
+            self.addCleanup(cr.execute, f"SAVEPOINT test_{self._savepoint_id}")
+            self.addCleanup(cr.execute, util.format_query(cr, "DROP TABLE IF EXISTS {}", TEST_TABLE_NAME))
+
+        cr.execute(util.format_query(cr, "SELECT 1 FROM {}", TEST_TABLE_NAME))
+        self.assertFalse(cr.rowcount)
+
+    def test_update_one_col_from_dict(self):
+        TEST_TABLE_NAME = "_upgrade_bulk_update_one_col_test_table"
+        N_ROWS = 10
+
+        cr = self._get_cr()
+
+        cr.execute(
+            util.format_query(
+                cr,
+                """
+                DROP TABLE IF EXISTS {table};
+
+                CREATE TABLE {table} (
+                    id SERIAL PRIMARY KEY,
+                    col1 INTEGER,
+                    col2 INTEGER
+                );
+
+                INSERT INTO {table} (col1, col2) SELECT v, v FROM GENERATE_SERIES(1, %s) as v;
+                """,
+                table=TEST_TABLE_NAME,
+            ),
+            [N_ROWS],
+        )
+        mapping = {id: id * 2 for id in range(1, N_ROWS + 1, 2)}
+        util.bulk_update_table(cr, TEST_TABLE_NAME, "col1", mapping)
+
+        cr.execute(
+            util.format_query(
+                cr,
+                "SELECT id FROM {table} WHERE col2 != id",
+                table=TEST_TABLE_NAME,
+            )
+        )
+        self.assertFalse(cr.rowcount, "unintended column 'col2' is affected")
+
+        cr.execute(
+            util.format_query(
+                cr,
+                "SELECT id FROM {table} WHERE col1 != id AND MOD(id, 2) = 0",
+                table=TEST_TABLE_NAME,
+            )
+        )
+        self.assertFalse(cr.rowcount, "unintended rows are affected")
+
+        cr.execute(
+            util.format_query(
+                cr,
+                "SELECT id FROM {table} WHERE col1 != 2 * id AND MOD(id, 2) = 1",
+                table=TEST_TABLE_NAME,
+            )
+        )
+        self.assertFalse(cr.rowcount, "partial/incorrect updates are performed")
+
+    def test_update_multiple_cols_from_dict(self):
+        TEST_TABLE_NAME = "_upgrade_bulk_update_multiple_cols_test_table"
+        N_ROWS = 10
+
+        cr = self._get_cr()
+
+        cr.execute(
+            util.format_query(
+                cr,
+                """
+                DROP TABLE IF EXISTS {table};
+
+                CREATE TABLE {table} (
+                    id SERIAL PRIMARY KEY,
+                    col1 INTEGER,
+                    col2 INTEGER,
+                    col3 INTEGER
+                );
+
+                INSERT INTO {table} (col1, col2, col3) SELECT v, v, v FROM GENERATE_SERIES(1, %s) as v;
+                """,
+                table=TEST_TABLE_NAME,
+            ),
+            [N_ROWS],
+        )
+        mapping = {id: [id * 2, id * 3] for id in range(1, N_ROWS + 1, 2)}
+        util.bulk_update_table(cr, TEST_TABLE_NAME, ["col1", "col2"], mapping)
+
+        cr.execute(
+            util.format_query(
+                cr,
+                "SELECT id FROM {table} WHERE col3 != id",
+                table=TEST_TABLE_NAME,
+            )
+        )
+        self.assertFalse(cr.rowcount, "unintended column 'col3' is affected")
+
+        cr.execute(
+            util.format_query(
+                cr,
+                "SELECT id FROM {table} WHERE col1 != id AND MOD(id, 2) = 0",
+                table=TEST_TABLE_NAME,
+            )
+        )
+        self.assertFalse(cr.rowcount, "unintended rows are affected")
+
+        cr.execute(
+            util.format_query(
+                cr,
+                "SELECT id FROM {table} WHERE (col1 != 2 * id OR col2 != 3 * id) AND MOD(id, 2) = 1",
+                table=TEST_TABLE_NAME,
+            )
+        )
+        self.assertFalse(cr.rowcount, "partial/incorrect updates are performed")
+
+    def test_create_column_with_fk(self):
+        cr = self.env.cr
+        self.assertFalse(util.column_exists(cr, "res_partner", "_test_lang_id"))
+
+        with self.assertRaises(ValueError):
+            util.create_column(cr, "res_partner", "_test_lang_id", "int4", on_delete_action="SET NULL")
+
+        with self.assertRaises(ValueError):
+            util.create_column(
+                cr, "res_partner", "_test_lang_id", "int4", fk_table="res_lang", on_delete_action="INVALID"
+            )
+
+        # this one should works
+        util.create_column(cr, "res_partner", "_test_lang_id", "int4", fk_table="res_lang", on_delete_action="SET NULL")
+
+        target = util.target_of(cr, "res_partner", "_test_lang_id")
+        self.assertEqual(target, ("res_lang", "id", "res_partner__test_lang_id_fkey"))
+
+        # code should be reentrant
+        util.create_column(cr, "res_partner", "_test_lang_id", "int4", fk_table="res_lang", on_delete_action="SET NULL")
+
+        target = util.target_of(cr, "res_partner", "_test_lang_id")
+        self.assertEqual(target, ("res_lang", "id", "res_partner__test_lang_id_fkey"))
+
+    def test_get_fk(self):
+        cr = self.env.cr
+
+        # a table nothing points to, and a table that does not exist at all, are
+        # both simply empty -- callers rely on the falsy result, they do not
+        # expect an exception (e.g. `analytic/16.0.1.1/end-migrate.py`)
+        self.assertEqual(util.get_fk(cr, "_test_no_such_table"), [])
+
+        util.create_column(cr, "res_partner", "_test_lang_id", "int4", fk_table="res_lang", on_delete_action="SET NULL")
+
+        fks = util.get_fk(cr, "res_lang", quote_ident=False)
+        self.assertIn(
+            ("res_partner", "_test_lang_id", "res_partner__test_lang_id_fkey", "n"),
+            fks,
+        )
+        # every entry is a 4-tuple (table, column, constraint, on_delete_action)
+        self.assertTrue(all(len(fk) == 4 for fk in fks))
+
+        # `quote_ident` only affects how identifiers are rendered, not which rows
+        # are returned
+        quoted = util.get_fk(cr, "res_lang", quote_ident=True)
+        self.assertEqual(len(quoted), len(fks))
+        self.assertIn(("res_partner", "_test_lang_id", "res_partner__test_lang_id_fkey", "n"), quoted)
+
+    def test_get_fk_quoted_identifiers(self):
+        cr = self.env.cr
+        # identifiers needing quotes must round-trip through `quote_ident=True`
+        cr.execute('CREATE TABLE "_test gf target" (id serial PRIMARY KEY)')
+        cr.execute(
+            """
+            CREATE TABLE "_test gf src" (
+                id serial PRIMARY KEY,
+                "order" integer REFERENCES "_test gf target"(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        self.assertEqual(
+            util.get_fk(cr, "_test gf target", quote_ident=False),
+            [("_test gf src", "order", "_test gf src_order_fkey", "c")],
+        )
+        self.assertEqual(
+            util.get_fk(cr, "_test gf target", quote_ident=True),
+            [('"_test gf src"', '"order"', '"_test gf src_order_fkey"', "c")],
+        )
+
+    def test_create_column_inferred_type_with_fk(self):
+        cr = self.env.cr
+        self.assertFalse(util.column_exists(cr, "res_partner", "_test_lang_id"))
+
+        with self.assertRaises(ValueError):
+            util.create_column(cr, "res_partner", "_test_lang_id", util.AUTO)
+
+        util.create_column(cr, "res_partner", "_test_lang_id", util.AUTO, fk_table="res_lang")
+
+        self.assertTrue(util.column_exists(cr, "res_partner", "_test_lang_id"))
+        expected_type = util.column_type(cr, "res_lang", "id")
+        actual_type = util.column_type(cr, "res_partner", "_test_lang_id")
+        self.assertEqual(actual_type, expected_type)
+
+        target = util.target_of(cr, "res_partner", "_test_lang_id")
+        self.assertEqual(target, ("res_lang", "id", "res_partner__test_lang_id_fkey"))
+
+    def test_ColumnList(self):
+        cr = self.env.cr
+
+        s = lambda c: c.as_string(cr._cnx)
+
+        columns = util.ColumnList(["a", "A"], ['"a"', '"A"'])
+        self.assertEqual(len(columns), 2)
+
+        columns2 = util.ColumnList.from_unquoted(cr, ["a", "A"])
+        self.assertEqual(columns2, columns)
+
+        # iterating it yield quoted columns
+        self.assertEqual(list(iter(columns)), ['"a"', '"A"'])
+
+        self.assertEqual(list(columns.iter_unquoted()), ["a", "A"])
+
+        self.assertEqual(s(columns), '"a", "A"')
+
+        self.assertEqual(s(columns.using(alias="t")), '"t"."a", "t"."A"')
+        self.assertEqual(s(columns.using(leading_comma=True)), ', "a", "A"')
+        self.assertEqual(s(columns.using(trailing_comma=True)), '"a", "A",')
+        self.assertEqual(s(columns.using(leading_comma=True, trailing_comma=True)), ', "a", "A",')
+
+        self.assertIs(columns.using(), columns)
+
+        ulc = columns.using(leading_comma=True)
+        self.assertTrue(s(ulc.using(alias="x")), ', "x"."a", "x"."A"')
+        self.assertIs(ulc, ulc.using(leading_comma=True))
+
+    def test_create_m2m(self):
+        cr = self.env.cr
+
+        m2m_name = "random_table_name"
+        created_m2m = util.create_m2m(cr, m2m_name, "res_users", "res_groups")
+        self.assertEqual(m2m_name, created_m2m)
+        self.assertTrue(util.table_exists(cr, created_m2m))
+
+        auto_generated_m2m_table_name = util.create_m2m(cr, util.AUTO, "res_users", "res_groups")
+        self.assertEqual("res_groups_res_users_rel", auto_generated_m2m_table_name)
+        self.assertTrue(util.table_exists(cr, auto_generated_m2m_table_name))
+
+    def test_get_m2m_on(self):
+        cr = self.env.cr
+
+        cr.execute(
+            """
+            CREATE TABLE _upg_test_m2m_main (id serial PRIMARY KEY);
+            CREATE TABLE _upg_test_m2m_other (id serial PRIMARY KEY);
+
+            -- a typical, valid m2m table
+            CREATE TABLE _upg_test_m2m_rel (
+                main_id int REFERENCES _upg_test_m2m_main,
+                other_id int REFERENCES _upg_test_m2m_other
+            );
+
+            -- a self-referencing m2m table
+            CREATE TABLE _upg_test_m2m_self_rel (
+                other_main_id int REFERENCES _upg_test_m2m_main,
+                main_id int REFERENCES _upg_test_m2m_main
+            );
+
+            -- m2m table whose columns are covered by more than one FK constraint
+            CREATE TABLE _upg_test_m2m_dup_rel (
+                main_id int REFERENCES _upg_test_m2m_main,
+                other_id int REFERENCES _upg_test_m2m_other
+            );
+            ALTER TABLE _upg_test_m2m_dup_rel
+                  ADD CONSTRAINT _upg_test_m2m_dup_rel_main_id_fkey2
+                      FOREIGN KEY (main_id) REFERENCES _upg_test_m2m_main,
+                  ADD CONSTRAINT _upg_test_m2m_dup_rel_other_id_fkey2
+                      FOREIGN KEY (other_id) REFERENCES _upg_test_m2m_other;
+
+            -- m2m table that once had a third column
+            CREATE TABLE _upg_test_m2m_dropped_rel (
+                main_id int REFERENCES _upg_test_m2m_main,
+                other_id int REFERENCES _upg_test_m2m_other,
+                gone int
+            );
+            ALTER TABLE _upg_test_m2m_dropped_rel DROP COLUMN gone;
+            """
+        )
+
+        self.assertEqual(
+            sorted(util.get_m2m_on(cr, "_upg_test_m2m_main")),
+            [
+                ("_upg_test_m2m_dropped_rel", "main_id", "other_id", "_upg_test_m2m_other"),
+                ("_upg_test_m2m_dup_rel", "main_id", "other_id", "_upg_test_m2m_other"),
+                ("_upg_test_m2m_rel", "main_id", "other_id", "_upg_test_m2m_other"),
+                # self-referencing m2m tables are returned once, with their columns sorted alphabetically
+                ("_upg_test_m2m_self_rel", "main_id", "other_main_id", "_upg_test_m2m_main"),
+            ],
+        )
+
+    def test_rename_m2m(self):
+        cr = self.env.cr
+
+        new_model_id = self.env["ir.model"].create({"model": "x_new.model", "name": "Custom test model"}).id
+        manual_model_id = self.env["ir.model"].create({"model": "x_manual.model", "name": "Manual model"}).id
+
+        field_regular = self.env["ir.model.fields"].create(
+            {
+                "name": "x_m2m_field_regular",
+                "ttype": "many2many",
+                "model_id": manual_model_id,
+                "relation": "x_new.model",
+                "relation_table": "x_x_manual_model_x_new_model_rel",
+            }
+        )
+        field_custom = self.env["ir.model.fields"].create(
+            {
+                "name": "x_m2m_field_custom",
+                "ttype": "many2many",
+                "model_id": manual_model_id,
+                "relation": "x_new.model",
+                "relation_table": "x_x_manual_model_x_new_model_rel_2",
+            }
+        )
+        old_regular_table = field_regular.relation_table
+        old_custom_table = field_custom.relation_table
+
+        # self-referencing m2m field
+        old_self_table = "x_x_new_model_x_new_model_rel"
+        old_self_column1 = "x_new_model_id"
+        old_self_column2 = "x_new_model_id_other"
+        field_self = self.env["ir.model.fields"].create(
+            {
+                "name": "x_m2m_field_self",
+                "ttype": "many2many",
+                "model_id": new_model_id,
+                "relation": "x_new.model",
+                "relation_table": old_self_table,
+                "column1": old_self_column1,
+                "column2": old_self_column2,
+            }
+        )
+
+        util.rename_table(cr, "x_new_model", "new_special_model")
+        util.update_m2m_tables(cr, "x_new_model", "new_special_model")
+        util.invalidate(field_regular)
+
+        new_regular_table = field_regular.relation_table
+        self.assertEqual(new_regular_table, "x_new_special_model_x_manual_model_rel")
+        self.assertEqual(field_custom.relation_table, old_custom_table)
+        self.assertEqual(field_regular.column2, "new_special_model_id")
+        self.assertEqual(field_custom.column2, "new_special_model_id")
+        self.assertTrue(util.table_exists(cr, new_regular_table))
+        self.assertTrue(util.table_exists(cr, old_custom_table))
+        self.assertFalse(util.table_exists(cr, old_regular_table))
+
+        # self-referencing m2m fields have neither relation table nor columns renamed
+        self.assertEqual(field_self.relation_table, old_self_table)
+        self.assertEqual(field_self.column1, old_self_column1)
+        self.assertEqual(field_self.column2, old_self_column2)
+        self.assertTrue(util.table_exists(cr, old_self_table))
+        self.assertFalse(util.table_exists(cr, "x_new_special_model_x_new_model_rel"))
+
+
+class TestORM(UnitTestCase):
+    def test_create_cron(self):
+        cr = self.env.cr
+        util.create_cron(cr, "Test cron creation don't fail", "res.partner", "answer = 42")
+
+        cron_id = util.ref(cr, "__upgrade__.cron_post_upgrade_test_cron_creation_don_t_fail")
+        self.assertIsNotNone(cron_id)
+        cron = self.env["ir.cron"].browse(cron_id)
+        self.assertEqual(cron.code, "answer = 42")
+
+
+class TestField(UnitTestCase):
+    @unittest.skipUnless(
+        util.version_gte("saas~13.5"),
+        "test rely on `res_country.state_required` field added in saas~13.5",
+    )
+    def test_invert_boolean_field(self):
+        cr = self.env.cr
+
+        with self.assertRaises(ValueError):
+            util.invert_boolean_field(cr, "res.partner", "name", "nom")
+
+        model, old_name, new_name = "res.country", "state_required", "needs_state"
+        table = util.table_of_model(cr, model)
+
+        fltr = self.env["ir.filters"].create(
+            {"name": "test", "model_id": model, "domain": str([(old_name, "=", True)])}
+        )
+
+        query = """
+            SELECT {1}, count(*)
+              FROM {0}
+          GROUP BY {1}
+        """
+
+        cr.execute(util.format_query(cr, query, table, old_name))
+        initial_repartition = dict(cr.fetchall())
+
+        # util.parallel_execute will `commit` the cursor and create new ones
+        # as we are in a test, we should not commit as we are in a subtransaction
+        with mock.patch.object(cr, "commit", lambda: ...):
+            util.invert_boolean_field(cr, model, old_name, new_name)
+
+        util.invalidate(fltr)
+        expected = ["!", (new_name, "=", True)]
+        self.assertEqual(literal_eval(fltr.domain), expected)
+
+        cr.execute(util.format_query(cr, query, table, new_name))
+        inverted_repartition = dict(cr.fetchall())
+
+        self.assertEqual(inverted_repartition[False], initial_repartition[True])
+        self.assertEqual(inverted_repartition[True], initial_repartition[False] + initial_repartition.get(None, 0))
+        self.assertEqual(inverted_repartition.get(None, 0), 0)
+
+        # rename back
+        with mock.patch.object(cr, "commit", lambda: ...):
+            util.rename_field(cr, model, new_name, old_name)
+
+        util.invalidate(fltr)
+        expected = [(old_name, "!=", True)] if USE_ORM_DOMAIN else ["!", (old_name, "=", True)]
+        self.assertEqual(literal_eval(fltr.domain), expected)
+
+        # invert with same name; will invert domains and data
+        with mock.patch.object(cr, "commit", lambda: ...):
+            util.invert_boolean_field(cr, model, old_name, old_name)
+
+        util.invalidate(fltr)
+        expected = ["!", (old_name, "!=", True)] if USE_ORM_DOMAIN else ["!", "!", (old_name, "=", True)]
+        self.assertEqual(literal_eval(fltr.domain), expected)
+
+        cr.execute(util.format_query(cr, query, table, old_name))
+        back_repartition = dict(cr.fetchall())
+
+        # merge None into False in the initial repartition
+        initial_repartition[False] += initial_repartition.pop(None, 0)
+        self.assertEqual(back_repartition, initial_repartition)
+
+    def test_change_field_selection_with_default(self):
+        cr = self.env.cr
+        lang = self.env["res.lang"].create({"name": "Elvish", "code": "el_VISH", "active": True})
+        if util.table_exists(cr, "ir_default"):
+            self.env["ir.default"].set("res.partner", "lang", "el_VISH")
+        else:
+            self.env["ir.values"].set_default("res.partner", "lang", "el_VISH")
+        util.flush(lang)
+        partner = self.env["res.partner"].create({"name": "Gandalf"})
+        self.assertEqual(partner.lang, "el_VISH")
+
+        util.invalidate(partner)
+        util.change_field_selection_values(cr, "res.partner", "lang", {"el_VISH": "en_US"})
+
+        self.assertEqual(partner.lang, "en_US")
+
+        if util.table_exists(cr, "ir_default"):
+            new_default = (getattr(self.env["ir.default"], "get", None) or self.env["ir.default"]._get)(
+                "res.partner", "lang"
+            )
+        else:
+            new_default = self.env["ir.values"].get_default("res.partner", "lang")
+
+        self.assertEqual(new_default, "en_US")
+
+    @unittest.skipIf(not util.version_gte("saas~17.5"), "Company dependent fields are stored as jsonb since saas~17.5")
+    def test_convert_field_to_company_dependent(self):
+        cr = self.env.cr
+
+        partner_model = self.env["ir.model"].search([("model", "=", "res.partner")])
+        self.env["ir.model.fields"].create(
+            [
+                {
+                    "name": "x_test_cd_1",
+                    "ttype": "char",
+                    "model_id": partner_model.id,
+                },
+                {
+                    "name": "x_test_cd_2",
+                    "ttype": "char",
+                    "model_id": partner_model.id,
+                },
+            ]
+        )
+
+        c1 = self.env["res.company"].create({"name": "Flancrest"})
+        c2 = self.env["res.company"].create({"name": "Flancrest2"})
+
+        test_partners = self.env["res.partner"].create(
+            [
+                {"name": "Homer", "x_test_cd_1": "A", "x_test_cd_2": "A", "company_id": c1.id},
+                {"name": "Marjorie", "x_test_cd_1": "B", "x_test_cd_2": "B"},
+                {"name": "Bartholomew"},
+            ]
+        )
+        test_partners.invalidate_recordset(["x_test_cd_1", "x_test_cd_2"])
+
+        # Using company_id as default, only records with company set are updated
+        util.make_field_company_dependent(cr, "res.partner", "x_test_cd_1", "char")
+        util.make_field_company_dependent(cr, "res.partner", "x_test_cd_2", "char", company_field=False)
+
+        # make the ORM re-read the info about these manual fields from the DB
+        setup_models = (
+            self.registry.setup_models if hasattr(self.registry, "setup_models") else self.registry._setup_models__
+        )
+        args = (["res.partner"],) if util.version_gte("saas~18.4") else ()
+        setup_models(cr, *args)
+
+        test_partners_c1 = test_partners.with_company(c1.id)
+        self.assertEqual(test_partners_c1[0].x_test_cd_1, "A")
+        self.assertFalse(test_partners_c1[1].x_test_cd_1)
+        self.assertFalse(test_partners_c1[2].x_test_cd_1)
+        self.assertEqual(test_partners_c1[0].x_test_cd_2, "A")
+        self.assertEqual(test_partners_c1[1].x_test_cd_2, "B")
+        self.assertFalse(test_partners_c1[2].x_test_cd_2)
+
+        test_partners_c2 = test_partners.with_company(c2.id)
+        self.assertFalse(test_partners_c2[0].x_test_cd_1)
+        self.assertFalse(test_partners_c2[1].x_test_cd_1)
+        self.assertFalse(test_partners_c2[2].x_test_cd_1)
+        self.assertEqual(test_partners_c2[0].x_test_cd_2, "A")
+        self.assertEqual(test_partners_c2[1].x_test_cd_2, "B")
+        self.assertFalse(test_partners_c2[2].x_test_cd_2)
+
+
+class TestHelpers(UnitTestCase):
+    def test_model_table_conversion(self):
+        cr = self.env.cr
+        for model in self.env.registry:
+            if model in ("ir.actions.act_window_close",):
+                continue
+            table = util.table_of_model(cr, model)
+            self.assertEqual(table, self.env[model]._table)
+            self.assertEqual(util.model_of_table(cr, table), model)
+
+    def test_resolve_model_fields_path(self):
+        cr = self.env.cr
+
+        # test with provided paths
+        model, path = "res.currency", ["rate_ids", "company_id", "user_ids", "partner_id"]
+        expected_result = [
+            util.FieldsPathPart("res.currency", "rate_ids", "res.currency.rate"),
+            util.FieldsPathPart("res.currency.rate", "company_id", "res.company"),
+            util.FieldsPathPart("res.company", "user_ids", "res.users"),
+            util.FieldsPathPart("res.users", "partner_id", "res.partner"),
+        ]
+        result = util.resolve_model_fields_path(cr, model, path)
+        self.assertEqual(result, expected_result)
+
+        model, path = "res.users", ("partner_id", "removed_field", "user_id")
+        expected_result = [util.FieldsPathPart("res.users", "partner_id", "res.partner")]
+        result = util.resolve_model_fields_path(cr, model, path)
+        self.assertEqual(result, expected_result)
+
+
+@unittest.skipIf(
+    util.version_gte("saas~17.1"),
+    "Starting Odoo 17, the info being stored in the database, the test can't lie about its base version",
+)
+class TestInherit(UnitTestCase):
+    @classmethod
+    def setUpClass(cls):
+        bv = util.ENVIRON.get("__base_version")
+        util.ENVIRON["__base_version"] = util.parse_version("12.0.1.3")
+        if bv:
+            cls.addClassCleanup(operator.setitem, util.ENVIRON, "__base_version", bv)
+        return super().setUpClass()
+
+    @parametrize(
+        [
+            # simple tests
+            ("do.not.exits", []),
+            ("account.common.journal.report", ["account.common.report"]),
+            # avoid duplicates
+            (
+                "product.product",
+                [
+                    "mail.activity.mixin",
+                    "mail.thread",
+                    "product.template",
+                    "rating.mixin",
+                    "website.published.multi.mixin",
+                    "website.seo.metadata",
+                ],
+            ),
+            # version boundaries
+            # ... born after 12.0, should not include it.
+            ("report.paperformat", []),
+            # ... dead before 12.0. should not be included
+            ("delivery.carrier", ["website.published.multi.mixin"]),
+            # ... dead between 12.0 and CURRENT_VERSION
+            ("crm.lead.convert2task", ["crm.partner.binding"]),
+        ]
+    )
+    def test_inherit_parents(self, model, expected):
+        cr = self.env.cr
+        result = sorted(util.inherit_parents(cr, model))
+        self.assertEqual(result, sorted(expected))
+
+    def test_direct_inherit_parents(self):
+        cr = self.env.cr
+        result = sorted(util.direct_inherit_parents(cr, "product.product"))
+        self.assertEqual(len(result), 3)
+        parents, inhs = zip(*result)
+        self.assertEqual(parents, ("mail.activity.mixin", "mail.thread", "product.template"))
+        self.assertTrue(all(inh.model == "product.product" for inh in inhs))
+        self.assertEqual([inh.via for inh in inhs], [None, None, "product_tmpl_id"])
+
+
+class TestNamedCursors(UnitTestCase):
+    @staticmethod
+    def exec(cr, which="", args=()):
+        cr.execute("SELECT * FROM ir_ui_view")
+        if which:
+            return getattr(cr, which)(*args)
+        return None
+
+    @parametrize(
+        [
+            (None, "dictfetchone"),
+            (None, "dictfetchmany", [10]),
+            (None, "dictfetchall"),
+            (1, "dictfetchone"),
+            (1, "dictfetchmany", [10]),
+            (1, "dictfetchall"),
+            (None, "fetchone"),
+            (None, "fetchmany", [10]),
+            (None, "fetchall"),
+            (1, "fetchone"),
+            (1, "fetchmany", [10]),
+            (1, "fetchall"),
+        ]
+    )
+    def test_dictfetch(self, itersize, which, args=()):
+        expected = self.exec(self.env.cr, which, args)
+        with util.named_cursor(self.env.cr, itersize=itersize) as ncr:
+            result = self.exec(ncr, which, args)
+        self.assertEqual(result, expected)
+
+    def test_iterdict(self):
+        expected = self.exec(self.env.cr, "dictfetchall")
+        with util.named_cursor(self.env.cr) as ncr:
+            result = list(self.exec(ncr, "iterdict"))
+        self.assertEqual(result, expected)
+
+    def test_iter(self):
+        expected = self.exec(self.env.cr, "fetchall")
+        with util.named_cursor(self.env.cr) as ncr:
+            result = list(self.exec(ncr, "__iter__"))
+        self.assertEqual(result, expected)
+
+
+class TestQueryIds(UnitTestCase):
+    def test_straight(self):
+        result = list(util.query_ids(self.env.cr, "SELECT * FROM (VALUES (1), (2)) AS x(x)", itersize=2))
+        self.assertEqual(result, [1, 2])
+
+    def test_chunks(self):
+        with util.query_ids(self.env.cr, "SELECT * FROM (VALUES (1), (2)) AS x(x)") as ids:
+            result = list(util.chunks(ids, 100, fmt=list))
+        self.assertEqual(result, [[1, 2]])
+
+    def test_destructor(self):
+        ids = util.query_ids(self.env.cr, "SELECT id from res_users")
+        del ids
+
+    def test_pk_violation(self):
+        with db_connect(self.env.cr.dbname).cursor() as cr, mute_logger("odoo.sql_db"), self.assertRaises(
+            ValueError
+        ), util.query_ids(cr, "SELECT * FROM (VALUES (1), (1)) AS x(x)") as ids:
+            list(ids)
+
+
+class TestRecords(UnitTestCase):
+    def test_rename_xmlid(self):
+        cr = self.env.cr
+
+        old = self.env["res.currency"].create({"name": "TX1", "symbol": "TX1"})
+        new = self.env["res.currency"].create({"name": "TX2", "symbol": "TX2"})
+        self.env["ir.model.data"].create({"name": "TX1", "module": "base", "model": "res.currency", "res_id": old.id})
+        self.env["ir.model.data"].create({"name": "TX2", "module": "base", "model": "res.currency", "res_id": new.id})
+
+        rate = self.env["res.currency.rate"].create({"currency_id": old.id})
+        self.env["ir.model.data"].create(
+            {"name": "test_rate_tx1", "module": "base", "model": "res.currency.rate", "res_id": rate.id}
+        )
+
+        if hasattr(self, "_savepoint_id"):
+            # As the `rename_xmlid` method uses `parallel_execute`, the cursor is committed; which kill
+            # the savepoint created by the test setup (since saas~14.1 with the merge of SavepointCase
+            # into TransactionCase in odoo/odoo@7f2e168c02a7aea666d34510ed2ed8efacd5654b).
+            # Force a new one to avoid this issue.
+            # Incidentally, we should also explicitly remove the created records.
+            self.addCleanup(cr.execute, f"SAVEPOINT test_{self._savepoint_id}")
+            self.addCleanup(old.unlink)
+            self.addCleanup(new.unlink)
+            self.addCleanup(rate.unlink)
+
+        # Wrong model
+        with self.assertRaises(MigrationError):
+            util.rename_xmlid(cr, "base.TX1", "base.test_rate_tx1", on_collision="merge")
+
+        # Collision
+        with self.assertRaises(MigrationError):
+            util.rename_xmlid(cr, "base.TX1", "base.TX2", on_collision="fail")
+
+        # As TX2 is not free, TX1 is merged with TX2
+        with mute_logger(util.helpers._logger.name):
+            res = util.rename_xmlid(cr, "base.TX1", "base.TX2", on_collision="merge")
+        self.assertEqual(res, new.id)
+        self.assertEqual(util.ref(cr, "base.TX1"), None)
+
+        # TX1 references moved to TX2
+        cr.execute("SELECT currency_id FROM res_currency_rate WHERE id = %s", [rate.id])
+        self.assertEqual(cr.fetchall(), [(new.id,)])
+
+        # Nothing left to rename in TX1
+        res = util.rename_xmlid(cr, "base.TX1", "base.TX3", on_collision="merge")
+        self.assertEqual(res, None)
+
+        # Can rename to empty TX3 without need for merge
+        res = util.rename_xmlid(cr, "base.TX2", "base.TX3", on_collision="merge")
+        self.assertEqual(res, new.id)
+
+        # Normal rename
+        res = util.rename_xmlid(cr, "base.TX3", "base.TX4")
+        self.assertEqual(res, new.id)
+
+    def test_update_record_from_xml(self):
+        # reset all fields on a <record>
+        xmlid = "base.res_partner_industry_A"
+        data_after = {"name": "42", "full_name": "Fortytwo"}
+        record = self.env.ref(xmlid)
+        data_before = {key: record[key] for key in data_after}
+        for key, value in data_after.items():
+            record.write({key: value})
+            self.assertEqual(record[key], value)
+
+        util.update_record_from_xml(self.env.cr, xmlid, reset_translations=True)
+        if util.version_gte("16.0"):
+            record.invalidate_recordset(["name"])
+        else:
+            record.invalidate_cache(["name"], record.ids)
+        for key, value in data_before.items():
+            self.assertEqual(record[key], value)
+
+    def test_update_record_from_xml_recursive_menuitem(self):
+        # reset all fields on a <menuitem>
+        xmlid = "base.menu_security"
+        data_after = {"name": "ATotallyValidSecurityMenu", "sequence": 112, "parent_id": self.env["ir.ui.menu"]}
+        record = self.env.ref(xmlid)
+        data_before = {key: record[key] for key in data_after}
+        for key, value in data_after.items():
+            record.write({key: value})
+            self.assertEqual(record[key], value)
+
+        util.update_record_from_xml(self.env.cr, xmlid)
+        if util.version_gte("16.0"):
+            record.invalidate_recordset(["name"])
+        else:
+            record.invalidate_cache(["name"], record.ids)
+        for key, value in data_before.items():
+            self.assertEqual(record[key], value)
+
+    def test_upgrade_record_from_xml_ensure_references(self):
+        def change(xmlid):
+            cat = self.env.ref(xmlid)
+            result = cat.name
+            cat.write({"name": str(uuid.uuid4())})
+            util.flush(cat)
+            util.invalidate(cat)
+            return result
+
+        if util.version_gte("saas~13.5"):
+            xmlid_tree = [
+                "base.module_category_accounting_localizations_account_charts",
+                "base.module_category_accounting_localizations",
+                "base.module_category_accounting",
+            ]
+        else:
+            xmlid_tree = [
+                "base.module_category_localization_account_charts",
+                "base.module_category_localization",
+            ]
+
+        old_names = [change(xmlid) for xmlid in xmlid_tree]
+
+        util.update_record_from_xml(self.env.cr, xmlid_tree[0], ensure_references=True)
+
+        for xmlid, expected in zip(xmlid_tree, old_names):
+            cat = self.env.ref(xmlid)
+            self.assertEqual(cat.name, expected)
+
+    def test_update_record_from_xml_template_tag(self):
+        # reset all fields on a <template>
+        template_xmlid = "base.contact_name"
+        record = self.env.ref(template_xmlid)
+        children = record.inherit_children_ids.filtered(lambda v: v.active)
+        children.write({"active": False})
+        self.addCleanup(children.write, {"active": True})
+        non_xpath = etree.XPath("/non")
+        data_after = {"name": "42", "arch_db": "<non>sense</non>"}
+        data_before = {key: record[key] for key in data_after}
+        record.write(data_after)
+        for key, value in data_after.items():
+            if key == "arch_db":
+                tree = etree.fromstring(value)
+                [non_element] = non_xpath(tree)
+                self.assertEqual(non_element.text, "sense")
+            else:
+                self.assertEqual(record[key], value)
+
+        util.update_record_from_xml(self.env.cr, template_xmlid, reset_translations=True)
+        if util.version_gte("16.0"):
+            record.invalidate_recordset(data_after.keys())
+        else:
+            record.invalidate_cache(data_after.keys(), record.ids)
+
+        # asserting  equality for the full arch_db fails for some versions due to different quotes being used
+        self.assertEqual(record.name, data_before["name"])
+        tree = etree.fromstring(record.arch_db)
+        non_query_result = non_xpath(tree)
+        self.assertEqual(len(non_query_result), 0)
+        [template_element] = tree.xpath("/t")
+        self.assertEqual(template_element.attrib["t-name"], template_xmlid)
+
+    def test_update_record_translations_from_xml(self):
+        # reset all translated fields on a <record>
+        be_lang = self.env["res.lang"].with_context(active_test=False).search([("code", "=", "fr_BE")])
+        be_lang.write({"active": True})
+
+        xmlid = "base.res_partner_industry_A"
+        util.update_record_from_xml(self.env.cr, xmlid, reset_translations=True)
+
+        # change the translations to something arbitrary for all installed languages
+        langs = self.env["res.lang"].get_installed()
+        filter_lang = [code for code, _ in langs]
+        self.assertIn(be_lang.code, filter_lang)
+        data_after = {"name": "42", "full_name": "Fortytwo"}
+        fieldnames = list(data_after.keys())
+        template_record = self.env.ref(xmlid)
+
+        data_before = {}
+        for lang in filter_lang:
+            data_before[lang] = {fname: template_record.with_context(lang=lang)[fname] for fname in fieldnames}
+
+            # write & assert arbitrary translations
+            for fname, value in data_after.items():
+                template_record.with_context(lang=lang).write({fname: value})
+                self.assertEqual(template_record.with_context(lang=lang)[fname], value)
+        util.invalidate(template_record)
+
+        # re-reset all translated fields on a <record>
+        util.update_record_from_xml(self.env.cr, xmlid, reset_translations=True)
+        util.invalidate(template_record)
+
+        for lang, field_to_value in data_before.items():
+            for fname, value in field_to_value.items():
+                self.assertEqual(template_record.with_context(lang=lang)[fname], value)
+
+    def test_update_record_from_xml__from_module(self):
+        cr = self.env.cr
+        if not util.module_installed(cr, "mail"):
+            self.skipTest("module `mail` not installed")
+
+        xmlid = "base.action_attachment"
+        action = self.env.ref(xmlid)
+        new_help = "<p>test_update_record_from_xml__from_module</p>"
+
+        action.write({"help": new_help})
+        util.flush(action)
+        util.invalidate(action)
+
+        util.update_record_from_xml(cr, xmlid, from_module="mail")
+        util.invalidate(action)
+
+        self.assertNotEqual(action.help, new_help)
+        # the `mail` module overwrite the record to remove the second paragraphe of the help message.
+        # ensure it actually update the record from the `mail` module.
+        self.assertEqual(action.help.count("</p>"), 1)
+
+    def test_update_record_from_xml_bad_match(self):
+        cr = self.env.cr
+        if not util.module_installed(cr, "web"):
+            self.skipTest("module `web` not installed")
+
+        xmlid = "web.login"
+        util.update_record_from_xml(cr, xmlid)
+
+        arch = self.env.ref(xmlid).arch_db
+        tree = etree.fromstring(arch)
+        self.assertIsNotNone(tree.find(".//input[@id='login']"))
+
+    def test_update_record_from_xml__fields(self):
+        cr = self.env.cr
+        xmlid = "base.USD"
+
+        usd = self.env.ref(xmlid)
+        usd.write({"name": "XXX", "symbol": "¤"})
+        util.flush(usd)
+        util.invalidate(usd)
+
+        util.update_record_from_xml(cr, xmlid, fields=["symbol"])
+        util.invalidate(usd)
+
+        self.assertEqual(usd.symbol, "$")
+        self.assertEqual(usd.name, "XXX")
+
+    def test_update_record_from_xml__fields_not_in_xml(self):
+        cr = self.env.cr
+        eur_xmlid = "base.EUR"
+
+        eur = self.env.ref(eur_xmlid)
+        eur.write({"position": "before", "symbol": "¤"})
+        util.flush(eur)
+        util.invalidate(eur)
+
+        util.update_record_from_xml(cr, eur_xmlid, fields=["position", "symbol"])
+        util.invalidate(eur)
+
+        self.assertEqual(eur.position, "after")  # default = "after", not in <record>
+        self.assertEqual(eur.symbol, "€")  # no default, restore <record> value
+
+        pubuser_xmlid = "base.public_user"
+
+        pubuser = self.env.ref(pubuser_xmlid)
+        pubuser.write({"active": True})
+        util.flush(pubuser)
+        util.invalidate(pubuser)
+
+        util.update_record_from_xml(cr, pubuser_xmlid, fields=["active"])
+        util.invalidate(pubuser)
+
+        self.assertFalse(pubuser.active)  # default = True, False in <record>
+
+    def test_update_record_from_xml_cache(self):
+        cr = self.env.cr
+        xmlid = "base.action_attachment"
+
+        record_id = util.ref(cr, xmlid)
+        query = "SELECT name FROM ir_act_window WHERE id = %s"
+        if util.column_type(cr, "ir_act_window", "name") == "jsonb":
+            query = "SELECT name->>'en_US' FROM ir_act_window WHERE id = %s"
+
+        cr.execute(query, [record_id])
+        original = cr.fetchone()[0]
+
+        # Load, SQL update, then load shouldn't skip the last load override
+        util.update_record_from_xml(cr, xmlid)
+        cr.execute("""UPDATE ir_act_window SET name = '{"en_US": "hack"}' WHERE id = %s""", [record_id])
+        util.update_record_from_xml(cr, xmlid)
+
+        # Ensure last load restored the value
+
+        cr.execute(query, [record_id])
+        self.assertEqual(cr.fetchone()[0], original)
+
+    def test_update_record_from_xml_resets_arch_fs_noupdate(self):
+        cr = self.env.cr
+        xmlid = "base.contact_name"
+
+        view = self.env["ir.ui.view"].browse(util.ref(cr, xmlid))
+
+        original_arch_fs = view.arch_fs
+        view.arch_fs = False
+        util.flush(view)
+
+        util.update_record_from_xml(cr, xmlid)
+        util.invalidate(view)
+
+        self.assertEqual(original_arch_fs, view.arch_fs)
+
+    def test_ensure_xmlid_match_record(self):
+        cr = self.env.cr
+        tx1 = self.env["res.currency"].create({"name": "TX1", "symbol": "TX1"})
+        tx2 = self.env["res.currency"].create({"name": "TX2", "symbol": "TX2"})
+        self.env["ir.model.data"].create({"name": "TX1", "module": "base", "model": "res.currency", "res_id": tx1.id})
+        self.env["ir.model.data"].create({"name": "TX2", "module": "base", "model": "res.currency", "res_id": tx2.id})
+
+        # case: `base.TX1` points to ResCurrency(168) and matches values {'name': 'TX1'}
+        ensured_id = util.ensure_xmlid_match_record(cr, "base.TX1", "res.currency", {"name": "TX1"})
+        self.assertEqual(ensured_id, tx1.id)
+        newtx1 = util.ref(cr, "base.TX1")
+        self.assertEqual(newtx1, tx1.id)
+
+        # break one res_id
+        cr.execute("UPDATE ir_model_data SET res_id=%s WHERE module='base' AND name='TX1'", [tx2.id])
+
+        # case: `base.TX1` points to ResCurrency(169) but doesn't match values {'name': 'TX3'}; no other matches found.
+        ensured_id = util.ensure_xmlid_match_record(cr, "base.TX1", "res.currency", {"name": "TX3"})
+        self.assertEqual(ensured_id, tx2.id)
+
+        # check it still point to tx2
+        newtx1 = util.ref(cr, "base.TX1")
+        self.assertEqual(newtx1, tx2.id)
+
+        # case: `base.TX4` doesn't exist; no match found for values {'name': 'TX4'}
+        ensured_id = util.ensure_xmlid_match_record(cr, "base.TX4", "res.currency", {"name": "TX4"})
+        self.assertIsNone(ensured_id)
+
+        # case: update `base.TX1` to point to ResCurrency(168) instead of ResCurrency(169); matching values {'name': 'TX1'}
+        ensured_id = util.ensure_xmlid_match_record(cr, "base.TX1", "res.currency", {"name": "TX1"})
+        self.assertEqual(ensured_id, tx1.id)
+
+        newtx1 = util.ref(cr, "base.TX1")
+        self.assertEqual(newtx1, tx1.id)
+
+        # delete model data entry
+        cr.execute("DELETE FROM ir_model_data WHERE module='base' AND name='TX1'")
+        self.assertIsNone(util.ref(cr, "base.TX1"))
+
+        # case: create `base.TX1` that point to ResCurrency(168); matching values {'name': 'TX1'}
+        ensured_id = util.ensure_xmlid_match_record(cr, "base.TX1", "res.currency", {"name": "TX1"})
+        self.assertEqual(ensured_id, tx1.id)
+
+        newtx1 = util.ref(cr, "base.TX1")
+        self.assertEqual(newtx1, tx1.id)
+
+    @unittest.skipUnless(util.version_gte("16.0"), "Only work on Odoo >= 16")
+    def test_replace_in_all_jsonb_values(self):
+        test_partner_category = self.env["res.partner.category"].create(
+            {"name": r"""object.number '<"x">\y object.numbercombined"""}
+        )
+
+        pattern_old = re.compile(r"\b\.number\b")
+        pattern_new = re.compile(r"\b\.name\b")
+        pattern_notouch = re.compile(r"\b\.numbercombined\b")
+
+        self.assertNotRegex(test_partner_category.name, pattern_new)
+        self.assertRegex(test_partner_category.name, pattern_notouch)
+        self.assertRegex(test_partner_category.name, pattern_old)
+
+        extra_filter = self.env.cr.mogrify("t.id = %s", (test_partner_category.id,)).decode()
+        util.replace_in_all_jsonb_values(self.env.cr, "res_partner_category", "name", ".number", ".name", extra_filter)
+        util.replace_in_all_jsonb_values(
+            self.env.cr, "res_partner_category", "name", r"""'<"x">\y""", "GONE", extra_filter
+        )
+        test_partner_category.invalidate_recordset(["name"])
+
+        self.assertRegex(test_partner_category.name, pattern_new)
+        self.assertRegex(test_partner_category.name, pattern_notouch)
+        self.assertNotRegex(test_partner_category.name, pattern_old)
+        # ensure replacing works for patterns that do not start with a valid word start \w
+        # also ensure the replace works for multiple embedded quotes
+        self.assertEqual(test_partner_category.name, "object.name GONE object.numbercombined")
+
+    def test_replace_record_references_batch__uniqueness(self):
+        c1 = self.env["res.country"].create(
+            {"name": "TEST1", "code": "T1", "state_ids": [(0, 0, {"name": "STATE1", "code": "STATE"})]}
+        )
+        c2 = self.env["res.country"].create(
+            {"name": "TEST2", "code": "T2", "state_ids": [(0, 0, {"name": "STATE2", "code": "STATE"})]}
+        )
+
+        # `sale_subscription` as foreign key on `res_country`
+        # ignore it to avoid the logging of an error in `model_of_table` when upgrading to v16 where the model
+        # `sale.subscription` as been removed but the table kept.
+        ignores = ["sale_subscription"]
+        util.replace_record_references_batch(self.env.cr, {c2.id: c1.id}, "res.country", ignores=ignores)
+        self.env.cr.execute("SELECT count(1) FROM res_country_state WHERE country_id=%s", [c1.id])
+        [count] = self.env.cr.fetchone()
+        self.assertEqual(count, 1)
+
+    @unittest.skipUnless(util.version_gte("18.0"), "Only work on Odoo >= 18")
+    def test_replace_record_references_batch__company_dependent(self):
+        partner_model = self.env["ir.model"].search([("model", "=", "res.partner")])
+        self.env["ir.model.fields"].create(
+            {
+                "name": "x_test_curr",
+                "ttype": "many2one",
+                "model_id": partner_model.id,
+                "relation": "res.currency",
+                "company_dependent": True,
+            }
+        )
+        c1 = self.env["res.currency"].create({"name": "RC1", "symbol": "RC1"})
+        c2 = self.env["res.currency"].create({"name": "RC2", "symbol": "RC2"})
+        c3 = self.env["res.currency"].create({"name": "RC3", "symbol": "RC3"})
+        c4 = self.env["res.currency"].create({"name": "RC4", "symbol": "RC4"})
+
+        p1 = self.env["res.partner"].create({"name": "Captain Jack"})
+        p2 = self.env["res.partner"].create({"name": "River Song"})
+        p3 = self.env["res.partner"].create({"name": "Donna Noble"})
+
+        old = {
+            p1.id: f'{{"1":{c1.id}, "2":{c2.id}, "3":null}}',
+            p2.id: f'{{"1":{c1.id}, "2":{c2.id}, "3":{c3.id}, "4":{c4.id}}}',
+            p3.id: f'{{"1":{c4.id}}}',
+        }
+        for id, value in old.items():
+            self.env.cr.execute("UPDATE res_partner SET x_test_curr = %s WHERE id = %s", [value, id])
+        mapping = {
+            c1.id: c2.id,
+            c2.id: c3.id,
+            c3.id: c1.id,
+        }
+        with self.assertNotUpdated("res_partner", ids=[p3.id]):
+            util.replace_record_references_batch(self.env.cr, mapping, "res.currency")
+        new = {
+            p1.id: {"1": c2.id, "2": c3.id, "3": None},
+            p2.id: {"1": c2.id, "2": c3.id, "3": c1.id, "4": c4.id},
+            p3.id: {"1": c4.id},
+        }
+        self.env.cr.execute("SELECT id, x_test_curr FROM res_partner WHERE id IN %s", [(p1.id, p2.id)])
+        for id, currencies in self.env.cr.fetchall():
+            expected = new[id]
+            self.assertEqual(currencies, expected)
+
+    def _prepare_test_delete_unused(self):
+        def create_cat():
+            name = f"test_{uuid.uuid4().hex}"
+            cat = self.env["res.partner.category"].create({"name": name})
+            self.env["ir.model.data"].create(
+                {"name": name, "module": "base", "model": "res.partner.category", "res_id": cat.id}
+            )
+            return cat
+
+        cat_1 = create_cat()
+        cat_2 = create_cat()
+        cat_3 = create_cat()
+
+        # `category_id` is a m2m, so in ON DELETE CASCADE. We need a m2o.
+        self.env.cr.execute(
+            "ALTER TABLE res_partner ADD COLUMN _cat_id integer REFERENCES res_partner_category(id) ON DELETE SET NULL"
+        )
+        p1 = self.env["res.partner"].create({"name": "test delete_unused"})
+
+        # set the `_cat_id` value in SQL as it is not know by the ORM
+        self.env.cr.execute("UPDATE res_partner SET _cat_id=%s WHERE id=%s", [cat_1.id, p1.id])
+
+        if hasattr(self, "_savepoint_id"):
+            self.addCleanup(self.env.cr.execute, f"SAVEPOINT test_{self._savepoint_id}")
+            self.addCleanup(cat_1.unlink)
+            self.addCleanup(cat_2.unlink)
+            self.addCleanup(cat_3.unlink)
+            self.addCleanup(p1.unlink)
+
+        self.addCleanup(self.env.cr.execute, "ALTER TABLE res_partner DROP COLUMN _cat_id")
+
+        return cat_1, cat_2, cat_3
+
+    def test_delete_unused_base(self):
+        tx = self.env["res.currency"].create({"name": "TX1", "symbol": "TX1"})
+        self.env["ir.model.data"].create({"name": "TX1", "module": "base", "model": "res.currency", "res_id": tx.id})
+
+        deleted = util.delete_unused(self.env.cr, "base.TX1")
+        self.assertEqual(deleted, ["base.TX1"])
+        self.assertFalse(tx.exists())
+
+    def test_delete_unused_cascade(self):
+        cat_1, cat_2, cat_3 = self._prepare_test_delete_unused()
+        deleted = util.delete_unused(self.env.cr, f"base.{cat_1.name}", f"base.{cat_2.name}", f"base.{cat_3.name}")
+
+        self.assertEqual(set(deleted), {f"base.{cat_2.name}", f"base.{cat_3.name}"})
+        self.assertTrue(cat_1.exists())
+        self.assertFalse(cat_2.exists())
+        self.assertFalse(cat_3.exists())
+
+    def test_delete_unused_tree(self):
+        cat_1, cat_2, cat_3 = self._prepare_test_delete_unused()
+
+        cat_1.parent_id = cat_2.id
+        cat_2.parent_id = cat_3.id
+        util.flush(cat_1)
+        util.flush(cat_2)
+
+        deleted = util.delete_unused(self.env.cr, f"base.{cat_3.name}")
+
+        self.assertEqual(deleted, [])
+        self.assertTrue(cat_1.exists())
+        self.assertTrue(cat_2.exists())
+        self.assertTrue(cat_3.exists())
+
+    def test_delete_unused_multi_cascade_fk(self):
+        """
+        When there are multiple children, the hierarchy can be build from different columns
+
+            cat_3
+              | via `_test_id`
+            cat_2
+              | via `parent_id`
+            cat_1
+        """
+        cat_1, cat_2, cat_3 = self._prepare_test_delete_unused()
+
+        self.env.cr.execute(
+            "ALTER TABLE res_partner_category ADD COLUMN _test_id integer REFERENCES res_partner_category(id) ON DELETE CASCADE"
+        )
+        self.addCleanup(self.env.cr.execute, "ALTER TABLE res_partner_category DROP COLUMN _test_id")
+
+        cat_1.parent_id = cat_2.id
+        util.flush(cat_1)
+        self.env.cr.execute("UPDATE res_partner_category SET _test_id = %s WHERE id = %s", [cat_3.id, cat_2.id])
+
+        deleted = util.delete_unused(self.env.cr, f"base.{cat_3.name}")
+
+        self.assertEqual(deleted, [])
+        self.assertTrue(cat_1.exists())
+        self.assertTrue(cat_2.exists())
+        self.assertTrue(cat_3.exists())
+
+    def test_delete_unused_include_m2m(self):
+        cat_1, cat_2, cat_3 = self._prepare_test_delete_unused()
+
+        cr = self.env.cr
+        cr.execute(
+            "INSERT INTO res_partner_res_partner_category_rel(partner_id, category_id) VALUES(%s, %s)",
+            [util.ref(cr, "base.partner_root"), cat_2.id],
+        )
+
+        deleted = util.delete_unused(
+            self.env.cr, f"base.{cat_1.name}", f"base.{cat_2.name}", f"base.{cat_3.name}", include_m2m="*"
+        )
+
+        self.assertEqual(deleted, [f"base.{cat_3.name}"])
+        self.assertTrue(cat_1.exists())
+        self.assertTrue(cat_2.exists())
+        self.assertFalse(cat_3.exists())
+
+    def test_add_view(self):
+        cr = self.env.cr
+        arch = '<form><field name="name"/></form>'
+        view_id = util.add_view(cr, "test_add_view", "res.partner", "form", arch)
+        self.assertTrue(view_id)
+        cr.execute(
+            "SELECT name, model, type FROM ir_ui_view WHERE id = %s",
+            [view_id],
+        )
+        name, model, view_type = cr.fetchone()
+        self.assertEqual(name, "test_add_view")
+        self.assertEqual(model, "res.partner")
+        self.assertEqual(view_type, "form")
+
+
+class TestEditView(UnitTestCase):
+    @parametrize(
+        [
+            (True, True, True),
+            (False, True, False),
+        ]
+    )
+    def test_active_auto(self, initial_value, by_xmlid, by_view_id):
+        cr = self.env.cr
+        xmlid = "base.view_view_form"
+        view_id = util.ref(cr, xmlid)
+
+        cr.execute("UPDATE ir_ui_view SET active = %s WHERE id = %s", [initial_value, view_id])
+
+        # call by xmlid
+        with util.edit_view(cr, xmlid=xmlid, skip_if_not_noupdate=False, active="auto"):
+            pass
+
+        cr.execute("SELECT active FROM ir_ui_view WHERE id = %s", [view_id])
+        self.assertEqual(cr.fetchone()[0], by_xmlid)
+
+        # reset value
+        cr.execute("UPDATE ir_ui_view SET active = %s WHERE id = %s", [initial_value, view_id])
+
+        # call by view_id
+        with util.edit_view(cr, view_id=view_id, active="auto"):
+            pass
+
+        cr.execute("SELECT active FROM ir_ui_view WHERE id = %s", [view_id])
+        self.assertEqual(cr.fetchone()[0], by_view_id)
+
+    @parametrize(
+        [
+            (True, True, True),
+            (True, False, False),
+            (True, None, True),
+            (False, True, True),
+            (False, False, False),
+            (False, None, False),
+        ]
+    )
+    def test_active_explicit(self, initial_value, value, expected_value):
+        cr = self.env.cr
+        xmlid = "base.view_view_form"
+        view_id = util.ref(cr, xmlid)
+
+        cr.execute("UPDATE ir_ui_view SET active = %s WHERE id = %s", [initial_value, view_id])
+
+        # call by xmlid
+        with util.edit_view(cr, xmlid=xmlid, skip_if_not_noupdate=False, active=value):
+            pass
+
+        cr.execute("SELECT active FROM ir_ui_view WHERE id = %s", [view_id])
+        self.assertEqual(cr.fetchone()[0], expected_value)
+
+        # reset value
+        cr.execute("UPDATE ir_ui_view SET active = %s WHERE id = %s", [initial_value, view_id])
+
+        # call by view_id
+        with util.edit_view(cr, view_id=view_id, active=value):
+            pass
+
+        cr.execute("SELECT active FROM ir_ui_view WHERE id = %s", [view_id])
+        self.assertEqual(cr.fetchone()[0], expected_value)
+
+
+class TestMisc(UnitTestCase):
+    @parametrize(
+        [
+            ("{a,b}", ["a", "b"]),
+            ("head_{a,b}_tail", ["head_a_tail", "head_b_tail"]),
+            ("head_only_{a,b}", ["head_only_a", "head_only_b"]),
+            ("{a,b}_tail_only", ["a_tail_only", "b_tail_only"]),
+            ("{with,more,than,one,comma}", ["with", "more", "than", "one", "comma"]),
+            ("head_{one,two,three}_tail", ["head_one_tail", "head_two_tail", "head_three_tail"]),
+            ("same_{a,a}", ["same_a", "same_a"]),
+            ("empty_part_{a,}", ["empty_part_a", "empty_part_"]),
+            ("empty_part_{,b}", ["empty_part_", "empty_part_b"]),
+            ("two_empty_{,}", ["two_empty_", "two_empty_"]),
+            ("with_cr\n_{a,b}", ["with_cr\n_a", "with_cr\n_b"]),
+            ("with_cr_in_{a\nb,c\nd}_end", ["with_cr_in_a\nb_end", "with_cr_in_c\nd_end"]),
+        ]
+    )
+    def test_expand_braces(self, value, expected):
+        self.assertEqual(util.expand_braces(value), expected)
+
+    @parametrize(
+        [
+            (value,)
+            for value in [
+                "",
+                "no_braces",
+                "empty_{}",
+                "one_{item}",
+                "unclosed_{_brace",
+                "two_{a,b}_expanses_{x,y}",
+                # braces into braces
+                "{a,{b,c},d}",
+                "{a,{}",
+                "{a,b}c}",
+                "{a,{b,}",
+                "{{}}",
+                "{{one}}",
+            ]
+        ]
+    )
+    def test_expand_braces_failure(self, value):
+        with self.assertRaises(ValueError):
+            util.expand_braces(value)
+
+    @parametrize(
+        [
+            (value, value)
+            for value in [
+                "a",
+                "a.b",
+                "a.b()",
+                "a.b(c)",
+                "a[b]",
+                "context['company_id']",
+                "[('company_id', 'in', company_ids)]",
+                "[]",
+            ]
+        ]
+        + [(f"a {op} 4", f"(a {op} 4)") for op in ["+", "-", "*", "/", "//", "%", "**"]]
+        + [(f"4 {op} b", f"(4 {op} b)") for op in ["+", "-", "*", "/", "//", "%", "**"]]
+        + [
+            ("a+b*c", "(a + (b * c))"),
+            ("a+b/c-d", "((a + (b / c)) - d)"),
+            ("(a+b) * c", "((a + b) * c)"),
+            ("+a", "+(a)"),
+            ("-a", "-(a)"),
+            ("-(a+b)", "-((a + b))"),
+        ]
+    )
+    def test_SelfPrint(self, value, expected):
+        evaluated = util.safe_eval(value, util.SelfPrintEvalContext())
+        self.assertEqual(str(evaluated), expected, "Self printed result differs")
+
+        replaced_value, ctx = util.SelfPrintEvalContext.preprocess(value)
+        evaluated = util.safe_eval(replaced_value, ctx)
+        self.assertEqual(str(evaluated), expected, "Prepared self printed result differs")
+
+    @parametrize(
+        [
+            (value, value)
+            for value in [
+                # splat
+                "[('company_id', 'in', [*company_ids, False])]",
+                "[('company_id', 'in', [False, *company_ids])]",
+                # bool conversions
+                "not a",
+                "a and b",
+                "a or b",
+            ]
+        ]
+    )
+    @unittest.skipUnless(ast_unparse is not None, "`ast.unparse` available from Python3.9")
+    def test_SelfPrint_prepare(self, value, expected):
+        replaced_value, ctx = util.SelfPrintEvalContext.preprocess(value)
+        evaluated = util.safe_eval(replaced_value, ctx)
+        # extra fallback for old unparse from astunparse package
+        self.assertIn(str(evaluated), [expected, "({})".format(expected)])
+
+    @parametrize(
+        [
+            (value,)
+            for value in [
+                # iterators
+                "[a.b for a in b]",
+                "4 in b",
+            ]
+        ]
+    )
+    def test_SelfPrint_failure(self, value):
+        # note: `safe_eval` will re-raise a ValueError
+        with self.assertRaises(ValueError):
+            util.safe_eval(value)
+
+    @parametrize(
+        [
+            ("[('company_id','in',allowed_company_ids)]", "[('company_id', 'in', companies.active_ids)]"),
+            (
+                "[('company_id','in',allowed_company_ids or [False])]",
+                "[('company_id', 'in', companies.active_ids or [False])]",
+                "[('company_id', 'in', (companies.active_ids or [False]))]",
+            ),
+            (
+                "[('company_id','in',    user.other.allowed_company_ids)]",
+                # note it keeps the original spacing since no match should happen!
+                "[('company_id','in',    user.other.allowed_company_ids)]",
+            ),
+            (
+                "[('group_id','in', user.groups_id.ids)]",
+                "[('group_id', 'in', user.all_group_ids.ids)]",
+            ),
+            (
+                "[('group_id','in', [g.id for g in user.groups_id])]",
+                "[('group_id', 'in', user.all_group_ids.ids)]",
+            ),
+            (
+                "[(1, '=', 0), (1, '=', 1)]",
+                "[(0, '=', 1), (1, '=', 1)]",
+            ),
+        ]
+    )
+    @unittest.skipUnless(ast_unparse is not None, "`ast.unparse` available from Python3.9")
+    def test_literal_replace(self, orig, expected, old_unparse_fallback=None):
+        repl = util.literal_replace(
+            orig,
+            {
+                "allowed_company_ids": "companies.active_ids",
+                "user.groups_id.ids": "user.all_group_ids.ids",
+                "[g.id for g in user.groups_id]": "user.all_group_ids.ids",
+                "(1, '=', 0)": "(0, '=', 1)",
+            },
+        )
+        if old_unparse_fallback:
+            self.assertIn(repl, [expected, old_unparse_fallback])
+        else:
+            self.assertEqual(repl, expected)
+
+    @unittest.skipUnless(ast_unparse is not None, "`ast.unparse` available from Python3.9")
+    @mute_logger(util.misc._logger.name)
+    def test_literal_replace_error(self):
+        # this shouldn't raise a syntax error
+        res = util.literal_replace("[1,2", {"1": "3"})
+        self.assertEqual(res, "[1,2")
+
+    @parametrize(
+        [
+            ("x[1 ]", "x[1]"),
+            ("{x for x in y }, [ {1   }, {1 : 2},x[1],y[ 1:2:3 ] ]", "{x for x in y},[{1},{1:2},x[1],y[1:2:3]]"),
+            (
+                "[1 if True   else 2, * z] + [x for x in y if w], {x:x for x in y} ",
+                "[1 if True else 2,*z]+[x for x in y if w],{x:x for x in y}",
+            ),
+            ("1 <  2 <3, x or z  and y   or x", "1<2<3,x or z and y or x"),
+        ]
+    )
+    @unittest.skipUnless(ast_unparse is not None, "`ast.unparse` available from Python3.9")
+    def test_literal_replace_full(self, text, orig):
+        # check each grammar piece
+        repl = util.literal_replace(text, {orig: "gone"})
+        self.assertEqual(repl, "gone")
+
+        # minimal change should invalidate the replace
+        text = text.replace("x", "xx")
+        repl = util.literal_replace(text, {orig: "gone"})
+        self.assertEqual(text, repl)
+
+    @unittest.skipUnless(ast_unparse is not None, "`ast.unparse` available from Python3.9")
+    def test_literal_replace_callable(self):
+        def adapter(node):
+            return ast.parse("this.get('{}')".format(node.attr), mode="eval").body
+
+        repl = util.literal_replace(
+            "result = this. x if that . y == 2 else this  .z",
+            {ast.Attribute(ast.Name("this", None), util.literal_replace.WILDCARD, None): adapter},
+        )
+        self.assertIn(
+            repl,
+            [
+                "result = this.get('x') if that.y == 2 else this.get('z')",
+                # fallback for older unparse
+                "result = (this.get('x') if (that.y == 2) else this.get('z'))",
+            ],
+        )
+
+    @unittest.skipUnless(ast_unparse is not None, "`ast.unparse` available from Python3.9")
+    @unittest.skipUnless(hasattr(ast, "Constant"), "`ast.Constant` available from Python3.6")
+    def test_literal_replace_callable2(self):
+        def adapter2(node):
+            return ast.parse(
+                "{} / 42".format(node.left.value if hasattr(node.left, "value") else node.left.n), mode="eval"
+            ).body
+
+        def adapter3(node):
+            return ast.parse("y == 42", mode="eval").body
+
+        repl = util.literal_replace(
+            "16 * w or y == 2",
+            {
+                ast.BinOp(ast.Constant(16), ast.Mult(), ast.Name(util.literal_replace.WILDCARD, None)): adapter2,
+                ast.Compare(ast.Name("y", None), [ast.Eq()], [ast.Constant(util.literal_replace.WILDCARD)]): adapter3,
+            },
+        )
+        # Check with fallback for older unparse
+        self.assertIn(repl, ["16 / 42 or y == 42", "((16 / 42) or (y == 42))"])
+
+        def adapter4(node):
+            return ast.parse("{}.get({})".format(ast_unparse(node.value), ast_unparse(node.slice)), mode="eval").body
+
+        repl = util.literal_replace(
+            "  x[ 'a' ]+y[b   ] -  z[None]",
+            {
+                ast.Subscript(
+                    ast.Name(util.literal_replace.WILDCARD, None), util.literal_replace.WILDCARD, None
+                ): adapter4
+            },
+        )
+        # Check with fallback for older unparse
+        self.assertIn(repl, ["x.get('a') + y.get(b) - z.get(None)", "((x.get('a') + y.get(b)) - z.get(None))"])
+
+    @unittest.skipUnless(ast_unparse is not None, "`ast.unparse` available from Python3.9")
+    @unittest.skipUnless(hasattr(ast, "Constant"), "`ast.Constant` available from Python3.6")
+    def test_literal_replace_wildcards(self):
+        repl = util.literal_replace(
+            "x+1 - z* 18 + [1,2,3]",
+            {
+                ast.Name(util.literal_replace.WILDCARD, None): "y",
+                (ast.Constant if sys.version_info > (3, 9) else ast.Num)(util.literal_replace.WILDCARD): "2",
+                ast.List([util.literal_replace.WILDCARD], None): "[4,5]",
+            },
+        )
+        self.assertIn(repl, ["y + 2 - y * 2 + [4, 5]", "(((y + 2) - (y * 2)) + [4, 5])"])
+
+    @parametrize(
+        [
+            (ast.Constant(util.literal_replace.WILDCARD, kind=None), "*"),
+            (ast.Name(util.literal_replace.WILDCARD, None), "*"),
+            (ast.Attribute(ast.Name(util.literal_replace.WILDCARD, None), util.literal_replace.WILDCARD, None), "*.*"),
+            (
+                ast.Subscript(
+                    ast.Name(util.literal_replace.WILDCARD, None), ast.Name(util.literal_replace.WILDCARD, None), None
+                ),
+                "*[*]",
+            ),
+            (
+                ast.BinOp(
+                    ast.Name(util.literal_replace.WILDCARD, None),
+                    ast.Add(),
+                    ast.Name(util.literal_replace.WILDCARD, None),
+                ),
+                "* + *",
+                "(* + *)",
+            ),
+            (ast.List([util.literal_replace.WILDCARD], None), "[*]"),
+            (ast.Tuple([util.literal_replace.WILDCARD], None), "(*,)"),
+        ]
+    )
+    @unittest.skipUnless(ast_unparse is not None, "`ast.unparse` available from Python3.9")
+    def test_literal_replace_wildcard_unparse(self, orig, expected, old_unparse_fallback=None):
+        res = ast_unparse(orig)
+        if old_unparse_fallback:
+            self.assertIn(res, [expected, old_unparse_fallback])
+        else:
+            self.assertEqual(res, expected)
+
+
+def not_doing_anything_converter(el):
+    return True
+
+
+class TestOnce(UnitTestCase):
+    @classmethod
+    def setUpClass(cls):
+        util.version_gte.cache_clear()
+        util.version_between.cache_clear()
+        return super().setUpClass()
+
+    def setUp(self):
+        super().setUp()
+        # `once` records fired call-sites in this shared store; each test (and each parametrized
+        # case, which reuses the same source line as a key) must start from a clean slate.
+        once_ran = util.ENVIRON["__once_ran"]
+        once_ran.clear()
+        self.addCleanup(once_ran.clear)
+        self.addCleanup(util.version_gte.cache_clear)
+        self.addCleanup(util.version_between.cache_clear)
+
+    # Each case: (source, lower, upper, steps_and_expected)
+    # source: the DB version before the upgrade starts target is inferred as the last step in steps_and_expected
+    # steps_and_expected: list of (series, expected), the steps visited in order.
+    # Exactly one step should be truthy (the first step whose dest lands in [lower, upper]);
+    # all others falsy. No-intersection cases have all falsy.
+    @parametrize(
+        [
+            # Default interval: fire on first step after source
+            ("16.0", None, None, [("17.0", True), ("18.0", False)]),
+            ("16.2", None, None, [("17.0", True), ("18.0", False)]),
+            ("saas~16.3", None, None, [("17.0", True), ("18.0", False)]),
+            ("16.0", None, None, [("17.0", True)]),
+            # Source minor to target minor across a major: first major .0 fires
+            ("18.4", None, None, [("19.0", True), ("saas~19.3", False)]),
+            ("saas~18.2", None, None, [("19.0", True)]),
+            # Same-major minor-to-minor: single step, fires
+            ("saas~19.0", None, None, [("saas~19.3", True)]),
+            ("saas~19.1", None, None, [("saas~19.3", True)]),
+            # Explicit interval covering the first step
+            ("16.0", "17.0", "18.0", [("17.0", True), ("18.0", False)]),
+            ("16.0", "17.0", None, [("17.0", True), ("18.0", False)]),
+            # Open lower bound defaults to the source version: first step still fires
+            ("16.0", None, "18.0", [("17.0", True), ("18.0", False)]),
+            # Explicit interval starting mid-path
+            ("16.0", "18.0", "18.0", [("17.0", False), ("18.0", True)]),
+            ("16.0", "17.0", "18.0", [("17.0", True), ("18.0", False), ("19.0", False)]),
+            ("16.0", "17.0", "19.0", [("17.0", True), ("18.0", False), ("19.0", False)]),
+            ("16.0", "saas~17.2", None, [("17.0", False), ("18.0", True), ("19.0", False)]),
+            (
+                "16.0",
+                "saas~17.2",
+                "saas~18.4",
+                [("17.0", False), ("18.0", True), ("19.0", False), ("saas~19.3", False)],
+            ),
+            ("16.0", "17.0", "saas~18.4", [("17.0", True), ("18.0", False), ("19.0", False), ("saas~19.3", False)]),
+            ("18.4", "saas~19.0", "saas~19.3", [("19.0", True), ("saas~19.3", False)]),
+            ("saas~18.2", "saas~18.2", "saas~19.3", [("19.0", True), ("saas~19.3", False)]),
+            ("saas~16.3", "saas~16.3", "18.0", [("17.0", True), ("18.0", False)]),
+            # saas~12.3 mandatory stopover: it is an extra step between 12.0 and 13.0
+            ("10.0", None, None, [("11.0", True), ("12.0", False), ("saas~12.3", False), ("13.0", False)]),
+            ("11.0", None, None, [("12.0", True), ("saas~12.3", False), ("13.0", False)]),
+            ("11.0", "saas~12.3", "saas~12.3", [("12.0", False), ("saas~12.3", True), ("13.0", False)]),
+            ("11.0", "12.0", "saas~12.3", [("12.0", True), ("saas~12.3", False), ("13.0", False)]),
+            ("10.0", "saas~12.3", "13.0", [("11.0", False), ("12.0", False), ("saas~12.3", True), ("13.0", False)]),
+            # Interval entirely outside the upgrade path: never fire
+            ("16.0", "saas~17.2", "saas~17.4", [("17.0", False), ("18.0", False)]),
+            ("16.0", "18.0", "19.0", [("17.0", False)]),
+            # An open bound (None) may fall outside the [source, target] window: the other bound then
+            # defaults to a version on the wrong side of it.
+            # Lower bound after the target, the whole path is before the interval.
+            ("16.0", "saas~19.4", None, [("17.0", False), ("18.0", False), ("19.0", False)]),
+            # Same, for an intermediate step of that upgrade, run with its own source/target.
+            ("16.0", "saas~19.4", None, [("17.0", False)]),
+            ("17.0", "saas~19.4", None, [("18.0", False)]),
+            # Upper bound before the source, the whole path is after the interval.
+            ("18.0", None, "17.0", [("19.0", False)]),
+            ("saas~18.2", None, "saas~17.4", [("19.0", False), ("saas~19.3", False)]),
+        ]
+    )
+    def test_once(self, source, lower, upper, steps_and_expected):
+        target = steps_and_expected[-1][0]
+        with mock.patch.object(util.misc, "_SOURCE_VERSION", source), mock.patch.object(
+            util.misc, "_TARGET_VERSION", target
+        ):
+            calls = set()
+            for series, expected in steps_and_expected:
+                util.version_gte.cache_clear()
+                util.version_between.cache_clear()
+                with mock.patch.object(util.misc.release, "serie", series):  # "serie" is an old typo  # noqa: TYPOS
+                    msg = "series={!r} source={!r} target={!r} once({!r}, {!r})".format(
+                        series, source, target, lower, upper
+                    )
+
+                    o = util.once(lower, upper)
+                    self.assertEqual(bool(o), expected, msg)
+
+                    calls.clear()
+
+                    @util.once(lower, upper)
+                    def action():
+                        calls.add(1)
+
+                    action()
+                    self.assertEqual(calls, {1} if expected else set(), "decorator: " + msg)
+
+    # When source/target are unknown (env vars unset) or equal (master->master freeze), `once`
+    # cannot rely on the step path. It falls back to evaluating the interval against the currently
+    # running series, with an open bound (``None``) meaning unbounded on that side. At least one
+    # bound must be set.
+    # Each case: (lower, upper, series, expected)
+    @parametrize(
+        [
+            # Bounded interval [lower, upper]: truthy iff series in range (inclusive)
+            ("17.0", "18.0", "16.0", False),
+            ("17.0", "18.0", "17.0", True),
+            ("17.0", "18.0", "saas~17.4", True),
+            ("17.0", "18.0", "18.0", True),
+            ("17.0", "18.0", "saas~18.1", False),
+            ("17.0", "18.0", "19.0", False),
+            ("saas~17.2", "saas~18.4", "17.0", False),
+            ("saas~17.2", "saas~18.4", "saas~17.2", True),
+            ("saas~17.2", "saas~18.4", "18.0", True),
+            ("saas~17.2", "saas~18.4", "saas~18.4", True),
+            ("saas~17.2", "saas~18.4", "saas~18.5", False),
+            # Open upper bound (>= lower): truthy iff series >= lower
+            ("18.0", None, "17.0", False),
+            ("18.0", None, "saas~17.4", False),
+            ("18.0", None, "18.0", True),
+            ("18.0", None, "saas~18.4", True),
+            ("18.0", None, "19.0", True),
+            ("saas~18.2", None, "18.0", False),
+            ("saas~18.2", None, "saas~18.2", True),
+            ("saas~18.2", None, "saas~18.4", True),
+            # Open lower bound (<= upper): truthy iff series <= upper (upper match is at major.minor)
+            (None, "18.0", "17.0", True),
+            (None, "18.0", "saas~17.5", True),
+            (None, "18.0", "18.0", True),
+            (None, "18.0", "saas~18.4", False),
+            (None, "18.0", "19.0", False),
+            (None, "saas~18.4", "saas~18.4", True),
+            (None, "saas~18.4", "saas~18.3", True),
+            (None, "saas~18.4", "saas~18.5", False),
+        ]
+    )
+    def test_once_no_step_path(self, lower, upper, series, expected):
+        # The unset-env and equal-source/target cases share the same fallback code path; check both.
+        calls = set()
+        for source, target in ((None, None), ("saas~19.4", "saas~19.4")):
+            # Each iteration is an independent scenario; reset the shared once-dedup store so the
+            # call-site below is not considered already-fired from the previous iteration.
+            util.ENVIRON["__once_ran"].clear()
+            util.version_gte.cache_clear()
+            util.version_between.cache_clear()
+            with mock.patch.object(util.misc, "_SOURCE_VERSION", source), mock.patch.object(
+                util.misc, "_TARGET_VERSION", target
+            ), mock.patch.object(util.misc.release, "serie", series):  # "serie" is an old typo  # noqa: TYPOS
+                msg = "src={!r} series={!r} once({!r}, {!r})".format(source, series, lower, upper)
+
+                o = util.once(lower, upper)
+                self.assertEqual(bool(o), expected, msg)
+
+                calls.clear()
+
+                @util.once(lower, upper)
+                def action():
+                    calls.add(1)
+
+                action()
+                self.assertEqual(calls, {1} if expected else set(), "decorator: " + msg)
+
+    def test_once_requires_a_bound_without_step_path(self):
+        # Without a step path there is no source/target to default an open bound to, so passing
+        # neither bound is an error. Rejected in both the unset-env and equal-source/target contexts.
+        for source, target in ((None, None), ("saas~19.4", "saas~19.4")):
+            with mock.patch.object(util.misc, "_SOURCE_VERSION", source), mock.patch.object(
+                util.misc, "_TARGET_VERSION", target
+            ), self.assertRaises(AssertionError, msg="src={!r} target={!r}".format(source, target)):
+                util.once(None, None)
+
+    def test_once_consumed_after_first_evaluation(self):
+        # A script may be symlinked more than once in the same major version. A truthy `once`
+        # instance must fire only on the *first* evaluation; any further evaluation of the same
+        # instance is falsy, so the guarded code never runs twice on the same step.
+        # Use a step path that makes `once` truthy at the current series.
+        with mock.patch.object(util.misc, "_SOURCE_VERSION", "16.0"), mock.patch.object(
+            util.misc, "_TARGET_VERSION", "18.0"
+        ), mock.patch.object(util.misc.release, "serie", "17.0"):  # "serie" is an old typo  # noqa: TYPOS
+            # As a boolean: first shot truthy, subsequent shots falsy.
+            o = util.once("17.0", "18.0")
+            self.assertTrue(bool(o), "first evaluation should fire")
+            self.assertFalse(bool(o), "second evaluation must be consumed")
+            self.assertFalse(bool(o), "still falsy on further evaluations")
+
+            # As a decorator: the wrapped function runs only on the first call.
+            calls = []
+
+            @util.once("17.0", "18.0")
+            def action():
+                calls.append(1)
+
+            action()
+            action()
+            action()
+            self.assertEqual(calls, [1], "decorator body must run only once across repeated calls")
+
+            # A *falsy* instance stays falsy and never runs (and consumption keeps it falsy).
+            never = util.once("19.0", "saas~19.3")
+            self.assertFalse(bool(never))
+            self.assertFalse(bool(never))
+
+    def test_once_deduped_across_instances_in_same_step(self):
+        # The real symlink case: the same script runs several times in one step, each run building
+        # a *fresh* `once` object. They share a call-site (same file + line), so only the first must
+        # fire. `make` returns a new instance from a single source line, mimicking repeated runs.
+        def make():
+            return util.once("17.0", "18.0")
+
+        with mock.patch.object(util.misc, "_SOURCE_VERSION", "16.0"), mock.patch.object(
+            util.misc, "_TARGET_VERSION", "saas~18.4"
+        ):
+            # `("17.0", "18.0")` is truthy at the first step landing in range, here series 17.0.
+            with mock.patch.object(util.misc.release, "serie", "17.0"):  # "serie" is an old typo  # noqa: TYPOS
+                fired = [bool(make()) for _ in range(3)]
+                self.assertEqual(fired, [True, False, False], "fresh instances at one call-site fire once")
+
+            # The call-site key includes the running series, so a *different* step is independent:
+            # a fresh instance evaluated at series 18.0 is gated only by its own (falsy here) check.
+            with mock.patch.object(util.misc.release, "serie", "18.0"):  # "serie" is an old typo  # noqa: TYPOS
+                self.assertFalse(bool(make()), "out-of-step instance does not fire")
+
+    def test_once_handles_caller_without_real_file(self):
+        # `once` may be built from code with no real file on disk (e.g. an exec'd snippet, as done
+        # by `util.import_script`). Resolving the call-site must not crash and behaviour is unchanged.
+        code = compile("o = util.once('17.0', '18.0'); res = [bool(o), bool(o)]", "<string>", "exec")
+        with mock.patch.object(util.misc, "_SOURCE_VERSION", "16.0"), mock.patch.object(
+            util.misc, "_TARGET_VERSION", "18.0"
+        ), mock.patch.object(util.misc.release, "serie", "17.0"):  # "serie" is an old typo  # noqa: TYPOS
+            ns = {"util": util}
+            exec(code, ns)
+            self.assertEqual(ns["res"], [True, False], "per-instance consumption still holds")
+
+
+@unittest.skipUnless(util.version_gte("15.0"), "Only works on Odoo >= 15 (python >= 3.7)")
+class TestHTMLFormat(UnitTestCase):
+    def testsnip(self):
+        view_arch = """
+            <html>
+                <div class="fake_class_not_doing_anything"><br/></div>
+                <script>
+                (event) =&gt; {
+                };
+                </script>
+            </html>
+        """
+        vals = {
+            "name": "not_for_anything",
+            "type": "qweb",
+            "mode": "primary",
+            "key": "test.htmlconvert",
+            "arch_db": view_arch,
+        }
+        # util.convert_html_columns() commits the cursor, use a new transaction to not mess up the test_cr
+        with self.registry.cursor() as cr:
+            env = api.Environment(cr, SUPERUSER_ID, {})
+            view_id = env["ir.ui.view"].create(vals)
+            snippets.convert_html_content(
+                cr,
+                snippets.html_converter(
+                    not_doing_anything_converter, selector="//*[hasclass('fake_class_not_doing_anything')]"
+                ),
+            )
+            util.invalidate(view_id)
+            res = env["ir.ui.view"].search_read([("id", "=", view_id.id)], ["arch_db"])
+            # clean up committed data
+            view_id.unlink()
+        self.assertEqual(len(res), 1)
+        oneline = lambda s: re.sub(r"\s+", " ", s.strip())
+        self.assertEqual(oneline(res[0]["arch_db"]), oneline(view_arch))
+
+
+class TestQueryFormat(UnitTestCase):
+    @parametrize(
+        [
+            (
+                "SELECT id FROM {table}",
+                [],
+                {"table": "res_users"},
+                'SELECT id FROM "res_users"',
+            ),
+            (
+                "SELECT id FROM {1} WHERE {0} > 2",
+                ["id", "res_users"],
+                {},
+                'SELECT id FROM "res_users" WHERE "id" > 2',
+            ),
+            (
+                "SELECT id FROM {} WHERE {{parallel_filter}}",
+                ["res_users"],
+                {},
+                'SELECT id FROM "res_users" WHERE {parallel_filter}',
+            ),
+            (
+                "SELECT {col} FROM {table}",
+                [],
+                {"table": "res_users", "col": "id"},
+                'SELECT "id" FROM "res_users"',
+            ),
+            ("{col} = 1", [], {"col": "X; fd"}, '"X; fd" = 1'),
+            (
+                "{col1} = {col2}",
+                [],
+                {"col2": "X; fd", "col1": "xxx"},
+                '"xxx" = "X; fd"',
+            ),
+            (
+                "WITH {cte} AS (SELECT 1) SELECT 2",
+                [],
+                {"cte": "some info"},
+                'WITH "some info" AS (SELECT 1) SELECT 2',
+            ),
+            (
+                "UPDATE res_users SET id = 2 WHERE {col} = %s",
+                [],
+                {"col": "Ab"},
+                'UPDATE res_users SET id = 2 WHERE "Ab" = %s',
+            ),
+        ]
+    )
+    def test_format(self, query, args, kwargs, expected):
+        cr = self.env.cr
+        self.assertEqual(util.format_query(cr, query, *args, **kwargs), expected)
+
+    def test_format_ColumnList(self):
+        cr = self.env.cr
+
+        ignored = ("id", "create_date", "create_uid", "write_date", "write_uid")
+
+        columns = util.get_columns(cr, "ir_config_parameter", ignore=ignored)
+        no_columns = util.get_columns(cr, "ir_config_parameter", ignore=(*ignored, "key", "value"))
+
+        self.assertEqual(
+            util.format_query(cr, "SELECT id, {c}", c=columns),
+            'SELECT id, "key", "value"',
+        )
+
+        self.assertEqual(
+            util.format_query(cr, "SELECT id {c}", c=columns.using(leading_comma=True)),
+            'SELECT id , "key", "value"',
+        )
+        self.assertEqual(
+            util.format_query(cr, "SELECT {c} id", c=columns.using(trailing_comma=True)),
+            'SELECT "key", "value", id',
+        )
+        self.assertEqual(
+            util.format_query(cr, "SELECT {c}", c=columns.using(alias="a")),
+            'SELECT "a"."key", "a"."value"',
+        )
+        # leading/trailing comma only if list is not empty
+        self.assertEqual(
+            util.format_query(cr, "SELECT id {c}", c=no_columns.using(leading_comma=True)),
+            "SELECT id ",
+        )
+        self.assertEqual(
+            util.format_query(cr, "SELECT {c} id", c=no_columns.using(trailing_comma=True)),
+            "SELECT  id",
+        )
+
+
+class TestReplaceRecordReferences(UnitTestCase):
+    def test_m2m_no_conflict(self):
+        cr = self.env.cr
+        g1 = self.env["res.groups"].create({"name": "G1"})
+        g2 = self.env["res.groups"].create({"name": "G2"})
+        g3 = self.env["res.groups"].create({"name": "G3"})
+        mapping = {g1.id: g3.id, g2.id: g3.id}
+
+        u1 = self.env["res.users"].create({"login": "U1", "name": "U1"})
+        groups = "group_ids" if util.version_gte("saas~18.2") else "groups_id"
+        u1[groups] = g1 | g3
+        self.assertEqual(u1[groups].ids, [g1.id, g3.id])
+        util.replace_record_references_batch(cr, mapping, "res.groups")
+        util.invalidate(u1)
+        self.assertEqual(u1[groups].ids, [g3.id])
+
+        u2 = self.env["res.users"].create({"login": "U2", "name": "U2"})
+        u2[groups] = g1 | g2
+        self.assertEqual(u2[groups].ids, [g1.id, g2.id])
+        util.replace_record_references_batch(cr, mapping, "res.groups")
+        util.invalidate(u2)
+        self.assertEqual(u2[groups].ids, [g3.id])
+
+
+class TestConvertFieldToHtml(UnitTestCase):
+    def test_convert_field_to_html(self):
+        cr = self.env.cr
+
+        model = self.env["ir.model"].search([("model", "=", "res.partner")])
+        translate = "standard" if util.version_gte("saas~18.5") else True
+        f1 = self.env["ir.model.fields"].create(
+            {"name": "x_testx", "model": "res.partner", "ttype": "text", "model_id": model.id, "translate": translate}
+        )
+        partner = self.env["res.partner"].create({"name": "test Pxtner", "x_testx": "test\npartner field"})
+        default = self.env["ir.default"].create({"field_id": f1.id, "json_value": '"Test\\ntext"'})
+        util.convert_field_to_html(cr, "res.partner", "x_testx")
+        util.invalidate(default)
+
+        self.assertEqual(default.json_value, '"<p>Test<br>text</p>"')
+        self.assertEqual(partner.x_testx, "<p>test<br>partner field</p>")
+
+
+class TestRemoveView(UnitTestCase):
+    def test_remove_view(self):
+        test_view_1 = self.env["ir.ui.view"].create(
+            {
+                "name": "test_view_1",
+                "type": "qweb",
+                "key": "base.test_view_1",
+                "arch": """
+                <t t-name="base.test_view_1">
+                    <div>Test View 1 Content</div>
+                </t>
+                """,
+            }
+        )
+        self.env["ir.model.data"].create(
+            {"name": "test_view_1", "module": "base", "model": "ir.ui.view", "res_id": test_view_1.id}
+        )
+        test_view_2 = self.env["ir.ui.view"].create(
+            {
+                "name": "test_view_2",
+                "type": "qweb",
+                "key": "base.test_view_2",
+                "arch": """
+                <t t-name="base.test_view_2">
+                    <t t-call="base.test_view_1"/>
+                    <div>Test View 2 Content</div>
+                </t>
+                """,
+            }
+        )
+        test_view_3 = self.env["ir.ui.view"].create(
+            {
+                "name": "test_view_3",
+                "type": "qweb",
+                "key": "base.test_view_3",
+                "arch": """
+                <t t-name="base.test_view_3">
+                    <t t-call="base.test_view_1"/>
+                    <t t-call="base.test_view_2"/>
+                </t>
+                """,
+            }
+        )
+        self.env["ir.model.data"].create(
+            {"name": "test_view_3", "module": "base", "model": "ir.ui.view", "res_id": test_view_3.id}
+        )
+
+        # call by xml_id
+        util.remove_view(self.env.cr, xml_id="base.test_view_1")
+        util.invalidate(test_view_2)
+        util.invalidate(test_view_3)
+        self.assertFalse(test_view_1.exists())
+        self.assertNotIn('t-call="base.test_view_1"', test_view_2.arch_db)
+        self.assertNotIn('t-call="base.test_view_1"', test_view_3.arch_db)
+
+        # call by view_id
+        util.remove_view(self.env.cr, view_id=test_view_2.id)
+        util.invalidate(test_view_3)
+        self.assertFalse(test_view_2.exists())
+        self.assertNotIn('t-call="base.test_view_2"', test_view_3.arch_db)
+
+    def _create_view(self, name, arch, xml_id=True, inherit_id=None):
+        view = self.env["ir.ui.view"].create(
+            {
+                "name": name,
+                "type": "qweb",
+                "key": "base.{}".format(name),
+                "inherit_id": inherit_id,
+                "mode": "extension" if inherit_id else "primary",
+                "arch": arch,
+            }
+        )
+        if xml_id:
+            self.env["ir.model.data"].create({"name": name, "module": "base", "model": "ir.ui.view", "res_id": view.id})
+        return view
+
+    def test_remove_views(self):
+        # two independent hierarchies, each with a module child and a custom child, plus a
+        # caller view holding t-calls to every removed view
+        parent_1 = self._create_view("test_views_p1", '<t t-name="base.test_views_p1"><div>P1</div></t>')
+        child_1 = self._create_view(
+            "test_views_c1", '<div position="inside"><span>C1</span></div>', inherit_id=parent_1.id
+        )
+        custom_1 = self._create_view(
+            "test_views_x1", '<div position="inside"><span>X1</span></div>', xml_id=False, inherit_id=parent_1.id
+        )
+        parent_2 = self._create_view("test_views_p2", '<t t-name="base.test_views_p2"><div>P2</div></t>')
+        # grand-child, to check the recursion still walks the whole hierarchy
+        child_2 = self._create_view(
+            "test_views_c2", '<div position="inside"><span>C2</span></div>', inherit_id=parent_2.id
+        )
+        grand_child_2 = self._create_view("test_views_g2", '<span position="inside">G2</span>', inherit_id=child_2.id)
+
+        caller = self._create_view(
+            "test_views_caller",
+            """
+            <t t-name="base.test_views_caller">
+                <t t-call="base.test_views_p1"/>
+                <t t-call="base.test_views_c1"/>
+                <t t-call="base.test_views_p2"/>
+                <t t-call="base.test_views_g2"/>
+                <t t-call="base.test_views_keep"/>
+            </t>
+            """,
+        )
+
+        removed = parent_1 + child_1 + parent_2 + child_2 + grand_child_2
+        util.remove_views(self.env.cr, "base.test_views_p1", view_ids=[parent_2.id])
+
+        util.invalidate(removed + custom_1 + caller)
+        self.assertFalse(removed.exists())
+
+        # the custom view is kept, disabled and detached from its removed parent
+        self.assertTrue(custom_1.exists())
+        self.assertFalse(custom_1.active)
+        self.assertFalse(custom_1.inherit_id)
+        self.assertEqual(custom_1.mode, "primary")
+        self.assertIn("old view, inherited from base.test_views_p1", custom_1.name)
+
+        # every t-call to a removed view is gone, the other ones are untouched
+        for name in ["test_views_p1", "test_views_c1", "test_views_p2", "test_views_g2"]:
+            self.assertNotIn('t-call="base.{}"'.format(name), caller.arch_db)
+        self.assertIn('t-call="base.test_views_keep"', caller.arch_db)
+
+    def test_remove_views_shared_child(self):
+        # a view inheriting from a view that is removed in the same batch as its own parent
+        # must be removed once, without tripping on the `inherit_id` FK
+        parent = self._create_view("test_shared_p", '<t t-name="base.test_shared_p"><div>P</div></t>')
+        child = self._create_view("test_shared_c", '<div position="inside"><span>C</span></div>', inherit_id=parent.id)
+
+        util.remove_views(self.env.cr, "base.test_shared_p", "base.test_shared_c")
+        util.invalidate(parent + child)
+        self.assertFalse((parent + child).exists())
+
+    def test_remove_views_missing_xmlid(self):
+        # an unknown xml_id is ignored, as in `remove_view`
+        view = self._create_view("test_missing_p", '<t t-name="base.test_missing_p"><div>P</div></t>')
+        util.remove_views(self.env.cr, "base.test_does_not_exist", "base.test_missing_p")
+        util.invalidate(view)
+        self.assertFalse(view.exists())
+
+    def test_remove_views_wrong_model(self):
+        with self.assertRaises(ValueError):
+            util.remove_views(self.env.cr, "base.model_res_partner")
+
+    def test_remove_views_cowed(self):
+        # a COWed view shares the key of the view it copies, but has no xml_id of its own;
+        # it must be removed along with its origin, in the same batch
+        origin = self._create_view("test_cow_p", '<t t-name="base.test_cow_p"><div>P</div></t>')
+        cowed = self._create_view("test_cow_p", '<t t-name="base.test_cow_p"><div>COW</div></t>', xml_id=False)
+        # the COWed view carries the key of the original, not its own name
+        cowed.key = "base.test_cow_p"
+        # a view inheriting from the COWed one must be removed too
+        cowed_child = self._create_view(
+            "test_cow_c", '<div position="inside"><span>C</span></div>', inherit_id=cowed.id
+        )
+        other = self._create_view("test_cow_o", '<t t-name="base.test_cow_o"><div>O</div></t>')
+
+        util.remove_views(self.env.cr, "base.test_cow_p")
+        util.invalidate(origin + cowed + cowed_child + other)
+        self.assertFalse((origin + cowed + cowed_child).exists())
+        self.assertTrue(other.exists())
+
+    def test_remove_views_tcall_tail_first_child(self):
+        # the text following a removed t-call is part of the rendered content; when the
+        # t-call is the first child it must be kept as the text of its parent
+        self._create_view("test_tail_fc_t", '<t t-name="base.test_tail_fc_t"><div>T</div></t>')
+        caller = self._create_view(
+            "test_tail_fc_c",
+            '<t t-name="base.test_tail_fc_c"><div><t t-call="base.test_tail_fc_t"/>KEPT</div></t>',
+        )
+
+        util.remove_views(self.env.cr, "base.test_tail_fc_t")
+        util.invalidate(caller)
+        self.assertNotIn("t-call", caller.arch_db)
+        self.assertIn("KEPT", caller.arch_db)
+
+    def test_remove_views_tcall_tail_not_first_child(self):
+        # when the removed t-call has a previous sibling the tail belongs to that sibling;
+        # attaching it to the parent instead would move the text ahead of the sibling
+        self._create_view("test_tail_nfc_t", '<t t-name="base.test_tail_nfc_t"><div>T</div></t>')
+        caller = self._create_view(
+            "test_tail_nfc_c",
+            """
+            <t t-name="base.test_tail_nfc_c">
+                <div><span>BEFORE</span><t t-call="base.test_tail_nfc_t"/>AFTER</div>
+            </t>
+            """,
+        )
+
+        util.remove_views(self.env.cr, "base.test_tail_nfc_t")
+        util.invalidate(caller)
+        self.assertNotIn("t-call", caller.arch_db)
+        # the tail must stay after the sibling it followed, not jump to the front
+        self.assertIn("<span>BEFORE</span>AFTER", caller.arch_db.replace("\n", ""))
+
+    def test_remove_views_tcall_tail_in_t_else(self):
+        # a t-call whose tail holds the whole body of a `t-else`; dropping the tail leaves
+        # the branch empty and the view fails to render with an `IndentationError`
+        self._create_view("test_tail_else_t", '<t t-name="base.test_tail_else_t"><div>T</div></t>')
+        caller = self._create_view(
+            "test_tail_else_c",
+            """
+            <t t-name="base.test_tail_else_c">
+                <t t-if="False"><span>IF</span></t>
+                <t t-else=""><t t-call="base.test_tail_else_t"/>ELSE</t>
+            </t>
+            """,
+        )
+
+        util.remove_views(self.env.cr, "base.test_tail_else_t")
+        util.invalidate(caller)
+        expected = "ELSE" if util.version_gte("15.0") else b"ELSE"
+        QWeb = self.env["ir.qweb"]
+        render = QWeb._render if hasattr(QWeb, "_render") else QWeb.render
+        # rendering must not fail after removing the t-call
+        self.assertEqual(render(caller.id).strip(), expected)
+
+
+class TestRenameXMLID(UnitTestCase):
+    def test_rename_xmlid(self):
+        test_view_1 = self.env["ir.ui.view"].create(
+            {
+                "name": "test_view_1",
+                "type": "qweb",
+                "key": "base.test_view_1",
+                "arch": """
+                <t t-name="base.test_view_1">
+                    <div>Test View 1 Content</div>
+                </t>
+                """,
+            }
+        )
+        self.env["ir.model.data"].create(
+            {"name": "test_view_1", "module": "base", "model": "ir.ui.view", "res_id": test_view_1.id}
+        )
+        test_view_2 = self.env["ir.ui.view"].create(
+            {
+                "name": "test_view_2",
+                "type": "qweb",
+                "key": "base.test_view_2",
+                "arch": """
+                <t t-name="base.test_view_2">
+                    <t t-call="base.test_view_1"/>
+                    <div>Test View 2 Content</div>
+                </t>
+                """,
+            }
+        )
+        util.rename_xmlid(self.env.cr, "base.test_view_1", "base.rename_view")
+        util.invalidate(test_view_2)
+        self.assertIn('t-call="base.rename_view"', test_view_2.arch_db)
+        self.assertIn('t-name="base.rename_view"', test_view_1.arch_db)
+
+
+class TestRefs(UnitTestCase):
+    def test_refs_found(self):
+        cr = self.env.cr
+        partner_id = util.ref(cr, "base.partner_root")
+        result = util.refs(cr, ["base.partner_root"])
+        self.assertEqual(result, {"base.partner_root": partner_id})
+
+    def test_refs_missing(self):
+        cr = self.env.cr
+        result = util.refs(cr, ["base.no_such_xmlid"])
+        self.assertEqual(result, {"base.no_such_xmlid": None})
+
+    def test_refs_strict_filters_missing(self):
+        cr = self.env.cr
+        partner_id = util.ref(cr, "base.partner_root")
+        result = util.refs(cr, ["base.partner_root", "base.no_such_xmlid"], strict=True)
+        self.assertEqual(result, {"base.partner_root": partner_id})
+
+    def test_refs_empty(self):
+        result = util.refs(self.env.cr, [])
+        self.assertEqual(result, {})
+
+
+class TestAssertUpdated(UnitTestCase):
+    def test_assert_updated(self):
+        p1 = self.env["res.partner"].create({"name": "Levi"})
+        p2 = self.env["res.partner"].create({"name": "Mikasa Ackerman"})
+        util.flush(p1)
+        util.flush(p2)
+
+        # when ids is None, assert any record is created or updated
+        with self.assertUpdated("res_partner"):
+            self.env["res.partner"].create({"name": "Sasha Braus"})
+        with self.assertUpdated("res_partner"):
+            p2.city = "Shiganshina"
+            util.flush(p2)
+        with self.assertRaises(AssertionError), self.assertUpdated("res_partner"):
+            pass
+
+        # when ids is [], assert a record is updated
+        with self.assertUpdated("res_partner", ids=[]):
+            p1.city = "Underground"
+            util.flush(p1)
+        with self.assertRaises(AssertionError), self.assertUpdated("res_partner", ids=[]):
+            if util.version_gte("13.0"):
+                # Before 13.0 creating a record will also update some of its fields
+                self.env["res.partner"].create({"name": "Annie Leonhart"})
+
+        # when ids has multiple records, all records should be updated
+        with self.assertUpdated("res_partner", ids=[p1.id, p2.id]):
+            p1.city = "Survey Corps"
+            p2.city = "Survey Corps"
+            util.flush(p1)
+            util.flush(p2)
+        with self.assertRaises(AssertionError), self.assertUpdated("res_partner", ids=[p1.id, p2.id]):
+            p1.name = "Levi Ackerman"
+            util.flush(p1)
+
+        # when ids has a record, that record should be the one updated
+        with self.assertRaises(AssertionError), self.assertUpdated("res_partner", ids=[p1.id]):
+            p2.city = "Paradise Island"
+            util.flush(p2)
+
+    def test_assert_not_updated(self):
+        p1 = self.env["res.partner"].create({"name": "Eren Yeager"})
+        p2 = self.env["res.partner"].create({"name": "Armin Arlert"})
+        util.flush(p1)
+        util.flush(p2)
+
+        # when ids is None, assert no record is created or updated
+        with self.assertNotUpdated("res_partner"):
+            pass
+        with self.assertRaises(AssertionError), self.assertNotUpdated("res_partner"):
+            p1.city = "Shiganshina"
+            util.flush(p1)
+        with self.assertRaises(AssertionError), self.assertNotUpdated("res_partner"):
+            self.env["res.partner"].create({"name": "Bertolt Hoover"})
+
+        # when ids is [], assert no record is updated
+        with self.assertNotUpdated("res_partner", ids=[]):
+            if util.version_gte("13.0"):
+                # Before 13.0 creating a record will also update some of its fields
+                self.env["res.partner"].create({"name": "Marco Bodt"})
+        with self.assertRaises(AssertionError), self.assertNotUpdated("res_partner", ids=[]):
+            p2.city = "Shiganshina"
+            util.flush(p2)
+
+        # when ids has a record, only that record should not be updated
+        with self.assertNotUpdated("res_partner", ids=[p2.id]):
+            p1.city = "Survey Corps"
+            util.flush(p1)
+
+        # when ids has multiple records, none of them should be updated
+        with self.assertRaises(AssertionError), self.assertNotUpdated("res_partner", ids=[p1.id, p2.id]):
+            p2.city = "Survey Corps"
+            util.flush(p2)
+
+    def test_assert_updated_combo(self):
+        p1 = self.env["res.partner"].create({"name": "Reiner Braun"})
+        p2 = self.env["res.partner"].create({"name": "Ymir Fritz"})
+        util.flush(p1)
+        util.flush(p2)
+
+        with self.assertUpdated("res_partner", ids=[p1.id]), self.assertNotUpdated("res_partner", ids=[p2.id]):
+            p1.city = "Marley Warriors"
+            util.flush(p1)
+
+        with self.assertRaises(AssertionError), self.assertUpdated("res_partner"), self.assertNotUpdated(
+            "res_partner", ids=[p2.id]
+        ):
+            p2.city = "Niflheim"
+            util.flush(p2)
+
+
+class TestReportUtils(UnitTestCase):
+    def test_report_links(self):
+        self.assertFalse(
+            util.report_with_list(
+                summary="Testing links.",
+                data=[],
+                columns=("id", "name"),
+                row_format="Partner {partner_link}.",
+                links={"partner_link": ("res.partner", "id", "name")},
+            ),
+        )
+
+    def test_report_data_minimal(self):
+        href = (
+            "/odoo/res.partner/1?debug=1"
+            if util.version_gte("18.0")
+            else "/web?debug=1#view_type=form&amp;model=res.partner&amp;action=&amp;id=1"
+        )
+        expected = (
+            "<details><summary>Test with minimal data.</summary><ul>\n"
+            '<li>Partner <a target="_blank" href="{}">Partner One</a>.</li>\n'
+            "</ul></details>"
+        ).format(href)
+        self.assertEqual(
+            util.report_with_list(
+                summary="Test with minimal data.",
+                data=[(1, "Partner One")],
+                columns=("id", "name"),
+                row_format="Partner {partner_link}.",
+                links={"partner_link": ("res.partner", "id", "name")},
+            ),
+            expected,
+        )
+
+    def test_report_data_limited(self):
+        if util.version_gte("18.0"):
+            href1 = "/odoo/res.partner/1?debug=1"
+            href2 = "/odoo/res.partner/2?debug=1"
+        else:
+            href1 = "/web?debug=1#view_type=form&amp;model=res.partner&amp;action=&amp;id=1"
+            href2 = "/web?debug=1#view_type=form&amp;model=res.partner&amp;action=&amp;id=2"
+        expected = (
+            "<details><summary>Test with limited data.</summary>"
+            "<i>The total number of affected records is 3. This list is showing the first 2 records.</i><ul>\n"
+            '<li>Partner <a target="_blank" href="{}">Partner One</a>.</li>\n'
+            '<li>Partner <a target="_blank" href="{}">Partner Two</a>.</li>\n'
+            "</ul></details>"
+        ).format(href1, href2)
+        self.assertEqual(
+            util.report_with_list(
+                summary="Test with limited data.",
+                data=[(1, "Partner One"), (2, "Partner Two"), (3, "Partner Three")],
+                columns=("id", "name"),
+                row_format="Partner {partner_link}.",
+                links={"partner_link": ("res.partner", "id", "name")},
+                total=3,
+                limit=2,
+            ),
+            expected,
+        )
+
+    def test_report_data_limitless(self):
+        if util.version_gte("18.0"):
+            href1 = "/odoo/res.partner/1?debug=1"
+            href2 = "/odoo/res.partner/2?debug=1"
+            href3 = "/odoo/res.partner/3?debug=1"
+        else:
+            href1 = "/web?debug=1#view_type=form&amp;model=res.partner&amp;action=&amp;id=1"
+            href2 = "/web?debug=1#view_type=form&amp;model=res.partner&amp;action=&amp;id=2"
+            href3 = "/web?debug=1#view_type=form&amp;model=res.partner&amp;action=&amp;id=3"
+        expected = (
+            "<details><summary>Test with limitless data.</summary><ul>\n"
+            '<li>Partner <a target="_blank" href="{}">Partner One</a>.</li>\n'
+            '<li>Partner <a target="_blank" href="{}">Partner Two</a>.</li>\n'
+            '<li>Partner <a target="_blank" href="{}">Partner Three</a>.</li>\n'
+            "</ul></details>"
+        ).format(href1, href2, href3)
+        self.assertEqual(
+            util.report_with_list(
+                summary="Test with limitless data.",
+                data=[(1, "Partner One"), (2, "Partner Two"), (3, "Partner Three")],
+                columns=("id", "name"),
+                row_format="Partner {partner_link}.",
+                links={"partner_link": ("res.partner", "id", "name")},
+                limit=None,
+            ),
+            expected,
+        )
+
+
+class TestDumpFieldToChatter(UnitTestCase):
+    def setUp(self):
+        super().setUp()
+        cr = self.env.cr
+        self.has_mail = util.table_exists(cr, "mail_message")
+        # dummy columns on res_partner; rolled back with the test transaction
+        util.create_column(cr, "res_partner", "_test_dump_src", "varchar")
+        util.create_column(cr, "res_partner", "_test_dump_txt", "text")
+        util.create_column(cr, "res_partner", "_test_dump_json", "jsonb")
+
+    def _set(self, partner, **cols):
+        cr = self.env.cr
+        for col, value in cols.items():
+            db_value = json.dumps(value) if isinstance(value, dict) else value
+            cr.execute("UPDATE res_partner SET {} = %s WHERE id = %s".format(col), [db_value, partner.id])
+
+    def _get(self, partner, col):
+        cr = self.env.cr
+        cr.execute("SELECT {} FROM res_partner WHERE id = %s".format(col), [partner.id])
+        return cr.fetchone()[0]
+
+    def _last_message(self, partner):
+        # the dump always posts last (INSERT ... NOW(), ordered by id), so the most recent
+        # message is the one dump_field_to_chatter wrote -- if it wrote anything.
+        cr = self.env.cr
+        cr.execute(
+            "SELECT body FROM mail_message WHERE model = 'res.partner' AND res_id = %s ORDER BY id DESC LIMIT 1",
+            [partner.id],
+        )
+        row = cr.fetchone()
+        return row[0] if row else None
+
+    # -- plain dump: chatter message when mail is installed, else fallback column ------
+
+    def test_plain(self):
+        p = self.env["res.partner"].create({"name": "Eren"})
+        self._set(p, _test_dump_src="SRC", _test_dump_txt="pre")
+        util.dump_field_to_chatter(
+            self.env.cr,
+            "res.partner",
+            "_test_dump_src",
+            label="Old",
+            fallback_column="_test_dump_txt",
+            where="{{0}}.id = {}".format(p.id),
+        )
+        if self.has_mail:
+            self.assertEqual(self._last_message(p), "Old: SRC")
+            self.assertEqual(self._get(p, "_test_dump_txt"), "pre", "fallback column untouched when mail exists")
+        else:
+            self.assertEqual(self._get(p, "_test_dump_txt"), "pre<br/><br/>Old: SRC")
+
+    def test_res_id_related_record(self):
+        parent = self.env["res.partner"].create({"name": "Parent"})
+        child = self.env["res.partner"].create({"name": "Child", "parent_id": parent.id})
+        self._set(child, _test_dump_src="CHILD-X")
+        self._set(parent, _test_dump_txt="P-PRE")
+        util.dump_field_to_chatter(
+            self.env.cr,
+            "res.partner",
+            "_test_dump_src",
+            res_id="parent_id",
+            label="From",
+            fallback_column="_test_dump_txt",
+            where="{{0}}.id = {}".format(child.id),
+        )
+        if self.has_mail:
+            # the dump posts on the parent (last message); nothing of ours lands on the child
+            self.assertEqual(self._last_message(parent), "From: CHILD-X")
+            self.assertNotEqual(self._last_message(child), "From: CHILD-X", "nothing posted on the source record")
+        else:
+            self.assertEqual(self._get(parent, "_test_dump_txt"), "P-PRE<br/><br/>From: CHILD-X")
+            self.assertIsNone(self._get(child, "_test_dump_txt"), "source record untouched")
+
+    # -- fallback-only behaviour (skipped when mail is installed) ----------------------
+
+    def test_fallback_jsonb(self):
+        if self.has_mail:
+            self.skipTest("fallback path requires mail to be absent")
+        p = self.env["res.partner"].create({"name": "Armin"})
+        self._set(p, _test_dump_src="SRC", _test_dump_json={"en_US": "pre"})
+        util.dump_field_to_chatter(
+            self.env.cr,
+            "res.partner",
+            "_test_dump_src",
+            label="Old",
+            fallback_column="_test_dump_json",
+            where="{{0}}.id = {}".format(p.id),
+        )
+        self.assertEqual(self._get(p, "_test_dump_json"), {"en_US": "pre<br/><br/>Old: SRC"})
+
+    def test_fallback_no_html_escape(self):
+        if self.has_mail:
+            self.skipTest("fallback path requires mail to be absent")
+        p = self.env["res.partner"].create({"name": "Jean"})
+        self._set(p, _test_dump_src="a<b>", _test_dump_txt=None)
+        util.dump_field_to_chatter(
+            self.env.cr,
+            "res.partner",
+            "_test_dump_src",
+            fallback_column="_test_dump_txt",
+            html_escape=False,
+            where="{{0}}.id = {}".format(p.id),
+        )
+        # raw value, no pre-existing content
+        self.assertEqual(self._get(p, "_test_dump_txt"), "a<b>")
+
+    def test_fallback_multi(self):
+        if self.has_mail:
+            self.skipTest("fallback path requires mail to be absent")
+        parent = self.env["res.partner"].create({"name": "Parent"})
+        c1 = self.env["res.partner"].create({"name": "C1", "parent_id": parent.id})
+        c2 = self.env["res.partner"].create({"name": "C2", "parent_id": parent.id})
+        self._set(c1, _test_dump_src="REF-C1")
+        self._set(c2, _test_dump_src="REF-C2")
+        self._set(parent, _test_dump_txt="P-PRE")
+        # bucket_size=1 to ensure children get into different buckets
+        real_explode = util.pg.explode_execute
+
+        def one_per_bucket(cr, query, table, **kw):
+            return real_explode(cr, query, table, bucket_size=1, **kw)
+
+        with mock.patch.object(util.fields, "explode_execute", one_per_bucket):
+            util.dump_field_to_chatter(
+                self.env.cr,
+                "res.partner",
+                "_test_dump_src",
+                res_id="parent_id",
+                label="From",
+                fallback_column="_test_dump_txt",
+                where="{{0}}.id IN ({}, {})".format(c1.id, c2.id),
+            )
+        # both children kept (ordered by id), parent's existing value preserved
+        self.assertEqual(self._get(parent, "_test_dump_txt"), "P-PRE<br/><br/>From: REF-C1<br/><br/>From: REF-C2")
+
+    def test_fallback_missing_column_raises(self):
+        p = self.env["res.partner"].create({"name": "Sasha"})
+        self._set(p, _test_dump_src="SRC")
+        with self.assertRaises(util.UpgradeError):
+            util.dump_field_to_chatter(
+                self.env.cr,
+                "res.partner",
+                "_test_dump_src",
+                fallback_column="_nope",
+                where="{{0}}.id = {}".format(p.id),
+            )

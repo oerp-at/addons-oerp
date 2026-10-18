@@ -1,0 +1,147 @@
+[project]
+name = "odoo_upgrade"
+authors = [
+    { name = "Odoo Upgrade Team", email = "upgrade@odoo.com" }
+]
+dynamic = ["version"]
+dependencies = ["markdown"]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+only-include = ["src"]
+
+[tool.hatch.build.sources]
+"src" = "odoo/upgrade"
+
+[tool.hatch.version]
+source = "vcs"
+raw-options.version_scheme = "calver-by-date"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/_version.py"
+
+[tool.ruff]
+required-version = ">=0.10.0"
+fix = true
+show-fixes = true
+output-format = "full"
+line-length = 120
+target-version = "py37"
+
+[tool.ruff.lint]
+external = ["TYPOS"]
+ignore = [
+    "B904",  # raise-without-from-inside-except; not python2 compatible
+    "B905",  # zip-without-explicit-strict; not python2 compatible
+    "D1",    # undocumented-*
+    "E501",  # line-too-long; handled by auto-formatting
+    "E731",  # lambda-assignment
+    "PERF203",  # try-except-in-loop
+    "PLR09",  # too-many-*; unwanted code complexity checks
+    "RUF012",  # mutable-class-default; we know about the risk
+
+    "PLR2004",  # magic-value-comparison; not all comparisons to int or str are magic
+    "TRY003",  # raise-vanilla-args; we can live without it
+    "RET505",  # only true for simple if/elif branches (like in the ruff doc example). if/elif blocks are easier to read in most cases
+
+    "ISC001",  # avoid incompatibility with the ruff formatter
+    # not (yet) supported rules
+    # "E301",
+    # "E302",
+    # "E265",
+    # "E241",
+    # "W503",
+    # "E203",
+    # "B907",
+]
+select = [
+    # full rule-sets
+    "A",   # flake8-builtins
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "D",   # pydocstyle
+    "E",   # pycodestyle
+    "ERA", # eradicate
+    "F",   # Pyflakes
+    "G",   # flake8-logging-format
+    "I",   # isort
+    "ISC", # flake8-implicit-str-concat
+    "PERF",# perflint
+    "PIE", # flake8-pie
+    "PL",  # pylint
+    "RET", # flake8-return
+    "RUF", # ruff specific rules
+    "SIM", # flake8-simplify
+    "TRY", # tryceratops
+    "T20", # flake8-print
+    "W",   # pycodestyle
+
+    # explicit rules
+    "COM818",  # trailing-comma-on-bare-tuple; other rules handled by autoformatter
+    "FBT003",  # boolean-positional-value-in-call; other rules not python2 compatible
+    "UP005",   # deprecated-unittest-alias
+    "S704",    # unsafe-markup-use; replaces RUF035
+
+]
+
+[tool.ruff.lint.flake8-builtins]
+ignorelist = ["format", "id", "type"]
+allowed-modules = ["json"]
+
+[tool.ruff.lint.isort]
+section-order = ["future", "standard-library", "third-party", "first-party", "odoo-addons", "local-folder"]
+known-first-party = ["odoo", "openerp"]
+known-local-folder = ["odoo.upgrade", "odoo.addons.base.maintenance.migrations", "openerp.addons.base.maintenance.migrations"]
+
+[tool.ruff.lint.isort.sections]
+odoo-addons = ["odoo.addons", "openerp.addons"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+"*/__init__.py" = [
+    "F401",
+    "F403",
+]
+"src/util/*.py" = [
+    # python3 only rules
+    "RUF005",
+    "RUF007",
+]
+# ignore docstring lint for tests files
+"src/*/tests/*.py" = ["D"]
+# and for upgrade scripts
+"src/*/*/{pre,post,end}-*.py" = ["D"]
+
+[tool.ruff.per-file-target-version]
+"tools/fetch-release-notes-video-id.py" = "py312"
+
+[tool.typos.files]
+extend-exclude = [
+    # auto-generated file
+    "src/util/_inherit.py",
+
+    # Use weird words. And it's just a test file, typos can be tolerated.
+    "src/spreadsheet/tests/test_spreadsheet_tokenizer.py",
+]
+
+[tool.typos.type.py]
+extend-ignore-re = [
+    "\\brelease\\.serie\\b",
+    # ignore `datas` as the whole string
+    '"datas"',
+
+    # Ignore lines that contains `# noqa: TYPOS`
+    "(?Rm)^.*# noqa: (?:\\w+, )*TYPOS(?:, \\w+)*$",
+]
+
+[tool.typos.default.extend-identifiers]
+inh = "inh"
+_inh = "_inh"
+ressource_type_id = "ressource_type_id"
+# Used as alias in SQL queries.
+fpt = "fpt"

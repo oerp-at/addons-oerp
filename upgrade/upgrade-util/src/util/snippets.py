@@ -1,0 +1,486 @@
+import collections
+import concurrent
+import contextlib
+import enum
+import functools
+import logging
+import multiprocessing
+import re
+import sys
+from concurrent.futures import ProcessPoolExecutor
+
+from lxml import etree, html
+from psycopg2 import sql
+from psycopg2.extensions import quote_ident
+from psycopg2.extras import Json
+
+with contextlib.suppress(ImportError):
+    from odoo import sql_db
+
+from .const import NEARLYWARN
+from .helpers import table_of_model
+from .misc import get_max_workers, log_progress, make_pickleable_callback, version_gte
+from .modules import INSTALLED_MODULE_STATES
+from .pg import SQLStr, _existing_columns, column_type, format_query
+
+__all__ = ["convert_html_columns", "convert_html_content", "get_html_fields", "html_fields"]
+
+_logger = logging.getLogger(__name__)
+utf8_parser = html.HTMLParser(encoding="utf-8")
+
+
+class Snippet:
+    def __init__(self, name, tag="*", klass="", selector=""):
+        self.name = name
+        self.tag = tag
+        self.klass = klass or name
+        self.selector = selector or f'//{tag}[hasclass("{self.klass}")]'
+
+
+def add_snippet_names(cr, table, column, snippets, select_query):
+    """
+    Execute the select_query then for each snippet contained in arch add the right data-snippet attribute on the right element.
+
+    :param str table: The table we are working on
+    :param str column: The column we are working on
+    :param list snippets: list of all snippets to migrate
+    :param str select_query: a query that when executed will return (id, list of snippets contained in the arch, arch)
+    """
+    _logger.info("Add snippet names on %s.%s", table, column)
+    cr.execute(select_query)
+
+    it = log_progress(cr.fetchall(), _logger, qualifier="rows", size=cr.rowcount, log_hundred_percent=True)
+
+    def quote(ident):
+        return quote_ident(ident, cr._cnx)
+
+    for res_id, regex_matches, arch in it:
+        regex_matches = [match[0] for match in regex_matches]  # noqa: PLW2901
+        arch = arch.replace("\r", "")  # otherwise html parser below will transform \r -> &#13;  # noqa: PLW2901
+        body = html.fromstring(arch, parser=utf8_parser)
+        changed = False
+        for snippet in snippets:
+            if snippet.klass in regex_matches:
+                body_snippets = body.xpath(snippet.selector)
+                for body_snippet in body_snippets:
+                    body_snippet.attrib["data-snippet"] = snippet.name
+                    changed = True
+        if changed:
+            body = etree.tostring(body, encoding="unicode")
+            cr.execute(f"UPDATE {quote(table)} SET {quote(column)} = %s WHERE id = %s", [body, res_id])
+
+
+def add_snippet_names_on_html_field(cr, table, column, snippets, regex):
+    """Search for all the snippets in the fields mentioned (should be html fields) and add the corresponding data-snippet on them."""
+    query = cr.mogrify(
+        sql.SQL(
+            """
+            SELECT id, array((SELECT regexp_matches({column}, %(regex)s, 'g'))), {column}
+              FROM {table}
+             WHERE {column} ~ %(regex)s
+            """
+        ).format(column=sql.Identifier(column), table=sql.Identifier(table)),
+        {"regex": regex},
+    ).decode()
+    where = cr.mogrify(sql.SQL("{column} ~ %s").format(column=sql.Identifier(column)), [regex]).decode()
+    ids_ranges = determine_chunk_limit_ids(cr, table, [column], where)
+    for id0, id1 in ids_ranges:
+        add_snippet_names(cr, table, column, snippets, query + f" AND id BETWEEN {id0} AND {id1}")
+
+
+def get_regex_from_snippets_list(snippets):
+    return "(%s)" % "|".join(snippet.klass for snippet in snippets)
+
+
+class FieldScope(enum.Enum):
+    ALL = 1
+    SNIPPETS = 2
+    WEBSITE = 3
+
+
+def get_html_fields(cr):
+    # yield (table, column) of stored html fields (that needs snippets updates)
+    for table, columns in html_fields(cr):
+        for column in columns:
+            yield table, quote_ident(column, cr._cnx)
+
+
+def _html_fields(cr, modules):
+    if modules is None:
+        module_cte = extra_join = ""
+    else:
+        module_cte = """
+            _modules AS (
+                SELECT name
+                  FROM ir_module_module
+                 WHERE name = ANY(%(root_modules)s)
+                   AND state IN %(states)s
+                 UNION
+                SELECT m.name
+                  FROM ir_module_module m
+                  JOIN ir_module_module_dependency d
+                    ON d.module_id = m.id
+                  JOIN _modules w
+                    ON w.name = d.name
+                 WHERE m.state IN %(states)s
+            ),
+        """
+        extra_join = """
+              JOIN ir_model_data imd
+                ON imd.model = 'ir.model.fields'
+               AND imd.res_id = f.id
+              JOIN _modules
+                ON imd.module = _modules.name
+        """
+
+    query = format_query(
+        cr,
+        """
+        WITH RECURSIVE
+        {}
+        _fields AS (
+            SELECT f.model, f.name
+              FROM ir_model_fields f
+              JOIN ir_model m
+                ON m.id = f.model_id
+                {}
+             WHERE f.ttype = 'html'
+               AND f.store = true
+               AND m.transient = false
+               AND f.model NOT LIKE 'ir.actions%%'
+               AND f.model NOT IN ('mail.message', 'mail.mail')
+          GROUP BY f.model, f.name
+        )
+        SELECT model, array_agg(name)
+          FROM _fields
+      GROUP BY model
+        """,
+        SQLStr(module_cte),
+        SQLStr(extra_join),
+    )
+
+    cr.execute(query, {"root_modules": modules, "states": INSTALLED_MODULE_STATES})
+    data = {table_of_model(cr, model): columns for model, columns in cr.fetchall()}
+    if not data:
+        return
+
+    # the models backed by an SQL VIEW are skipped, only keep the base tables
+    cr.execute(
+        """
+        SELECT c.relname
+          FROM pg_class c
+          JOIN pg_namespace n
+            ON n.oid = c.relnamespace
+         WHERE c.relname IN %s
+           AND c.relkind IN ('r', 'p')
+           AND n.nspname = current_schema
+        """,
+        [tuple(data)],
+    )
+    valid_tables = {table for (table,) in cr.fetchall()}
+
+    existing = _existing_columns(
+        cr, ((table, column) for table, columns in data.items() if table in valid_tables for column in columns)
+    )
+    table_columns = collections.defaultdict(list)
+    for table, column in existing:
+        table_columns[table].append(column)
+
+    # sorted output for determinism
+    for table in sorted(table_columns):
+        yield table, sorted(table_columns[table])
+
+
+def html_fields(cr, scope=FieldScope.ALL):
+    if scope == FieldScope.ALL:
+        root_modules = None
+    elif scope == FieldScope.SNIPPETS:
+        root_modules = ["html_builder"] if version_gte("19.0") else ["website", "mass_mailing"]
+    elif scope == FieldScope.WEBSITE:
+        root_modules = ["website"]
+    else:
+        raise ValueError(scope)
+    return _html_fields(cr, modules=root_modules)
+
+
+def snippet_fields(cr):
+    return html_fields(cr, scope=FieldScope.SNIPPETS)
+
+
+def parse_style(attr):
+    """
+    Convert an HTML style attribute's text into a dict mapping property names to property values.
+
+    :param str attr: value of an HTML style attribute
+    :return: dict of CSS property values per property name
+    """
+    # Captures two groups:
+    # - identifier: sequence of word character or hyphen that is followed by a colon
+    # - value: sequence of:
+    #   - any non semicolon character or
+    #   - sequence of any non single quote character or escaped single quote
+    #     surrounded by single quotes or
+    #   - sequence of any non double quote character or escaped double quote
+    #     surrounded by double quotes
+    regex = r"""
+        ([\w\-]+)\s*:\s*((?:[^;\"']|'(?:[^']|(?:\\'))*'|\"(?:[^\"]|(?:\\\"))*\")+)
+    """.strip()
+    return dict(re.findall(regex, attr))
+
+
+def format_style(styles):
+    """
+    Convert a dict of CSS property names to property values into an HTML style attribute string.
+
+    :param dict styles: CSS property value per property name
+    :return: str HTML style attribute
+    """
+    style = "; ".join(["%s: %s" % entry for entry in styles.items()])
+    if len(style) > 0 and style[-1] != ";":
+        style += ";"
+    return style
+
+
+def html_converter(transform_callback, selector=None):
+    """
+    Create an upgrade converter for a single HTML text content or for HTML elements that match a selector.
+
+    :param func transform_callback: transforms an HTML tree and returns True if
+        a change happened
+    :param str selector: targets the elements to loop on
+    :return: object HTMLConverter with callback
+    """
+    return HTMLConverter(make_pickleable_callback(transform_callback), selector)
+
+
+class BaseConverter:
+    def __init__(self, callback, selector=None):
+        self.callback = callback
+        self.selector = selector
+
+    def for_html(self):
+        return HTMLConverter(self.callback, self.selector)
+
+    def for_qweb(self):
+        return QWebConverter(self.callback, self.selector)
+
+    def has_changed(self, els):
+        if self.selector:
+            converted = [self.callback(el) for el in els.xpath(self.selector)]
+            return any(converted)
+        return self.callback(els)
+
+    def __call__(self, content):
+        # Remove `<?xml ...>` header
+        if not content:
+            return (False, content)
+        content = re.sub(r"^<\?xml .+\?>\s*", "", content.strip())
+        # Wrap in <wrap> node before parsing to preserve external comments and multi-root nodes,
+        # except for when this looks like a full html doc, because in this case the wrap tag breaks the logic in
+        # https://github.com/lxml/lxml/blob/2ac88908ffd6df380615c0af35f2134325e4bf30/src/lxml/html/html5parser.py#L184
+        els = self._loads(content if content.strip()[:5].lower() == "<html" else f"<wrap>{content}</wrap>")
+        has_changed = self.has_changed(els)
+        new_content = re.sub(r"(^<wrap>|</wrap>$|^<wrap/>$)", "", self._dumps(els).strip()) if has_changed else content
+        return (has_changed, new_content)
+
+    def _loads(self, string):
+        raise NotImplementedError
+
+    def _dumps(self, node):
+        raise NotImplementedError
+
+
+class HTMLConverter(BaseConverter):
+    def for_html(self):
+        return self
+
+    def _loads(self, string):
+        return html.fromstring(string, parser=utf8_parser)
+
+    def _dumps(self, node):
+        return html.tostring(node, encoding="unicode")
+
+
+class QWebConverter(BaseConverter):
+    def for_qweb(self):
+        return self
+
+    def _loads(self, string):
+        return html.fromstring(string, parser=html.XHTMLParser(encoding="utf-8"))
+
+    def _dumps(self, node):
+        return etree.tostring(node, encoding="unicode")
+
+
+class Convertor:
+    def __init__(self, converters, callback, dbname=None, update_query=None):
+        self.converters = converters
+        self.callback = callback
+        self.dbname = dbname
+        self.update_query = update_query
+        # when db_name is set update_query must be set also
+        assert not (self.dbname is None) ^ (self.update_query is None)
+
+    def __call__(self, row_or_query):
+        # backwards compatibility: caller passes rows and expects us to return them converted
+        if not self.dbname:
+            return self._convert_row(row_or_query)
+        # improved interface: caller passes a query for us to fetch input rows, convert and update them
+        with sql_db.db_connect(self.dbname).cursor() as cr:
+            cr.execute(row_or_query)
+            for changes in filter(None, map(self._convert_row, cr.fetchall())):
+                cr.execute(self.update_query, changes)
+        return None
+
+    def _convert_row(self, row):
+        converters = self.converters
+        columns = self.converters.keys()
+        converter_callback = self.callback
+        res_id, *contents = row
+        changes = {}
+        for column, content in zip(columns, contents):
+            if content and converters[column]:
+                # jsonb column; convert all keys
+                new_content = {}
+                has_changed, new_content["en_US"] = converter_callback(content.pop("en_US"))
+                if has_changed:
+                    for lang, value in content.items():
+                        _, new_content[lang] = converter_callback(value)
+                new_content = Json(new_content)
+            else:
+                has_changed, new_content = converter_callback(content)
+            changes[column] = new_content
+            if has_changed:
+                changes["id"] = res_id
+        return changes if "id" in changes else None
+
+
+def convert_html_columns(cr, table, columns, converter_callback, where_column="IS NOT NULL", extra_where="true"):
+    r"""
+    Convert HTML content for the given table column.
+
+    :param cursor cr: database cursor
+    :param str table: table name
+    :param str column: column name
+    :param func converter_callback: conversion function that converts the HTML
+        text content and returns a tuple with a boolean that indicates whether a
+        change happened and the new content must be saved
+    :param str where_column: filtering such as
+        - "like '%abc%xyz%'"
+        - "~* '\yabc.*xyz\y'"
+    :param str extra_where: extra filtering on the where clause
+    """
+    assert "id" not in columns
+
+    converters = {column: "->>'en_US'" if column_type(cr, table, column) == "jsonb" else "" for column in columns}
+    select = ", ".join(f'"{column}"' for column in columns)
+    where = " OR ".join(f'"{column}"{converters[column]} {where_column}' for column in columns)
+
+    base_select_query = f"""
+        SELECT id, {select}
+          FROM {table}
+         WHERE ({where})
+           AND ({extra_where})
+    """
+    split_queries = [
+        (base_select_query + "\n       AND id BETWEEN {} AND  {}".format(*x))
+        for x in determine_chunk_limit_ids(cr, table, columns, "({}) AND ({})".format(where, extra_where))
+    ]
+    if not split_queries:
+        return
+
+    update_sql = ", ".join(f'"{column}" = %({column})s' for column in columns)
+    update_query = f"UPDATE {table} SET {update_sql} WHERE id = %(id)s"
+
+    # children cannot borrow from copies of the same pool, it will cause protocol error
+    def init_worker_process():
+        sql_db._Pool = None
+
+    cr.commit()
+    with ProcessPoolExecutor(
+        max_workers=get_max_workers(), initializer=init_worker_process, mp_context=multiprocessing.get_context("fork")
+    ) as executor:
+        convert = Convertor(converters, converter_callback, cr.dbname, update_query)
+        futures = [executor.submit(convert, query) for query in split_queries]
+        for future in log_progress(
+            concurrent.futures.as_completed(futures),
+            logger=_logger,
+            qualifier=f"{table} updates",
+            size=len(split_queries),
+            estimate=False,
+            log_hundred_percent=True,
+        ):
+            # just for raising any worker exception
+            future.result()
+    cr.commit()
+
+
+if sys.version_info < (3, 7):
+
+    @functools.wraps(convert_html_columns)
+    def convert_html_columns(*args, **kwargs):
+        raise RuntimeError("This function only works on python >= 3.7 (Odoo 15 minimum)")
+
+
+def determine_chunk_limit_ids(cr, table, column_arr, where):
+    bytes_per_chunk = 10 * 1024 * 1024
+    columns = ", ".join(quote_ident(column, cr._cnx) for column in column_arr if column != "id")
+    cr.execute(
+        f"""
+         WITH info AS (
+             SELECT id,
+                    sum(pg_column_size(({columns}, id))) OVER (ORDER BY id) / {bytes_per_chunk} AS chunk
+               FROM {table}
+              WHERE {where}
+         ) SELECT min(id), max(id) FROM info GROUP BY chunk
+         """
+    )
+    return cr.fetchall()
+
+
+def convert_html_content(
+    cr,
+    converter_callback,
+    where_column="IS NOT NULL",
+    scope=FieldScope.ALL,
+    **kwargs,
+):
+    r"""
+    Convert HTML content.
+
+    :param cursor cr: database cursor
+    :param func converter_callback: conversion function that converts the HTML
+        text content and returns a tuple with a boolean that indicates whether a
+        change happened and the new content must be saved
+    :param str where_column: filtering such as
+        - "like '%abc%xyz%'"
+        - "~* '\yabc.*xyz\y'"
+    :param FieldScope scope: if `FieldScope.SNIPPETS`, only process HTML fields defined by
+                             modules that depend on the snippet-engine module (version dependent).
+                             If `FieldScope.WEBSITE`, only process HTML fields defined by modules
+                             that depend on website.
+    :param dict kwargs: extra keyword arguments to pass to :func:`convert_html_column`
+    """
+    if hasattr(converter_callback, "for_html"):  # noqa: SIM108
+        html_converter = converter_callback.for_html()
+    else:
+        # trust the given converter to handle HTML
+        html_converter = converter_callback
+
+    for table, columns in html_fields(cr, scope=scope):
+        convert_html_columns(cr, table, columns, html_converter, where_column=where_column, **kwargs)
+
+    if hasattr(converter_callback, "for_qweb"):
+        qweb_converter = converter_callback.for_qweb()
+    else:
+        _logger.log(NEARLYWARN, "Cannot adapt converter callback %r for qweb; using it directly", converter_callback)
+        qweb_converter = converter_callback
+
+    convert_html_columns(
+        cr,
+        "ir_ui_view",
+        ["arch_db"],
+        qweb_converter,
+        where_column=where_column,
+        **dict(kwargs, extra_where="type = 'qweb'"),
+    )
