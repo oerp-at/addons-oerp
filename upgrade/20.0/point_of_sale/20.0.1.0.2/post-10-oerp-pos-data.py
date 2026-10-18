@@ -97,10 +97,24 @@ def _create_cash_statements(cr):
             [statement.id, session_id],
         )
     env.flush_all()
+    # journal_id is computed from the lines and company_id/currency_id follow the
+    # journal. The lines were linked in SQL, so all three stayed empty. Without
+    # them 20.0 ignores the statements and the next session opens with a wrong
+    # balance (it reads the latest statement of the cash journal).
+    cr.execute(
+        """
+        UPDATE account_bank_statement b
+           SET journal_id = s.cash_journal_id
+          FROM pos_session s
+         WHERE s.bank_statement_id = b.id AND b.id = ANY(%s) AND b.journal_id IS NULL
+        """,
+        [statements.ids],
+    )
     env.invalidate_all()
-    # balances stay as in 19.0, only the values derived from the lines are recomputed
+    # balances stay as in 19.0, only the values derived from journal and lines are recomputed
     util.recompute_fields(
-        cr, "account.bank.statement", ["date", "first_line_index", "balance_end", "is_complete"],
+        cr, "account.bank.statement",
+        ["company_id", "currency_id", "date", "first_line_index", "balance_end", "is_complete"],
         ids=statements.ids)
     _logger.info("%s cash statements created for 19.0 sessions", len(statements))
 
