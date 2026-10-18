@@ -240,7 +240,8 @@ def patch_dist(force=False):
                     'updatelist',
                     'cleanup',
                     'backup',
-                    'autoenv'):
+                    'autoenv',
+                    'migrate'):
         patch(
             os.path.join(odoo_path, 'odoo', 'cli', f'{cli_cmd}.py'),
             os.path.join(src_path, 'odoo', 'cli', f'{cli_cmd}.py'),
