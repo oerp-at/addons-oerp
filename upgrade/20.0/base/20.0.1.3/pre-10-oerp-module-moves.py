@@ -6,13 +6,21 @@ modules is loaded, so the moved modules are upgraded under their new names.
 import logging
 
 from odoo.upgrade import util
-from odoo.upgrade.oerp_module_moves import MERGED, MOVED_FIELDS, REMOVED, RENAMED
+from odoo.upgrade.oerp_module_moves import (
+    MERGED, MOVED_FIELDS, MOVED_FIELDS_IF_INSTALLED, MOVED_XMLIDS, REMOVED, RENAMED,
+)
 
 _logger = logging.getLogger(__name__)
 
 
 def _module_exists(cr, name):
     cr.execute("SELECT 1 FROM ir_module_module WHERE name = %s", [name])
+    return bool(cr.rowcount)
+
+
+def _xmlid_exists(cr, xmlid):
+    module, name = xmlid.split(".", 1)
+    cr.execute("SELECT 1 FROM ir_model_data WHERE module = %s AND name = %s", [module, name])
     return bool(cr.rowcount)
 
 
@@ -36,6 +44,15 @@ def migrate(cr, version):
 
     for model, field, old_module, new_module in MOVED_FIELDS:
         util.move_field_to_module(cr, model, field, old_module, new_module)
+
+    for model, field, old_module, new_module in MOVED_FIELDS_IF_INSTALLED:
+        if util.module_installed(cr, new_module):
+            util.move_field_to_module(cr, model, field, old_module, new_module)
+
+    for old, new in MOVED_XMLIDS.items():
+        if _xmlid_exists(cr, old) and not _xmlid_exists(cr, new):
+            _logger.info("rename xml id %s to %s", old, new)
+            util.rename_xmlid(cr, old, new)
 
     for module in REMOVED:
         if _module_exists(cr, module):

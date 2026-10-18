@@ -29,7 +29,33 @@ REMOVED = [
 MOVED_FIELDS = [
     ("res.company", "vat_check_vies", "l10n_eu_account_vies", "account"),
     ("res.config.settings", "vat_check_vies", "l10n_eu_account_vies", "account"),
+    # stock valuation settings, account/models/company.py + product.py in 20.0
+    ("res.company", "account_stock_valuation_id", "stock_account", "account"),
+    ("res.company", "account_stock_journal_id", "stock_account", "account"),
+    ("res.company", "cost_method", "stock_account", "account"),
+    ("res.company", "inventory_valuation", "stock_account", "account"),
+    ("res.company", "inventory_period", "stock_account", "account"),
+    ("product.category", "property_valuation", "stock_account", "account"),
+    ("product.category", "property_cost_method", "stock_account", "account"),
+    ("product.category", "property_stock_journal", "stock_account", "account"),
+    ("product.category", "property_stock_valuation_account_id", "stock_account", "account"),
+    ("product.category", "property_price_difference_account_id", "stock_account", "account"),
+    ("product.category", "account_stock_variation_id", "stock_account", "account"),
 ]
+
+#: like MOVED_FIELDS, but only when the new module is installed (otherwise
+#: the field is dropped with the old module's 19.0 definition)
+MOVED_FIELDS_IF_INSTALLED = [
+    ("product.template", "sale_delay", "stock", "sale"),
+]
+
+#: records that another module defines in 20.0: old xml id -> new xml id
+MOVED_XMLIDS = {
+    "stock_account.action_report_stock_valuation": "account.action_report_stock_valuation",
+    "stock_account.ir_cron_post_stock_valuation": "account.ir_cron_post_stock_valuation",
+    "stock_account.ir_cron_post_stock_valuation_ir_actions_server":
+        "account.ir_cron_post_stock_valuation_ir_actions_server",
+}
 
 
 def handled_modules():

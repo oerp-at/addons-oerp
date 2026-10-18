@@ -6,7 +6,7 @@ import shutil
 import time
 
 import odoo
-from odoo.modules.module import get_manifest, initialize_sys_path
+from odoo.modules.module import get_manifest, get_modules, initialize_sys_path
 from odoo.tools.config import config
 
 from . import Command
@@ -104,6 +104,37 @@ def set_marker(cr, state, info=None):
         cr.execute("UPDATE ir_config_parameter SET value = %s WHERE key = %s", [value, key])
         if not cr.rowcount:
             cr.execute("INSERT INTO ir_config_parameter (key, value) VALUES (%s, %s)", [key, value])
+
+
+def missing_dependencies():
+    """ dependencies of modules on the addons path that are nowhere on it,
+    e.g. Enterprise modules required by a module of a shared repository """
+    available = set(get_modules())
+    missing = set()
+    for module in available:
+        manifest = get_manifest(module)
+        if manifest:
+            missing.update(set(manifest.get('depends', ())) - available)
+    return missing
+
+
+class UnknownModulesFilter(logging.Filter):
+    """ upgrade-util registers every module of the addons path; a dependency
+    that is not available anywhere only makes that module uninstallable, so
+    its "Unknown modules" error is logged as warning """
+
+    logger_name = 'odoo.upgrade.util.modules'
+
+    def __init__(self, unavailable):
+        super().__init__()
+        self.unavailable = set(unavailable)
+
+    def filter(self, record):
+        if record.levelno >= logging.ERROR and record.msg == "Unknown modules: %s":
+            names = {n.strip() for n in str(record.args[0]).split(',')}
+            if names <= self.unavailable:
+                record.levelno, record.levelname = logging.WARNING, 'WARNING'
+        return True
 
 
 class ErrorCounter(logging.Handler):
@@ -242,6 +273,15 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
         config['upgrade_path'] = get_upgrade_paths(target, self.extra_upgrade_paths())
         initialize_sys_path()
 
+        # log unknown dependencies instead of aborting, see ErrorCounter
+        os.environ['UPG_RAISE_ON_UNEXISTING_MODULES'] = '0'
+        unavailable = missing_dependencies()
+        if unavailable:
+            _logger.warning("Dependencies not on the addons path, their modules stay "
+                            "uninstallable: %s", ', '.join(sorted(unavailable)))
+
+        unknown_filter = UnknownModulesFilter(unavailable)
+        logging.getLogger(unknown_filter.logger_name).addFilter(unknown_filter)
         counter = ErrorCounter()
         logging.getLogger().addHandler(counter)
         started = time.time()
@@ -256,6 +296,7 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
             _logger.exception("Migration of %s failed", database)
         finally:
             logging.getLogger().removeHandler(counter)
+            logging.getLogger(unknown_filter.logger_name).removeFilter(unknown_filter)
 
         duration = f"{time.time() - started:.0f}s"
         if counter.records:
