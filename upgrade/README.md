@@ -43,3 +43,7 @@ the module is ported:
 
     pipenv run odoo migrate --source odoo19_x -d odoo20_x --force-drop-db --no-drop \
         --addons-path <paths without the modules to leave out>
+
+Modules without source code that only live in the database – Studio
+customizations (`studio_customization`) and imported modules – are no missing
+modules: they stay installed, and neither migrate nor cleanup uninstalls them.

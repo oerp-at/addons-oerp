@@ -11,7 +11,7 @@ from odoo.tools.config import config
 
 from . import Command
 from .assemble import CommandMixin, DatabaseMixin, get_base_dir, update_database
-from .cleanup import CleanUp
+from .cleanup import CleanUp, imported_modules
 
 _logger = logging.getLogger(__name__)
 
@@ -75,6 +75,7 @@ def read_database_state(cr):
     return {
         'base_version': row[0] if row else None,
         'modules': modules,
+        'imported': imported_modules(cr),
         'marker': marker[0] if marker else None,
     }
 
@@ -228,8 +229,12 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
 
         moves = load_module_moves(target)
         handled = moves.handled_modules() if moves else set()
-        missing, moved = [], []
+        missing, moved, kept = [], [], []
         for name in state['modules']:
+            if name in state['imported']:
+                # Studio/imported modules have no source code, they stay installed
+                kept.append(name)
+                continue
             manifest = get_manifest(name)
             if manifest and manifest.get('installable', True):
                 continue
@@ -240,6 +245,9 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
         dependents = sorted(unloadable_dependents(state['modules'], missing))
         if moved:
             _logger.info("Renamed/merged/removed by the upgrade scripts: %s", ', '.join(moved))
+        if kept:
+            _logger.info("Without source code (Studio/imported), kept installed: %s",
+                         ', '.join(kept))
         if missing:
             _logger.warning("Not available for %s, uninstalled by the cleanup (%s): %s",
                             target, 'data kept' if self.params.no_drop else 'data dropped',

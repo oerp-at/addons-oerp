@@ -18,6 +18,21 @@ ADDON_API = ODOO_RELEASE.version
 _logger = logging.getLogger(__name__)
 
 
+
+def imported_modules(cr):
+    """ modules without source code that only live in the database (Studio
+    customizations, imported modules); Odoo loads them as they are, see
+    ModuleGraph._imported_modules, so the cleanup must never uninstall them;
+    plain SQL, migrate calls it with a psycopg2 cursor """
+    names = {'studio_customization'}
+    cr.execute("""SELECT 1 FROM information_schema.columns
+                  WHERE table_name = 'ir_module_module' AND column_name = 'imported'""")
+    if cr.fetchone():
+        cr.execute("SELECT name FROM ir_module_module WHERE imported")
+        names.update(r[0] for r in cr.fetchall())
+    return names
+
+
 class CleanUp(CommandMixin, Command, DatabaseMixin):
     """ CleanUp Database """
 
@@ -246,7 +261,9 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
 
     def _cleanup_modules(self, env):
         cr = env.cr
-        cr.execute("SELECT name, latest_version FROM ir_module_module WHERE name != 'studio_customization'")
+        keep = imported_modules(cr)
+        cr.execute("SELECT name, latest_version FROM ir_module_module WHERE name NOT IN %s",
+                   [tuple(keep)])
         rows = cr.fetchall()
         invalid_modules = []
         uninstall_set = set(self.params.uninstall) if self.params.uninstall else set()
@@ -364,13 +381,14 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
 
     def pre_cleanup_views(self, cr):
         # cleanup not available views
+        keep = imported_modules(cr)
         cr.execute("""SELECT v.id, v.arch_fs, v.inherit_id, m.latest_version FROM ir_ui_view v
             LEFT JOIN ir_model_data d ON d.res_id = v.id AND d.model = 'ir.ui.view'
             LEFT JOIN ir_module_module m ON m.name = d.module
             WHERE v.arch_prev IS NOT NULL
-            AND m.name != 'studio_customization'
+            AND m.name NOT IN %s
             AND v.arch_fs IS NOT NULL
-            AND v.active""")
+            AND v.active""", [tuple(keep)])
 
         delete_view_ids = {}
         commit = False
