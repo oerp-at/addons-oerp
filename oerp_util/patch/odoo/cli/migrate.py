@@ -201,9 +201,9 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
             help="Skip the cleanup and the final update after the migration")
         self.parser.add_argument(
             "--no-drop", action="store_true", name="no_drop",
-            help="Partial migration for local tests: installed modules that are not available "
-                 "(and the modules depending on them) are uninstalled instead of stopping the "
-                 "migration. The cleanup keeps their tables and columns")
+            help="Keep the tables and columns of the modules the cleanup uninstalls (installed "
+                 "but not available, and the modules depending on them), e.g. for a partial "
+                 "migration in local tests")
 
     # ------------------------------------------------------------------
     # checks
@@ -240,12 +240,10 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
         dependents = sorted(unloadable_dependents(state['modules'], missing))
         if moved:
             _logger.info("Renamed/merged/removed by the upgrade scripts: %s", ', '.join(moved))
-        if missing and self.params.no_drop:
-            _logger.warning("Partial migration, uninstalled with their data kept: %s",
+        if missing:
+            _logger.warning("Not available for %s, uninstalled by the cleanup (%s): %s",
+                            target, 'data kept' if self.params.no_drop else 'data dropped',
                             ', '.join(missing + dependents))
-        elif missing:
-            _logger.error("Installed but not available for %s (port, add to oerp_module_moves.py "
-                          "or --no-drop for a partial migration): %s", target, ', '.join(missing))
         if state['marker'] in ('running', 'failed'):
             _logger.warning("Migration marker of %s is %r", database, state['marker'])
         return source, missing, dependents
@@ -292,7 +290,7 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
             con.close()
 
     def skip_modules(self, database, modules):
-        """ partial migration: the update must not touch modules that cannot be
+        """ the update must not touch modules that cannot be
         loaded, the cleanup uninstalls them afterwards """
         con = self.connect_database(database=database)
         try:
@@ -396,8 +394,6 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
         source_version, missing, dependents = self.precheck(source_db)
         if self.params.dry_run or not source_version:
             return
-        if missing and not self.params.no_drop:
-            raise MigrationError("Installed modules are not available, see above")
 
         if not self.params.in_place:
             self.copy_database(source_db, target_db)

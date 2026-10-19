@@ -35,9 +35,10 @@ Any error in a step stops the migration and sets the marker
 and warnings, and each warning left after the final update is listed.
 `--no-cleanup` runs step 1 only.
 
-Partial migration for local tests: `--no-drop` uninstalls installed modules
-that are not available (and the modules depending on them) instead of stopping.
-The cleanup keeps their tables and columns, so the data is still there once
+Installed modules that are not available (and the modules depending on them)
+do not stop the migration: the update skips them and the cleanup uninstalls
+them, tables and columns included. `--no-drop` keeps their tables and columns,
+e.g. for a partial migration in local tests, so the data is still there once
 the module is ported:
 
     pipenv run odoo migrate --source odoo19_x -d odoo20_x --force-drop-db --no-drop \

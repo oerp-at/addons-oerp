@@ -5,6 +5,7 @@ import psycopg2
 
 import odoo
 from odoo.tools import unique, groupby
+from odoo.tools.sql import table_exists
 from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 from odoo.models import LOG_ACCESS_COLUMNS
 
@@ -201,8 +202,22 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
             relations = env['ir.model.relation'].search([('module', 'in', modules.ids)])
             relations._module_data_uninstall()
 
+        # models of modules that are not loaded are not in the registry, unlink
+        # keeps their tables
+        orphan_tables = {}
+        if not self.params.no_drop:
+            for ir_model in env['ir.model'].browse(unique(model_ids)).exists():
+                if ir_model.model not in env:
+                    orphan_tables[ir_model.id] = ir_model.model.replace('.', '_')
+
         # remove models
         delete(env['ir.model'].browse(unique(model_ids)))
+
+        for model_id, table in orphan_tables.items():
+            if not env['ir.model'].browse(model_id).exists() and table_exists(cr, table):
+                _logger.info('Dropping table %s of the removed model', table)
+                # pylint: disable=sql-injection
+                cr.execute(f'DROP TABLE "{table}" CASCADE')
 
         # log undeletable ids
         _logger.info("ir.model.data could not be deleted (%s)", undeletable_ids)
