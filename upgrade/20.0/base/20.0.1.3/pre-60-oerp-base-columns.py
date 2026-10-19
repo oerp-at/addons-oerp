@@ -8,6 +8,9 @@
   ``_compute_crud_relations``; computing it while base loads resolves
   ``model_id`` of every action, which fails for models of modules that are not
   loaded yet (e.g. crm.lead). 19.0 had no property updates, so it stays empty
+- ir.model.fields ``index``: boolean -> selection (btree, btree_not_null,
+  trigram); the ORM cast yields 'true'/'false', which breaks the registry of
+  every manual (Studio) field
 """
 from odoo.upgrade import util
 
@@ -29,6 +32,10 @@ def migrate(cr, version):
                 """
             )
         cr.execute("ALTER TABLE res_device_log DROP CONSTRAINT IF EXISTS res_device_log_user_id_fkey")
+
+    if util.column_type(cr, "ir_model_fields", "index") == "bool":
+        util.alter_column_type(cr, "ir_model_fields", "index", "varchar",
+                               using="CASE WHEN {0} THEN 'btree' END")
 
     if not util.column_exists(cr, "ir_act_server", "update_property"):
         util.create_column(cr, "ir_act_server", "update_property", "varchar")
