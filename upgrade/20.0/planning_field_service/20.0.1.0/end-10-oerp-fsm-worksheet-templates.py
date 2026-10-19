@@ -65,10 +65,15 @@ def _skipped(field):
 
 
 def _label(field, arch_string=None):
+    """label of the field in the worksheet; Studio text fields saved without a
+    label showed none in 19.0, 20.0 shows "New Property" for an empty one"""
     if arch_string and arch_string.strip():
         return arch_string.strip()
     label = field["label"] or {}
-    return (label.get("de_DE") or label.get("en_US") or field["name"]).strip() or field["name"]
+    label = (label.get("de_DE") or label.get("en_US") or "").strip()
+    if label:
+        return label
+    return "Freitext" if field["ttype"] in ("char", "text", "html") else field["name"]
 
 
 def _property(field, arch_string=None):
