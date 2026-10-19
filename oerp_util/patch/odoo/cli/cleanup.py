@@ -379,6 +379,28 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
         if commit:
             cr.execute('COMMIT')
 
+    def _remove_child_views(self, cr, view_id):
+        """ remove the views inheriting a removed view (database views like
+        Studio customizations, the file views are removed by the caller),
+        deepest first: inherit_id is ON DELETE RESTRICT """
+        cr.execute("""
+            WITH RECURSIVE children(id, depth) AS (
+                SELECT id, 1 FROM ir_ui_view WHERE inherit_id = %s
+                 UNION
+                SELECT v.id, c.depth + 1 FROM ir_ui_view v JOIN children c ON v.inherit_id = c.id
+            )
+            SELECT v.id, v.name, v.active, max(c.depth) FROM children c
+              JOIN ir_ui_view v ON v.id = c.id
+             GROUP BY v.id, v.name, v.active
+             ORDER BY max(c.depth) DESC""", (view_id,))
+        for child_id, name, active, _depth in cr.fetchall():
+            if active:
+                _logger.warning('[FIX] Removing view %s (%s), it inherits the removed view %s',
+                                child_id, name, view_id)
+            cr.execute("DELETE FROM ir_ui_view WHERE id = %s", (child_id,))
+            cr.execute("DELETE FROM ir_model_data WHERE model = 'ir.ui.view' AND res_id = %s",
+                       (child_id,))
+
     def pre_cleanup_views(self, cr):
         # cleanup not available views
         keep = imported_modules(cr)
@@ -416,7 +438,7 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
                     if arch_fs.startswith('openupgrade_scripts'):
                         cr.execute("DELETE FROM ir_ui_view WHERE inherit_id = %s", (view_id,))
                     else:
-                        cr.execute("DELETE FROM ir_ui_view WHERE inherit_id = %s AND NOT active", (view_id,))
+                        self._remove_child_views(cr, view_id)
 
                     # delete report layout if view is used
                     if view_id in report_layout_view_ids:
