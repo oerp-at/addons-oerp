@@ -4,6 +4,10 @@
   ('\\x7b...') and breaks the client actions (e.g. the POS menus)
 - res.device.log: ``user_agent`` is required in 20.0 (19.0 had platform and
   browser), ``user_id`` is a plain integer without foreign key
+- ir.actions.server ``update_property``: new stored compute of
+  ``_compute_crud_relations``; computing it while base loads resolves
+  ``model_id`` of every action, which fails for models of modules that are not
+  loaded yet (e.g. crm.lead). 19.0 had no property updates, so it stays empty
 """
 from odoo.upgrade import util
 
@@ -25,3 +29,6 @@ def migrate(cr, version):
                 """
             )
         cr.execute("ALTER TABLE res_device_log DROP CONSTRAINT IF EXISTS res_device_log_user_id_fkey")
+
+    if not util.column_exists(cr, "ir_act_server", "update_property"):
+        util.create_column(cr, "ir_act_server", "update_property", "varchar")
