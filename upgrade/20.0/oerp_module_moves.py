@@ -55,6 +55,10 @@ MOVED_XMLIDS = {
     "stock_account.ir_cron_post_stock_valuation": "account.ir_cron_post_stock_valuation",
     "stock_account.ir_cron_post_stock_valuation_ir_actions_server":
         "account.ir_cron_post_stock_valuation_ir_actions_server",
+    # base 20.0 defines the default website, website would create a second one
+    "website.default_website": "base.default_website",
+    # same tag name, documents.tag names are unique
+    "documents_hr.document_tag_signature_request": "documents_hr_sign.document_tag_signature_request",
 }
 
 
