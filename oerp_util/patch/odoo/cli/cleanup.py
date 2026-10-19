@@ -2,6 +2,7 @@ import os
 from operator import itemgetter
 import logging
 import psycopg2
+from lxml import etree
 
 import odoo
 from odoo.tools import unique, groupby
@@ -326,6 +327,113 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
             else:
                 _logger.warning("[FOUND] unreferenced modul data: %s", ', '.join(unref_modules))
 
+    def _write_view(self, view, vals, keep=True):
+        """ write vals to the view, True if it validates (ir.ui.view checks the
+        combined arch on write of active/arch_db); keep=False only tests """
+        try:
+            with view.env.cr.savepoint(flush=True) as savepoint:
+                view.write(vals)
+                view.env.flush_all()
+                if not keep:
+                    savepoint.rollback()
+        except Exception:  # pylint: disable=broad-exception-caught
+            return False
+        finally:
+            view.env.invalidate_all()
+        return True
+
+    def _cleanup_custom_views(self, env):
+        """ Studio and custom extension views (no file, no module of the addons
+        path) that point to things which no longer exist: only their invalid
+        parts are removed, one spec (xpath, field, ...) at a time; a view
+        without any valid part is removed. The views are checked one after
+        the other on top of the already checked ones, so each one is judged
+        against valid views only. The old arch stays in arch_prev. Without
+        --fix all changes are rolled back. """
+        cr = env.cr
+        cr.execute("""
+            SELECT v.id FROM ir_ui_view v
+              LEFT JOIN ir_model_data d ON d.model = 'ir.ui.view' AND d.res_id = v.id
+             WHERE v.active AND v.inherit_id IS NOT NULL AND v.mode = 'extension'
+               AND v.arch_fs IS NULL AND v.website_id IS NULL
+               AND (d.module IS NULL OR d.module IN %s)
+             ORDER BY v.priority, v.id""", [tuple(imported_modules(cr))])
+        view_ids = [r[0] for r in cr.fetchall()]
+        if not view_ids:
+            return
+        tag = '[FIX]' if self.params.fix else '[FOUND]'
+        env.flush_all()
+        cr.execute("SAVEPOINT oerp_custom_views")
+        cr.execute("UPDATE ir_ui_view SET active = false WHERE id IN %s", [tuple(view_ids)])
+        env.invalidate_all()
+        views = env['ir.ui.view'].with_context(active_test=False, lang='en_US').browse(view_ids)
+        for view in views:
+            label = f"{view.id} ({view.name}, {view.model})"
+            if view.model not in env:
+                _logger.warning("%s Removing view %s, its model no longer exists", tag, label)
+                self._remove_custom_view(cr, view)
+                continue
+            if self._write_view(view, {'active': True}):
+                continue
+            original = etree.fromstring(view.arch_db or '<data/>')
+            if original.tag != 'data':
+                wrapper = etree.Element('data')
+                wrapper.append(original)
+                original = wrapper
+            arch, removed = etree.Element('data'), []
+            self._prune_view(view, arch, arch, original, removed)
+            if not len(arch) or not self._write_view(view, self._view_vals(arch)):
+                _logger.warning("%s Removing view %s, no part of it is valid any more", tag, label)
+                self._remove_custom_view(cr, view)
+                continue
+            _logger.warning("%s View %s: removed %s part(s) pointing to things that no longer "
+                            "exist: %s", tag, label, len(removed), '; '.join(removed)[:800])
+        env.flush_all()
+        if self.params.fix:
+            cr.execute("RELEASE SAVEPOINT oerp_custom_views")
+        else:
+            cr.execute("ROLLBACK TO SAVEPOINT oerp_custom_views")
+        env.invalidate_all()
+
+    @staticmethod
+    def _view_vals(arch):
+        return {'active': True, 'arch_db': etree.tostring(arch, encoding='unicode')}
+
+    @staticmethod
+    def _describe_node(node):
+        attrs = ' '.join(f'{k}="{node.get(k)}"' for k in ('expr', 'name', 'position') if node.get(k))
+        return f"<{node.tag}{' ' + attrs if attrs else ''}>"
+
+    def _prune_view(self, view, arch, node, original, removed):
+        """ add the children of ``original`` to ``node`` (part of ``arch``) as
+        long as the view stays valid: a child that breaks it is added again
+        without its children, and its children one by one; a child that is
+        invalid even without children is left out """
+        for child in original:
+            if not isinstance(child.tag, str):
+                continue  # comments
+            full = etree.fromstring(etree.tostring(child))
+            full.tail = None
+            node.append(full)
+            if self._write_view(view, self._view_vals(arch), keep=False):
+                continue
+            node.remove(full)
+            skeleton = etree.Element(child.tag, dict(child.attrib))
+            skeleton.text = child.text
+            node.append(skeleton)
+            if not len(child) or not self._write_view(view, self._view_vals(arch), keep=False):
+                node.remove(skeleton)
+                removed.append(self._describe_node(child))
+                continue
+            self._prune_view(view, arch, skeleton, child, removed)
+
+    def _remove_custom_view(self, cr, view):
+        view.env.flush_all()
+        self._remove_child_views(cr, view.id)
+        cr.execute("DELETE FROM ir_ui_view WHERE id = %s", (view.id,))
+        cr.execute("DELETE FROM ir_model_data WHERE model = 'ir.ui.view' AND res_id = %s", (view.id,))
+        view.env.invalidate_all()
+
     def run_config(self):
         self.addons_paths = self.get_addons_paths()
         self.call_with_cr(self.pre_cleanup)
@@ -465,6 +573,9 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
         cr = env.cr
         try:
             self._cleanup_modules(env)
+            # a partial migration keeps the data of the modules left out
+            if not getattr(self.params, 'no_drop', False):
+                self._cleanup_custom_views(env)
             if self.params.fix:
                 # pylint: disable=invalid-commit
                 cr.commit()
