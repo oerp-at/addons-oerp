@@ -3,6 +3,7 @@ import importlib.util
 import logging
 import os
 import shutil
+import subprocess
 import time
 
 import odoo
@@ -12,12 +13,19 @@ from odoo.tools.config import config
 from . import Command
 from .assemble import CommandMixin, DatabaseMixin, get_base_dir, update_database
 from .cleanup import CleanUp, imported_modules
+from .odoo_upgrade import UPGRADE_SERVER, OdooUpgrade, OdooUpgradeError
 
 _logger = logging.getLogger(__name__)
 
 MARKER_STATE = 'oerp.migration.state'
 MARKER_INFO = 'oerp.migration.info'
 INSTALLED_STATES = ('installed', 'to upgrade', 'to remove')
+UPGRADE_SOURCES = ('auto', 'odoo', 'oerp')
+UPGRADE_AIMS = ('auto', 'test', 'production')
+DUMP_JOBS = 4
+#: in place, Odoo's result is restored next to the database and then swapped
+UPGRADED_SUFFIX = '_odoo_upgraded'
+REPLACED_SUFFIX = '_odoo_replaced'
 
 
 class MigrationError(Exception):
@@ -43,12 +51,13 @@ def get_upgrade_dir():
     return os.path.join(get_base_dir(), 'addons-oerp', 'upgrade')
 
 
-def get_upgrade_paths(target_version, extra_paths=None):
+def get_upgrade_paths(target_version, extra_paths=None, scripts=True):
+    """ upgrade-util and our scripts of the target version; without
+    ``scripts`` after an upgrade by Odoo, they would migrate a second time """
     upgrade_dir = get_upgrade_dir()
-    paths = [
-        os.path.join(upgrade_dir, 'upgrade-util', 'src'),
-        os.path.join(upgrade_dir, target_version),
-    ]
+    paths = [os.path.join(upgrade_dir, 'upgrade-util', 'src')]
+    if scripts:
+        paths.append(os.path.join(upgrade_dir, target_version))
     paths.extend(p for p in (extra_paths or []) if p)
     return [p for p in paths if os.path.isdir(p)]
 
@@ -78,6 +87,71 @@ def read_database_state(cr):
         'imported': imported_modules(cr),
         'marker': marker[0] if marker else None,
     }
+
+
+def get_upgrade_workdir(database):
+    """ next to the filestores: on the filestore volume in the image, so dumps
+    fit and an interrupted request is found again after a restart """
+    return os.path.join(os.path.dirname(config.filestore(database)), '.odoo-upgrade', database)
+
+
+def read_upgrade_facts(cr):
+    """ what decides between our scripts and the upgrade platform of Odoo """
+    cr.execute("SELECT 1 FROM ir_module_module WHERE name = 'web_enterprise' AND state IN %s",
+               [INSTALLED_STATES])
+    enterprise = bool(cr.fetchone())
+    cr.execute("SELECT key, value FROM ir_config_parameter WHERE key IN %s",
+               [('database.enterprise_code', 'database.is_neutralized')])
+    params = dict(cr.fetchall())
+    return {
+        'enterprise': enterprise,
+        'contract': (params.get('database.enterprise_code') or '').strip() or None,
+        'neutralized': (params.get('database.is_neutralized') or '').lower() == 'true',
+    }
+
+
+def choose_upgrade(facts, source=None, aim=None):
+    """ :return: dict with source (odoo/oerp), aim (test/production, only for
+    odoo), the requested source, the contract and the reasons for the log """
+    requested, aim = source or 'auto', aim or 'auto'
+    if requested not in UPGRADE_SOURCES:
+        raise MigrationError(f"Unknown upgrade source {requested!r}, use one of {UPGRADE_SOURCES}")
+    if aim not in UPGRADE_AIMS:
+        raise MigrationError(f"Unknown upgrade aim {aim!r}, use one of {UPGRADE_AIMS}")
+    choice = {'requested': requested, 'contract': facts['contract'], 'aim': None}
+    if requested == 'oerp':
+        return dict(choice, source='oerp', reason="upgrade source set to oerp")
+    if requested == 'auto' and not facts['enterprise']:
+        return dict(choice, source='oerp', reason="Community database (web_enterprise not installed)")
+    if not facts['contract']:
+        if requested == 'odoo':
+            raise MigrationError("Upgrade source odoo needs the subscription code of the database "
+                                 "(system parameter database.enterprise_code)")
+        return dict(choice, source='oerp', warning=True,
+                    reason="Enterprise database without subscription code (database.enterprise_code)")
+    if aim == 'auto':
+        aim = 'test' if facts['neutralized'] else 'production'
+        aim_reason = 'neutralized' if facts['neutralized'] else 'not neutralized'
+    else:
+        aim_reason = 'set'
+    reason = ("upgrade source set to odoo" if requested == 'odoo' else
+              "Enterprise database with subscription code")
+    return dict(choice, source='odoo', aim=aim, reason=f"{reason}, aim {aim} ({aim_reason})")
+
+
+def split_unavailable(state, handled=()):
+    """ installed modules without an installable manifest: (moved by the upgrade
+    scripts, missing, kept without source code like Studio) """
+    moved, missing, kept = [], [], []
+    for name in state['modules']:
+        if name in state['imported']:
+            kept.append(name)
+            continue
+        manifest = get_manifest(name)
+        if manifest and manifest.get('installable', True):
+            continue
+        (moved if name in handled else missing).append(name)
+    return moved, missing, kept
 
 
 def migration_needed(cr):
@@ -176,6 +250,24 @@ class LogCollector(logging.Handler):
                 if r.levelno == logging.WARNING and (step is None or s == step)]
 
 
+def add_upgrade_arguments(parser):
+    """ the same settings for odoo migrate and odoo update (migration in place):
+    parameter, key in odoo-profile.yml or environment variable ODOO_<KEY> """
+    parser.add_argument(
+        "--upgrade-source", metavar="UPGRADE_SOURCE", name="upgrade_source", envvar=True,
+        help="auto (default): a Community database with our scripts (addons-oerp/upgrade), "
+             "an Enterprise database with subscription code on upgrade.odoo.com if Odoo "
+             "accepts the request, otherwise with our scripts. odoo: always upgrade.odoo.com. "
+             "oerp: always our scripts")
+    parser.add_argument(
+        "--upgrade-aim", metavar="UPGRADE_AIM", name="upgrade_aim", envvar=True,
+        help="Request type on upgrade.odoo.com. auto (default): test for a neutralized "
+             "database (database.is_neutralized), production otherwise. Or test, production")
+    parser.add_argument(
+        "--extra-upgrade-path", metavar="EXTRA_UPGRADE_PATH", name="extra_upgrade_path",
+        envvar=True, help="Additional upgrade script directories, comma separated")
+
+
 class Migrate(CommandMixin, Command, DatabaseMixin):
     """ Migrate a database to the major version of this code base """
 
@@ -194,9 +286,7 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
         self.parser.add_argument(
             "--force-drop-db", action="store_true", name="force_drop_db",
             help="Drop an existing target database before copying")
-        self.parser.add_argument(
-            "--extra-upgrade-path", metavar="EXTRA_UPGRADE_PATH", name="extra_upgrade_path",
-            help="Additional upgrade script directories, comma separated")
+        add_upgrade_arguments(self.parser)
         self.parser.add_argument(
             "--no-cleanup", action="store_true", name="no_cleanup",
             help="Skip the cleanup and the final update after the migration")
@@ -211,12 +301,14 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
     # ------------------------------------------------------------------
 
     def precheck(self, database):
-        """ log a report and return (source major version, missing modules, their dependents) """
+        """ log a report and return (source major version, missing modules, their dependents);
+        the chosen way (our scripts or Odoo) is kept in ``self.upgrade`` """
         con = self.connect_database(database=database)
         try:
             with con.cursor() as cr:
                 state = read_database_state(cr)
                 source = migration_needed(cr)
+                facts = read_upgrade_facts(cr)
         finally:
             con.close()
 
@@ -227,28 +319,36 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
             _logger.info("Database %s is already on %s, nothing to migrate", database, target)
             return None, [], []
 
-        moves = load_module_moves(target)
-        handled = moves.handled_modules() if moves else set()
-        missing, moved, kept = [], [], []
-        for name in state['modules']:
-            if name in state['imported']:
-                # Studio/imported modules have no source code, they stay installed
-                kept.append(name)
-                continue
-            manifest = get_manifest(name)
-            if manifest and manifest.get('installable', True):
-                continue
-            (moved if name in handled else missing).append(name)
+        self.upgrade = choose_upgrade(facts, self.params.upgrade_source, self.params.upgrade_aim)
+        via_odoo = self.upgrade['source'] == 'odoo'
+        (_logger.warning if self.upgrade.get('warning') else _logger.info)(
+            "Upgrade source %s: %s", self.upgrade['source'], self.upgrade['reason'])
+        if via_odoo:
+            _logger.info("A dump of %s goes to %s as %s request, the result comes back as %s",
+                         database, UPGRADE_SERVER, self.upgrade['aim'], self.params.database)
 
-        _logger.info("Migration %s -> %s, upgrade path: %s", source, target,
-                     ', '.join(get_upgrade_paths(target, self.extra_upgrade_paths())))
+        moves = None if via_odoo else load_module_moves(target)
+        handled = moves.handled_modules() if moves else set()
+        # Studio/imported modules have no source code, they stay installed
+        moved, missing, kept = split_unavailable(state, handled)
+
+        _logger.info("Migration %s -> %s, upgrade path%s: %s", source, target,
+                     ' after the upgrade by Odoo' if via_odoo else '',
+                     ', '.join(get_upgrade_paths(target, self.extra_upgrade_paths(),
+                                                 scripts=not via_odoo)))
         dependents = sorted(unloadable_dependents(state['modules'], missing))
         if moved:
             _logger.info("Renamed/merged/removed by the upgrade scripts: %s", ', '.join(moved))
         if kept:
             _logger.info("Without source code (Studio/imported), kept installed: %s",
                          ', '.join(kept))
-        if missing:
+        if missing and via_odoo:
+            # Odoo renames and merges its own modules, only what is left is uninstalled
+            _logger.warning("Not available for %s, uninstalled by the cleanup unless the upgrade "
+                            "by Odoo replaces them (%s): %s", target,
+                            'data kept' if self.params.no_drop else 'data dropped',
+                            ', '.join(missing + dependents))
+        elif missing:
             _logger.warning("Not available for %s, uninstalled by the cleanup (%s): %s",
                             target, 'data kept' if self.params.no_drop else 'data dropped',
                             ', '.join(missing + dependents))
@@ -264,22 +364,40 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
     # steps
     # ------------------------------------------------------------------
 
-    def copy_database(self, source, target):
+    def execute_admin(self, *statements):
+        """ statements on the postgres database, outside a transaction """
         con = self.connect_database_admin(database='postgres')
         con.autocommit = True
         try:
             with con.cursor() as cr:
-                cr.execute("SELECT 1 FROM pg_database WHERE datname = %s", [target])
-                if cr.fetchone():
-                    if not self.params.force_drop_db:
-                        raise MigrationError(f"Database {target} exists, use --force-drop-db")
-                    _logger.warning("Drop database %s", target)
-                    cr.execute(f'DROP DATABASE "{target}" WITH (FORCE)')
-                _logger.info("Copy database %s to %s", source, target)
-                cr.execute(f'CREATE DATABASE "{target}" WITH TEMPLATE "{source}"')
+                for statement in statements:
+                    if isinstance(statement, tuple):
+                        cr.execute(*statement)
+                    else:
+                        cr.execute(statement)
+                return cr.fetchall() if cr.description else None
         finally:
             con.close()
 
+    def database_exists(self, database):
+        return bool(self.execute_admin(("SELECT 1 FROM pg_database WHERE datname = %s", [database])))
+
+    def drop_target(self, target):
+        """ an existing target database is only dropped with --force-drop-db """
+        if not self.database_exists(target):
+            return
+        if not self.params.force_drop_db:
+            raise MigrationError(f"Database {target} exists, use --force-drop-db")
+        _logger.warning("Drop database %s", target)
+        self.execute_admin(f'DROP DATABASE "{target}" WITH (FORCE)')
+
+    def copy_database(self, source, target):
+        self.drop_target(target)
+        _logger.info("Copy database %s to %s", source, target)
+        self.execute_admin(f'CREATE DATABASE "{target}" WITH TEMPLATE "{source}"')
+        self.copy_filestore(source, target)
+
+    def copy_filestore(self, source, target):
         src_store = config.filestore(source)
         dst_store = config.filestore(target)
         if os.path.isdir(dst_store):
@@ -287,6 +405,99 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
         if os.path.isdir(src_store):
             _logger.info("Copy filestore %s to %s", src_store, dst_store)
             shutil.copytree(src_store, dst_store, symlinks=True)
+
+    # ------------------------------------------------------------------
+    # upgrade by Odoo
+    # ------------------------------------------------------------------
+
+    def dump_database(self, database, path):
+        """ directory format, as the upgrade platform expects it """
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        _logger.info("Dump %s to %s", database, path)
+        OdooUpgrade.run(['pg_dump', '--no-owner', '--format', 'd', '--jobs', str(DUMP_JOBS),
+                         '--file', path, database], env=self.get_db_env())
+
+    def restore_upgraded(self, database, dump):
+        """ restore the result of Odoo, it has to be on the target version """
+        if self.database_exists(database):
+            _logger.warning("Drop database %s", database)
+            self.execute_admin(f'DROP DATABASE "{database}" WITH (FORCE)')
+        _logger.info("Restore the upgraded database as %s", database)
+        self.createdb(database)
+        # --no-comments: see DatabaseMixin.restore_database
+        res = subprocess.run(['pg_restore', '--no-owner', '--no-comments', '--format', 'd',
+                              '--jobs', str(DUMP_JOBS), '--dbname', database, dump],
+                             check=False, capture_output=True, text=True, env=self.get_db_env())
+        if res.stderr:
+            _logger.log(logging.WARNING if res.returncode else logging.INFO,
+                        "pg_restore output:\n%s", res.stderr.strip()[-4000:])
+        con = self.connect_database(database=database)
+        try:
+            with con.cursor() as cr:
+                version = major_version(read_database_state(cr)['base_version'])
+        finally:
+            con.close()
+        if version != odoo.release.major_version:
+            raise MigrationError(f"The database restored from Odoo is on {version}, "
+                                 f"not on {odoo.release.major_version}")
+
+    def merge_filestore(self, source, target, upgraded):
+        """ the filestore of the source plus the files Odoo created """
+        if source != target:
+            self.copy_filestore(source, target)
+        if os.path.isdir(upgraded):
+            dst_store = config.filestore(target)
+            os.makedirs(dst_store, exist_ok=True)
+            _logger.info("Merge the filestore of the upgrade into %s", dst_store)
+            OdooUpgrade.run(['rsync', '-a', upgraded + '/', dst_store + '/'])
+
+    def replace_database(self, database, upgraded):
+        """ in place: the upgraded database takes the name of the original one """
+        replaced = database + REPLACED_SUFFIX
+        _logger.warning("Replace database %s by %s", database, upgraded)
+        self.execute_admin(
+            f'DROP DATABASE IF EXISTS "{replaced}" WITH (FORCE)',
+            ("SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+             "WHERE datname = %s AND pid <> pg_backend_pid()", [database]),
+            f'ALTER DATABASE "{database}" RENAME TO "{replaced}"',
+            f'ALTER DATABASE "{upgraded}" RENAME TO "{database}"',
+            f'DROP DATABASE "{replaced}" WITH (FORCE)',
+        )
+
+    def upgrade_by_odoo(self, source_db, target_db, source_version):
+        """ upgrade on upgrade.odoo.com, restore the result as target_db.
+        Returns False if Odoo refused the request and auto falls back to our scripts """
+        target = odoo.release.major_version
+        client = OdooUpgrade(self.upgrade['contract'], target, self.upgrade['aim'],
+                             get_upgrade_workdir(target_db))
+        restore_db = target_db + UPGRADED_SUFFIX if self.params.in_place else target_db
+        try:
+            state = client.resume()
+            if not state:
+                try:
+                    client.create()
+                except OdooUpgradeError as e:
+                    if self.upgrade['requested'] != 'auto':
+                        raise
+                    _logger.warning("Odoo refused the upgrade request, migrating with our "
+                                    "scripts instead: %s", e)
+                    return False
+                self.dump_database(source_db, client.upload_path)
+                client.upload()
+            if state != 'done':
+                client.wait()
+            dump, filestore = client.download()
+            self.restore_upgraded(restore_db, dump)
+            self.merge_filestore(source_db, target_db, filestore)
+            self.write_marker(restore_db, 'running', f"{source_version} -> {target} restored "
+                              f"from upgrade.odoo.com ({self.upgrade['aim']})")
+            if restore_db != target_db:
+                self.replace_database(target_db, restore_db)
+            client.finish()
+        except OdooUpgradeError as e:
+            raise MigrationError(str(e)) from e
+        return True
 
     def write_marker(self, database, state, info=None):
         con = self.connect_database(database=database)
@@ -329,14 +540,17 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
         for message in sorted({f"{r.levelname} {r.name}: {r.getMessage()}"[:300] for r in remaining}):
             _logger.warning("Left after %s: %s", final, message)
 
-    def migrate(self, database, source_version, skipped=None):
+    def migrate(self, database, source_version, skipped=None, via_odoo=False):
+        """ the steps here; after an upgrade by Odoo only cleanup and update """
         target = odoo.release.major_version
-        info = f"{source_version} -> {target}, started {time.strftime('%Y-%m-%d %H:%M:%S')}"
+        via = f" via upgrade.odoo.com ({self.upgrade['aim']})" if via_odoo else ""
+        info = f"{source_version} -> {target}{via}, started {time.strftime('%Y-%m-%d %H:%M:%S')}"
         self.write_marker(database, 'running', info)
         if skipped:
             self.skip_modules(database, skipped)
 
-        config['upgrade_path'] = get_upgrade_paths(target, self.extra_upgrade_paths())
+        config['upgrade_path'] = get_upgrade_paths(target, self.extra_upgrade_paths(),
+                                                   scripts=not via_odoo)
         initialize_sys_path()
 
         # log unknown dependencies instead of aborting, see ErrorCounter
@@ -351,6 +565,11 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
         collector = LogCollector()
         logging.getLogger().addHandler(collector)
         steps = ['migrate'] if self.params.no_cleanup else ['migrate', 'cleanup', 'update']
+        if via_odoo:
+            steps.remove('migrate')
+        if not steps:
+            self.write_marker(database, 'done', f"{info}, without cleanup and update")
+            return
         started = time.time()
         try:
             _logger.info("Migrate %s: %s", database, info)
@@ -403,6 +622,25 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
         if self.params.dry_run or not source_version:
             return
 
+        if self.upgrade['source'] == 'odoo':
+            if not self.params.in_place and not self.params.force_drop_db \
+                    and self.database_exists(target_db):
+                # before anything goes to Odoo
+                raise MigrationError(f"Database {target_db} exists, use --force-drop-db")
+            if self.upgrade_by_odoo(source_db, target_db, source_version):
+                con = self.connect_database(database=target_db)
+                try:
+                    with con.cursor() as cr:
+                        state = read_database_state(cr)
+                finally:
+                    con.close()
+                # what Odoo did not replace is uninstalled by the cleanup
+                missing = split_unavailable(state)[1]
+                dependents = sorted(unloadable_dependents(state['modules'], missing))
+                self.migrate(target_db, source_version, skipped=missing + dependents,
+                             via_odoo=True)
+                return
+
         if not self.params.in_place:
             self.copy_database(source_db, target_db)
         self.migrate(target_db, source_version, skipped=missing + dependents)
@@ -415,13 +653,15 @@ class Migrate(CommandMixin, Command, DatabaseMixin):
             raise SystemExit(1)
 
 
-def run_migration_if_needed(database, debug=False):
+def run_migration_if_needed(database, debug=False, upgrade_source=None, upgrade_aim=None,
+                            extra_upgrade_path=None):
     """ called by odoo update: migrate in place when the database is on the
     previous major version. Returns True if a migration ran. """
     command = Migrate()
     command.params = argparse.Namespace(
         database=database, source=None, in_place=True, dry_run=False,
-        force_drop_db=False, extra_upgrade_path=None, no_cleanup=False, no_drop=False,
+        force_drop_db=False, upgrade_source=upgrade_source, upgrade_aim=upgrade_aim,
+        extra_upgrade_path=extra_upgrade_path, no_cleanup=False, no_drop=False,
         debug=debug, exit_error=True)
     command.setup_db_env()
     con = command.connect_database(database=database)

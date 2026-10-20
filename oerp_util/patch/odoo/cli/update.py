@@ -1,3 +1,4 @@
+import functools
 import logging
 from multiprocessing import Pool
 import psycopg2
@@ -5,16 +6,17 @@ from odoo.tools.config import config
 
 from . import Command
 from .assemble import CommandMixin, update_database
-from .migrate import MigrationError, run_migration_if_needed
+from .migrate import MigrationError, add_upgrade_arguments, run_migration_if_needed
 
 
 _logger = logging.getLogger(__name__)
 
 
-def update_or_migrate_database(database, modules=None, debug=False):
-    """ a database on the previous major version is migrated instead """
+def update_or_migrate_database(database, modules=None, debug=False, **upgrade):
+    """ a database on the previous major version is migrated instead,
+    ``upgrade`` are the settings of add_upgrade_arguments """
     try:
-        if run_migration_if_needed(database, debug=debug):
+        if run_migration_if_needed(database, debug=debug, **upgrade):
             return
     except MigrationError as e:
         _logger.error(str(e))
@@ -37,6 +39,11 @@ class Update(CommandMixin, Command):
             metavar="THREADS",
             default=32,
             help="Number of threads for multi database update")
+        add_upgrade_arguments(self.parser)
+
+    def upgrade_settings(self):
+        return {name: getattr(self.params, name)
+                for name in ('upgrade_source', 'upgrade_aim', 'extra_upgrade_path')}
 
     def get_databases(self):
         # get databases
@@ -79,9 +86,10 @@ class Update(CommandMixin, Command):
                          self.params.threads)
 
             pool = Pool(processes=self.params.threads)
-            pool.map(update_or_migrate_database, self.get_databases())
+            pool.map(functools.partial(update_or_migrate_database, **self.upgrade_settings()),
+                     self.get_databases())
 
         else:
             # update single databasee
             update_or_migrate_database(self.params.database, modules=self.params.module,
-                                       debug=self.params.debug)
+                                       debug=self.params.debug, **self.upgrade_settings())
