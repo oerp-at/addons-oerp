@@ -6,7 +6,7 @@ from lxml import etree
 
 import odoo
 from odoo.tools import unique, groupby
-from odoo.tools.sql import table_exists
+from odoo.tools.sql import column_exists, table_exists
 from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 from odoo.models import LOG_ACCESS_COLUMNS
 
@@ -351,11 +351,13 @@ class CleanUp(CommandMixin, Command, DatabaseMixin):
         against valid views only. The old arch stays in arch_prev. Without
         --fix all changes are rolled back. """
         cr = env.cr
-        cr.execute("""
+        # website_id only exists with the module website
+        website = "AND v.website_id IS NULL" if column_exists(cr, 'ir_ui_view', 'website_id') else ""
+        cr.execute(f"""
             SELECT v.id FROM ir_ui_view v
               LEFT JOIN ir_model_data d ON d.model = 'ir.ui.view' AND d.res_id = v.id
              WHERE v.active AND v.inherit_id IS NOT NULL AND v.mode = 'extension'
-               AND v.arch_fs IS NULL AND v.website_id IS NULL
+               AND v.arch_fs IS NULL {website}
                AND (d.module IS NULL OR d.module IN %s)
              ORDER BY v.priority, v.id""", [tuple(imported_modules(cr))])
         view_ids = [r[0] for r in cr.fetchall()]
