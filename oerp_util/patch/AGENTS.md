@@ -92,6 +92,8 @@ und Grund und schickt nichts weg.
 
 - `--upgrade-source auto|odoo|oerp`: `auto` = Community mit unseren Skripten, Enterprise mit
   Abo-Code (`database.enterprise_code`) über upgrade.odoo.com, lehnt Odoo ab → unsere Skripte
+- `odoo restore --neutralize` löscht `database.enterprise_code`, merkt ihn sich aber in
+  `oerp.upgrade.enterprise_code` (liest nur migrate) → neutralisierte Kopie geht als `test` an Odoo
 - `--upgrade-aim auto|test|production`: `auto` = neutralisierte DB → `test`, sonst `production`
 - ⚠️ Mit `odoo` geht ein Dump der Kundendatenbank an Odoo. Eine nicht neutralisierte lokale
   Kopie gilt als `production`. Vor einem echten Lauf Martin fragen.

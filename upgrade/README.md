@@ -63,6 +63,11 @@ and `--extra-upgrade-path` as well.
   request (unknown subscription, version not offered yet) or there is no
   subscription code, our scripts migrate it with a warning
 - `odoo` – always upgrade.odoo.com, stops if the subscription code is missing
+
+`odoo restore --neutralize` removes `database.enterprise_code`, so the copy does
+not report to the subscription. It keeps the code in
+`oerp.upgrade.enterprise_code`, which only `odoo migrate` reads: a neutralized
+copy still goes to upgrade.odoo.com, as `test` request.
 - `oerp` – always our scripts, e.g. an Enterprise database whose scripts we
   maintain ourselves (Field Service of ATTRIA)
 
