@@ -199,7 +199,9 @@ database stays unchanged:
     $ odoo migrate --source odoo19_x -d odoo20_x
 
 `odoo update` migrates by itself if the database is still on the previous
-version, so make a backup first. Unavailable modules, broken views and assets
+version, so make a backup first. A Community database is migrated with our
+scripts, an Enterprise database with subscription code on upgrade.odoo.com
+(`--upgrade-source auto|odoo|oerp`). Unavailable modules, broken views and assets
 are removed afterwards by the cleanup, which can also run on its own:
 
     $ odoo cleanup            # report only

@@ -41,6 +41,8 @@ Options:
 - `--force-drop-db` – drop an existing target database before the copy, needed
   for every further run on the same target
 - `--in-place` – migrate `-d` itself instead of a copy, make a backup first
+- `--upgrade-source` – `auto` (default), `odoo` or `oerp`, see below
+- `--upgrade-aim` – `auto` (default), `test` or `production`, see below
 - `--extra-upgrade-path` – additional script directories, comma separated, e.g.
   scripts of a customer repository
 - `--no-cleanup` – run the first step only (no cleanup, no final update)
@@ -50,7 +52,47 @@ Options:
 `odoo update` migrates by itself: if the database is still on the previous
 major version, it runs `odoo migrate --in-place` instead of the update. This is
 how an image of the new version migrates a customer database, so the backup has
-to exist before the first update.
+to exist before the first update. It takes `--upgrade-source`, `--upgrade-aim`
+and `--extra-upgrade-path` as well.
+
+## Upgrade source: our scripts or upgrade.odoo.com
+
+- `auto` (default) – a Community database (no `web_enterprise`) is migrated
+  with our scripts. An Enterprise database with subscription code
+  (`database.enterprise_code`) goes to upgrade.odoo.com; if Odoo refuses the
+  request (unknown subscription, version not offered yet) or there is no
+  subscription code, our scripts migrate it with a warning
+- `odoo` – always upgrade.odoo.com, stops if the subscription code is missing
+- `oerp` – always our scripts, e.g. an Enterprise database whose scripts we
+  maintain ourselves (Field Service of ATTRIA)
+
+The request type on upgrade.odoo.com is `--upgrade-aim`:
+
+- `auto` (default) – `test` for a neutralized database
+  (`database.is_neutralized`), `production` otherwise
+- `test` / `production` – set it explicitly
+
+Note: a local copy that is not neutralized counts as production. `--dry-run`
+logs the source, the request type and the reason and sends nothing.
+
+With `odoo` a dump of the database goes to Odoo (`pg_dump`, rsync over ssh),
+the upgraded database comes back as `-d` (in place: restored next to it as
+`<db>_odoo_upgraded`, then renamed), the files Odoo created are merged into the
+filestore. Then our steps `cleanup` and `update` run as usual, for the
+migrations of our own modules and the Studio views. `addons-oerp/upgrade/<version>`
+stays off the upgrade path then, otherwise it would migrate a second time;
+upgrade-util and `--extra-upgrade-path` stay on it.
+
+The work directory is `<data_dir>/filestore/.odoo-upgrade/<db>` (in the image on
+the filestore volume). It keeps the token of the request: a job that is
+restarted resumes the request instead of sending the database again. In the end
+only `upgrade-report.html` and `upgrade.log` of Odoo stay there.
+
+The three settings work in the same way as parameter, as key in
+`odoo-profile.yml` (`upgrade_source`, `upgrade_aim`, `extra_upgrade_path`) or as
+environment variable (`ODOO_UPGRADE_SOURCE`, `ODOO_UPGRADE_AIM`,
+`ODOO_EXTRA_UPGRADE_PATH`). The odoo chart sets the environment variables of the
+update job from `odooinit.upgrade.source`, `.aim` and `.extraPath`.
 
 Afterwards check the log, the exit code alone does not show the warnings. Each
 step reports its numbers (`Step cleanup: 0 error(s), 12 warning(s)`) and every

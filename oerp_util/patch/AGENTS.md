@@ -77,12 +77,26 @@ Alle Befehle können mit `odoo <cmd>` aufgerufen werden (nach `assemble`; in die
 | `odoo restore` | Datenbank wiederherstellen |
 | `odoo backup` | Datenbank sichern |
 | `odoo assemble` | Assembly-Symlinks und IDE-Konfiguration aktualisieren |
+| `odoo migrate --source <db19> -d <db20>` | Datenbank auf die nächste Hauptversion migrieren (siehe [Hauptversion migrieren](#hauptversion-migrieren)) |
 | `odoo cleanup` | Bereinigung |
 | `odoo install` | Modul installieren |
 | `odoo updatelist` | Modulliste aktualisieren |
 | `odoo autoenv` | Umgebung automatisch einrichten |
 
 Datenbank `-d <database>` kann entfallen, wenn per Profil vorkonfiguriert.
+
+### Hauptversion migrieren
+
+Details in `addons-oerp/upgrade/README.md`. Immer zuerst `--dry-run`: es zeigt Quelle, Anfrageart
+und Grund und schickt nichts weg.
+
+- `--upgrade-source auto|odoo|oerp`: `auto` = Community mit unseren Skripten, Enterprise mit
+  Abo-Code (`database.enterprise_code`) über upgrade.odoo.com, lehnt Odoo ab → unsere Skripte
+- `--upgrade-aim auto|test|production`: `auto` = neutralisierte DB → `test`, sonst `production`
+- ⚠️ Mit `odoo` geht ein Dump der Kundendatenbank an Odoo. Eine nicht neutralisierte lokale
+  Kopie gilt als `production`. Vor einem echten Lauf Martin fragen.
+- Lokale Tests des Odoo-Wegs ohne Odoo: Upgrade-API nachbauen (`UPGRADE_SERVER_NAME`) und
+  `OdooUpgrade.transfer` ersetzen, so am 20.10. gemacht (#13862).
 
 ### `odoo restore` bereitet die Entwicklungsdatenbank selbst vor
 
