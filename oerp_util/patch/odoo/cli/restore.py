@@ -273,6 +273,12 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             cr.execute("""UPDATE ir_config_parameter
                        SET value = %s
                        WHERE key = 'database.uuid' """, (database_uuid,))
+            # the copy must not report to the subscription, but odoo migrate
+            # still needs the code for a test request on upgrade.odoo.com
+            cr.execute("""INSERT INTO ir_config_parameter (key, value)
+                          SELECT 'oerp.upgrade.enterprise_code', value FROM ir_config_parameter
+                           WHERE key = 'database.enterprise_code' AND COALESCE(value, '') != ''
+                          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value""")
             # remove enterprise data
             remove_keys = (
                 'database.expiration_date',

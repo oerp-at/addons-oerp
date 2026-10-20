@@ -25,6 +25,8 @@ UPGRADE_AIMS = ('auto', 'test', 'production')
 DUMP_JOBS = 4
 #: in place, Odoo's result is restored next to the database and then swapped
 UPGRADED_SUFFIX = '_odoo_upgraded'
+#: odoo restore --neutralize removes database.enterprise_code and keeps it here
+KEPT_CONTRACT = 'oerp.upgrade.enterprise_code'
 REPLACED_SUFFIX = '_odoo_replaced'
 
 
@@ -101,11 +103,14 @@ def read_upgrade_facts(cr):
                [INSTALLED_STATES])
     enterprise = bool(cr.fetchone())
     cr.execute("SELECT key, value FROM ir_config_parameter WHERE key IN %s",
-               [('database.enterprise_code', 'database.is_neutralized')])
+               [('database.enterprise_code', KEPT_CONTRACT, 'database.is_neutralized')])
     params = dict(cr.fetchall())
+    contract = (params.get('database.enterprise_code') or '').strip()
+    kept = (params.get(KEPT_CONTRACT) or '').strip()
     return {
         'enterprise': enterprise,
-        'contract': (params.get('database.enterprise_code') or '').strip() or None,
+        'contract': contract or kept or None,
+        'contract_kept': bool(kept and not contract),
         'neutralized': (params.get('database.is_neutralized') or '').lower() == 'true',
     }
 
@@ -126,7 +131,7 @@ def choose_upgrade(facts, source=None, aim=None):
     if not facts['contract']:
         if requested == 'odoo':
             raise MigrationError("Upgrade source odoo needs the subscription code of the database "
-                                 "(system parameter database.enterprise_code)")
+                                 f"(system parameter database.enterprise_code or {KEPT_CONTRACT})")
         return dict(choice, source='oerp', warning=True,
                     reason="Enterprise database without subscription code (database.enterprise_code)")
     if aim == 'auto':
@@ -136,6 +141,8 @@ def choose_upgrade(facts, source=None, aim=None):
         aim_reason = 'set'
     reason = ("upgrade source set to odoo" if requested == 'odoo' else
               "Enterprise database with subscription code")
+    if facts.get('contract_kept'):
+        reason += f" (kept by neutralize in {KEPT_CONTRACT})"
     return dict(choice, source='odoo', aim=aim, reason=f"{reason}, aim {aim} ({aim_reason})")
 
 
