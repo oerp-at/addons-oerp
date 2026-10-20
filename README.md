@@ -189,6 +189,25 @@ Running a specific test case function
 
 Standard parameters for tests like tags etc, are all supported.
 
+### Migrate to the Next Major Version
+
+Migrating a database one major version up, e.g. 19.0 → 20.0, runs in the
+environment of the new version. Check first, then migrate a copy; the source
+database stays unchanged:
+
+    $ odoo migrate --source odoo19_x -d odoo20_x --dry-run
+    $ odoo migrate --source odoo19_x -d odoo20_x
+
+`odoo update` migrates by itself if the database is still on the previous
+version, so make a backup first. Unavailable modules, broken views and assets
+are removed afterwards by the cleanup, which can also run on its own:
+
+    $ odoo cleanup            # report only
+    $ odoo cleanup --fix
+
+Options, migration scripts, Studio views and the migration marker are described
+in [upgrade/README.md](upgrade/README.md).
+
 ### And More ###
 
 ... **following documentation will comming soon** ..
