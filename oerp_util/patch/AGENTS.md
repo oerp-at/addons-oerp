@@ -78,6 +78,8 @@ Alle Befehle können mit `odoo <cmd>` aufgerufen werden (nach `assemble`; in die
 | `odoo backup` | Datenbank sichern |
 | `odoo assemble` | Assembly-Symlinks und IDE-Konfiguration aktualisieren |
 | `odoo migrate --source <db19> -d <db20>` | Datenbank auf die nächste Hauptversion migrieren (siehe [Hauptversion migrieren](#hauptversion-migrieren)) |
+
+`odoo serve` listens on `0.0.0.0` unless `--http-interface`, `ODOO_HTTP_INTERFACE` or `http_interface` in the configuration file say otherwise. Odoo 20 itself defaults to `127.0.0.1`, which containers cannot use (probes and services come in on the pod IP). For a local server on the loopback only, set `http_interface = 127.0.0.1`.
 | `odoo cleanup` | Bereinigung |
 | `odoo install` | Modul installieren |
 | `odoo updatelist` | Modulliste aktualisieren |
