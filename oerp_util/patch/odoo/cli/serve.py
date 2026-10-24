@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import logging
+import configparser
 
 from odoo.tools.config import config
 import odoo.cli.server as server_cli
@@ -11,6 +12,24 @@ from .assemble import Profile, RESTORED_FILE_NAME, DEFAULT_SLEEP, get_db_name, D
 
 
 _logger = logging.getLogger(__name__)
+
+# Odoo 20 listens on 127.0.0.1 unless http_interface is set (up to 19.0 the
+# default was all interfaces). In a container nothing reaches the server on
+# the loopback: probes, services and the ingress come in on the pod IP.
+# `odoo serve` keeps the old default, every explicit setting wins.
+DEFAULT_HTTP_INTERFACE = '0.0.0.0'
+
+
+def http_interface_from_file(config_file):
+    """ http_interface of the [options] section, None if missing, empty or unreadable """
+    if not config_file or not os.path.isfile(config_file):
+        return None
+    parser = configparser.RawConfigParser()
+    try:
+        parser.read(config_file)
+    except configparser.Error:
+        return None
+    return parser.get('options', 'http_interface', fallback=None) or None
 
 
 class Serve(Command, DatabaseMixin):
@@ -82,6 +101,12 @@ class Serve(Command, DatabaseMixin):
             type=int,
             envvar=True,
             help="Specify the HTTP port")
+        parser.add_argument("--http-interface",
+            name="http_interface",
+            metavar="HTTP_INTERFACE",
+            envvar=True,
+            help="Interface to listen on, default %s unless set in the configuration "
+                 "(Odoo itself defaults to 127.0.0.1)" % DEFAULT_HTTP_INTERFACE)
 
         # additional arguments
         parser.add_argument("--wait-for-database",
@@ -110,11 +135,17 @@ class Serve(Command, DatabaseMixin):
             ('addons_path', 'ODOO_ADDONS_PATH'),
             ('config', 'ODOO_RC'),
             ('http_port', 'ODOO_HTTP_PORT'),
+            ('http_interface', 'ODOO_HTTP_INTERFACE'),
             ):
             if hasattr(args, config_key):
                 value = getattr(args, config_key)
                 if value:
                     os.environ[env_name] = str(value)
+
+        # the environment beats the configuration file in Odoo, so the default
+        # only goes there when the file does not set the interface itself
+        if not args.http_interface and not http_interface_from_file(args.config):
+            os.environ['ODOO_HTTP_INTERFACE'] = DEFAULT_HTTP_INTERFACE
 
         # prepare hook
         report_configuration_fct = server_cli.report_configuration
