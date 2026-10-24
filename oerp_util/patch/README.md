@@ -62,6 +62,9 @@ To run the server simply execute:
 
     odoo serve -d <database>
 
+The server listens on all interfaces (`0.0.0.0`) unless `--http-interface`, `ODOO_HTTP_INTERFACE`
+or `http_interface` in the configuration file are set - Odoo 20 alone would only listen on `127.0.0.1`.
+
 ### Translation Export
 
 This command exports translation (default de_DE):
