@@ -28,6 +28,32 @@ DUMP_NAMES = ('db.dump', 'db.dump.gz', 'db.dump.bz2', 'dump.sql')
 NAMESPACE_CONTEXT_REGEX = re.compile(r'^([^\.]+)(\.(.+))?$')
 
 
+#: The cron part of Odoo's neutralization (``base/data/neutralize.sql``):
+#: every cron off but the vacuum of the database.
+CRONS_OFF_SQL = """
+    UPDATE ir_cron
+       SET active = false
+     WHERE active
+       AND id NOT IN (
+           SELECT res_id
+             FROM ir_model_data
+            WHERE model = 'ir.cron'
+              AND name = 'autovacuum_job'
+              AND module = 'base')
+"""
+
+
+def deactivate_crons(cr):
+    """Switch every cron off again but the autovacuum, return how many.
+
+    The module update after the neutralization reloads the crons of the
+    module data: one defined active there comes back on - in a defused copy
+    a cron of the production then runs against the copy (task 14007).
+    """
+    cr.execute(CRONS_OFF_SQL)
+    return cr.rowcount
+
+
 class Restore(CommandMixin, Command, DatabaseMixin):
     """ Run database restore """
 
@@ -293,6 +319,12 @@ class Restore(CommandMixin, Command, DatabaseMixin):
                 odoo.modules.neutralize.neutralize_database(cr)
             else:
                 _logger.warning('Database %s is already neutralized', self.params.database)
+
+    def deactivate_crons(self):
+        with odoo.sql_db.db_connect(self.params.database).cursor() as cr:
+            count = deactivate_crons(cr)
+        _logger.info("Crons switched off again after the update of the "
+                     "neutralized database %s: %s", self.params.database, count)
 
     def prepare_local_development_before(self):
         _logger.info("Prepare database %s for local development before update", self.params.database)
@@ -617,6 +649,9 @@ class Restore(CommandMixin, Command, DatabaseMixin):
             if self.params.update:
                 config["update"]["all"] = 1
                 update_database(self.params.database)
+                # The update switched crons of the module data on again.
+                if self.params.neutralize:
+                    self.deactivate_crons()
 
             # final tasks
             self.setup_env()
