@@ -31,6 +31,10 @@ With `development: true` the CLI runs `prepare_local_development_before` and
 `update: true` updates all modules as part of the restore, so a separate `odoo update` is not
 needed afterwards.
 
+With `neutralize` alone (a staging copy, the reload of the chart) the update would switch the
+crons of the module data on again: afterwards every cron goes off again but
+`base.autovacuum_job` (task 14007).
+
 ## Usage
 
 ```bash
