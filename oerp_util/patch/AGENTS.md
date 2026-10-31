@@ -101,6 +101,10 @@ Durch `development: true` laufen `prepare_local_development_before` und
 `update: true` aktualisiert alle Module im Zuge des Restores; ein separates `odoo update`
 entfällt.
 
+Nur mit `neutralize` (Staging-Kopie, Reload des Charts) schaltet das Update die Crons aus den
+Moduldaten wieder ein: danach gehen alle Crons wieder aus, nur `base.autovacuum_job` bleibt
+an (Aufgabe 14007).
+
 ```bash
 cd custom-addons-<unterprojekt>/
 pipenv run odoo restore --force-drop-db
